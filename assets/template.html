@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title><!-- INJECT: header.title --></title>
+<style>
+  :root {
+    --green: #22c55e; --green-bg: #f0fdf4; --green-border: #86efac;
+    --yellow: #eab308; --yellow-bg: #fefce8;
+    --orange: #f97316; --orange-bg: #fff7ed;
+    --red: #ef4444; --red-bg: #fef2f2;
+    --gray: #6b7280; --gray-bg: #f9fafb; --gray-border: #e5e7eb;
+    --blue: #3b82f6; --blue-bg: #eff6ff;
+    --purple: #8b5cf6; --purple-bg: #f5f3ff;
+    --text: #1f2937; --text-secondary: #6b7280; --text-muted: #9ca3af;
+    --border: #e5e7eb; --bg: #f3f4f6;
+    --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  }
+  /* ── Dark theme overrides ── */
+  [data-theme="dark"] {
+    --text: #e5e7eb; --text-secondary: #9ca3af; --text-muted: #6b7280;
+    --border: #374151; --bg: #111827;
+    --gray-bg: #1f2937; --gray-border: #374151; --gray: #9ca3af;
+    --green-bg: #064e3b; --green-border: #10b981;
+    --yellow-bg: #713f12; --red-bg: #7f1d1d; --orange-bg: #7c2d12;
+    --blue-bg: #1e3a5f; --purple-bg: #2e1065;
+  }
+  [data-theme="dark"] .header,
+  [data-theme="dark"] .section,
+  [data-theme="dark"] .gate,
+  [data-theme="dark"] .tab-panel,
+  [data-theme="dark"] .tab-bar { background: #1f2937; }
+  [data-theme="dark"] .tab-btn { color: #9ca3af; }
+  [data-theme="dark"] .tab-btn:hover { background: #374151; }
+  [data-theme="dark"] .tab-btn.active { color: #60a5fa; background: #1f2937; }
+  [data-theme="dark"] th { background: #1f2937; color: #9ca3af; }
+  [data-theme="dark"] tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+  [data-theme="dark"] tr.expandable:hover,
+  [data-theme="dark"] .section-header:hover,
+  [data-theme="dark"] .decision-header:hover,
+  [data-theme="dark"] .pm-header:hover,
+  [data-theme="dark"] .scenario-card:hover { background: #374151; }
+  [data-theme="dark"] .history-event { background: #1f2937; border-color: #374151; }
+  [data-theme="dark"] tr.detail-row td,
+  [data-theme="dark"] .adv-detail-row td { background: #1a2332; }
+  [data-theme="dark"] .agent-grade-badge { background: #2a3441; }
+  [data-theme="dark"] .agent-legend-item .agent-abbrev { background: #2a3441; }
+  [data-theme="dark"] .agent-detail-header .agent-abbrev { background: #2a3441; }
+  [data-theme="dark"] .agent-detail-entry { border-bottom-color: #2a3441; }
+  [data-theme="dark"] .arch-legend { background: #1f2937; }
+  [data-theme="dark"] .conv-card { border-color: #374151; }
+  [data-theme="dark"] .decision-card { border-color: #374151; }
+  [data-theme="dark"] .pm-item { border-color: #374151; }
+  [data-theme="dark"] .scenario-card { border-color: #374151; }
+  [data-theme="dark"] .arch-floating { background: rgba(31,41,55,0.95); }
+  [data-theme="dark"] .code-block { background: #0f172a; }
+  [data-theme="dark"] .gate-popover { background: #1f2937; border-color: #374151; }
+  [data-theme="dark"] .badge.pass { background: #064e3b; color: #34d399; }
+  [data-theme="dark"] .badge.fail { background: #7f1d1d; color: #fca5a5; }
+  [data-theme="dark"] .health-tag.normal { background: #064e3b; color: #34d399; }
+  [data-theme="dark"] .health-tag.acceptable { background: #713f12; color: #fde047; }
+  [data-theme="dark"] .health-tag.watch { background: #7c2d12; color: #fdba74; }
+  [data-theme="dark"] .health-tag.refactor { background: #7f1d1d; color: #fca5a5; }
+  [data-theme="dark"] .grade.a { background: #064e3b; color: #34d399; }
+  [data-theme="dark"] .grade.b { background: #713f12; color: #fde047; }
+  [data-theme="dark"] .grade.c { background: #7c2d12; color: #fdba74; }
+  [data-theme="dark"] .grade.f { background: #7f1d1d; color: #fca5a5; }
+  [data-theme="dark"] .grade.na { background: #374151; color: #9ca3af; }
+  [data-theme="dark"] .review-method-badge.agent-teams { background: #1e3a5f; color: #93c5fd; }
+  [data-theme="dark"] .review-method-badge.main-agent { background: #374151; color: #9ca3af; }
+  [data-theme="dark"] .agent-tag { background: #374151; color: #9ca3af; }
+  [data-theme="dark"] .priority.low { background: #1e3a5f; color: #93c5fd; }
+  [data-theme="dark"] .priority.medium { background: #713f12; color: #fde047; }
+  [data-theme="dark"] .priority.cosmetic { background: #374151; color: #9ca3af; }
+  [data-theme="dark"] .status-badge.pass { background: #064e3b; color: #34d399; }
+  [data-theme="dark"] .status-badge.info { background: #1e3a5f; color: #93c5fd; }
+  [data-theme="dark"] .status-badge.warn { background: #713f12; color: #fde047; }
+  [data-theme="dark"] .status-badge.fail { background: #7f1d1d; color: #fca5a5; }
+  [data-theme="dark"] .zone-tag { background: #1e3a5f; color: #93c5fd; }
+  [data-theme="dark"] .zone-tag.factory { background: #1e3a5f; color: #93c5fd; }
+  [data-theme="dark"] .zone-tag.product { background: #064e3b; color: #6ee7b7; }
+  [data-theme="dark"] .zone-tag.infra { background: #2e1065; color: #c4b5fd; }
+  [data-theme="dark"] .scenario-box.failure { background: #3b1111; border-left-color: #ef4444; }
+  [data-theme="dark"] .scenario-box.success { background: #052e16; border-left-color: #22c55e; }
+  [data-theme="dark"] .ci-check-item:hover { background: #374151; }
+  [data-theme="dark"] .conv-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+  [data-theme="dark"] .history-event:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
+  [data-theme="dark"] .file-path-link { border-bottom-color: #6b7280; }
+  [data-theme="dark"] .file-path-link:hover { border-bottom-color: #60a5fa; color: #60a5fa; }
+  [data-theme="dark"] .stat { background: #1f2937; }
+  [data-theme="dark"] .stat.green { background: #064e3b; color: #34d399; }
+  [data-theme="dark"] .stat.red { background: #7f1d1d; color: #fca5a5; }
+  [data-theme="dark"] #arch-diagram { background: #1a2332; border-color: #374151; }
+  [data-theme="dark"] .history-timeline::before { background: #374151; }
+  [data-theme="dark"] .history-legend { background: #1f2937; }
+  [data-theme="dark"] .conv-card-detail { border-top-color: #374151; }
+
+  /* ── Light theme diff modal overrides ── */
+  :root:not([data-theme="dark"]) .file-modal { background: #ffffff; }
+  :root:not([data-theme="dark"]) .file-modal-header { background: #f5f5f5; border-bottom-color: #e0e0e0; }
+  :root:not([data-theme="dark"]) .file-modal-header h3 { color: #333333; }
+  :root:not([data-theme="dark"]) .file-modal-toolbar { background: #fafafa; border-bottom-color: #e0e0e0; }
+  :root:not([data-theme="dark"]) .file-modal-tab { color: #666666; }
+  :root:not([data-theme="dark"]) .file-modal-tab:hover { color: #333333; background: #f0f0f0; }
+  :root:not([data-theme="dark"]) .file-modal-tab.active { color: #1d4ed8; background: #ffffff; border-bottom-color: var(--blue); }
+  :root:not([data-theme="dark"]) .file-modal-body { background: #ffffff; }
+  :root:not([data-theme="dark"]) .file-modal-close { color: #999999; }
+  :root:not([data-theme="dark"]) .file-modal-close:hover { background: #e0e0e0; color: #333333; }
+  :root:not([data-theme="dark"]) .file-modal-github { background: #f0f0f0; border-color: #e0e0e0; color: #333333; }
+  :root:not([data-theme="dark"]) .file-modal-github:hover { background: #e0e0e0; color: #111111; }
+  :root:not([data-theme="dark"]) .fm-stats .fm-add { color: #166534; }
+  :root:not([data-theme="dark"]) .fm-stats .fm-del { color: #991b1b; }
+  :root:not([data-theme="dark"]) .diff-unified .diff-add { background: rgba(34,197,94,0.12); color: #166534; }
+  :root:not([data-theme="dark"]) .diff-unified .diff-del { background: rgba(239,68,68,0.12); color: #991b1b; }
+  :root:not([data-theme="dark"]) .diff-unified .diff-ctx { color: #333333; }
+  :root:not([data-theme="dark"]) .diff-unified .diff-hunk { background: rgba(59,130,246,0.08); color: #2563eb; }
+  :root:not([data-theme="dark"]) .diff-unified .diff-ln { color: #999999; border-right-color: #e0e0e0; }
+  :root:not([data-theme="dark"]) .diff-split .diff-add { background: rgba(34,197,94,0.12); color: #166534; }
+  :root:not([data-theme="dark"]) .diff-split .diff-del { background: rgba(239,68,68,0.12); color: #991b1b; }
+  :root:not([data-theme="dark"]) .diff-split .diff-ctx { color: #333333; }
+  :root:not([data-theme="dark"]) .diff-split .diff-empty { background: #f9f9f9; }
+  :root:not([data-theme="dark"]) .diff-split .diff-ln { color: #999999; }
+  :root:not([data-theme="dark"]) .diff-split .diff-sep { background: #e0e0e0; }
+  :root:not([data-theme="dark"]) .diff-split .diff-hunk td { background: rgba(59,130,246,0.06); color: #2563eb; }
+  :root:not([data-theme="dark"]) .diff-raw td { color: #333333; }
+  :root:not([data-theme="dark"]) .diff-raw .diff-ln { color: #999999; border-right-color: #e0e0e0; }
+  :root:not([data-theme="dark"]) .diff-new-file-banner { background: rgba(34,197,94,0.08); color: #166534; border-bottom-color: #e0e0e0; }
+  :root:not([data-theme="dark"]) .diff-deleted-file-banner { background: rgba(239,68,68,0.08); color: #991b1b; border-bottom-color: #e0e0e0; }
+  :root:not([data-theme="dark"]) .diff-loading { color: #999999; }
+  :root:not([data-theme="dark"]) .diff-error { color: #991b1b; }
+
+  /* ── Theme toggle ── */
+  .theme-toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-left: 12px; vertical-align: middle; }
+  .theme-toggle button { border: none; background: transparent; padding: 4px 10px; font-size: 14px; cursor: pointer; color: var(--text-secondary); transition: background 0.15s, color 0.15s; line-height: 1; }
+  .theme-toggle button:hover { background: var(--gray-bg); }
+  .theme-toggle button.active { background: var(--blue); color: white; }
+  .theme-toggle button:not(:last-child) { border-right: 1px solid var(--border); }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: var(--text); background: var(--bg); line-height: 1.5; font-size: 14px; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+
+  /* ── Tabs ── */
+  .tab-bar { display: flex; gap: 0; background: white; border-radius: 12px 12px 0 0; border: 1px solid var(--border); border-bottom: none; overflow: hidden; }
+  .tab-btn { padding: 12px 24px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; background: transparent; color: var(--text-secondary); border-bottom: 2px solid transparent; transition: all 0.15s; }
+  .tab-btn:hover { background: var(--gray-bg); }
+  .tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); background: white; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .tab-panel { background: white; border: 1px solid var(--border); border-top: none; border-radius: 0 0 12px 12px; margin-bottom: 16px; }
+
+  /* ── Header ── */
+  .header { background: white; border-radius: 12px; padding: 24px; margin-bottom: 16px; border: 1px solid var(--border); }
+  .header h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .header .meta { font-size: 13px; color: var(--text-secondary); font-family: var(--mono); }
+  .header .meta a { color: var(--blue); text-decoration: none; }
+  .stats { display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+  .stat { background: var(--gray-bg); border-radius: 8px; padding: 6px 14px; font-size: 13px; font-weight: 500; }
+  .stat .num { font-weight: 700; font-size: 15px; }
+  .stat.green { background: var(--green-bg); color: #166534; }
+  .stat.red { background: #fef2f2; color: #991b1b; }
+
+  /* ── Gate (removed — readiness info lives in status badges) ── */
+  .gate .check-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .gate .check-row:last-child { border-bottom: none; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+  .badge.pass { background: var(--green-bg); color: #166534; }
+  .badge.fail { background: var(--red-bg); color: #991b1b; }
+
+  /* ── Sections ── */
+  .section { background: white; border-radius: 12px; margin-bottom: 16px; border: 1px solid var(--border); overflow: hidden; }
+  .section-header { padding: 14px 24px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; transition: background 0.15s; }
+  .section-header:hover { background: var(--gray-bg); }
+  .section-header h2 { font-size: 14px; font-weight: 700; }
+  .section-header .chevron { font-size: 16px; color: var(--text-secondary); transition: transform 0.2s; }
+  .section.collapsed .section-body { display: none; }
+  .section.collapsed .chevron { transform: rotate(-90deg); }
+  .section-body { padding: 0 24px 20px; font-size: 13px; }
+
+  /* ── Architecture Diagram ── */
+  .arch-controls { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
+  .arch-toggle { padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: white; color: var(--text-secondary); }
+  .arch-toggle.active { background: var(--blue); color: white; border-color: var(--blue); }
+  .arch-hint { font-size: 11px; color: var(--text-muted); margin-left: 8px; }
+  .zone-box { cursor: pointer; transition: opacity 0.3s, filter 0.3s; }
+  .zone-box:hover { filter: brightness(0.95); }
+  .zone-box.dimmed { opacity: 0.12; }
+  .zone-box.highlighted { stroke-width: 3; filter: brightness(0.92); }
+  .zone-label { font-size: 11px; font-weight: 600; pointer-events: none; }
+  .zone-sublabel { font-size: 9px; fill: #6b7280; pointer-events: none; }
+  .zone-file-count { font-size: 10px; font-weight: 700; fill: white; pointer-events: none; }
+  .zone-count-bg { pointer-events: none; }
+  .arch-row-label { font-size: 10px; font-weight: 700; fill: #9ca3af; text-transform: uppercase; letter-spacing: 1px; }
+
+  /* ── Tables ── */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px 12px; background: var(--gray-bg); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-secondary); border-bottom: 2px solid var(--border); }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr.expandable { cursor: pointer; }
+  tr.expandable:hover { background: var(--gray-bg); }
+  tr.detail-row { display: none; }
+  tr.detail-row.open { display: table-row; }
+  tr.detail-row td { background: #fafbfc; padding: 12px 20px; }
+
+  /* ── Grade pills ── */
+  .grade { display: inline-block; width: 28px; height: 28px; line-height: 28px; text-align: center; border-radius: 6px; font-weight: 700; font-size: 12px; }
+  .grade.a { background: var(--green-bg); color: #166534; }
+  .grade.b { background: var(--yellow-bg); color: #854d0e; }
+  .grade.c { background: var(--orange-bg); color: #9a3412; }
+  .grade.f { background: var(--red-bg); color: #991b1b; }
+  .grade.na { background: var(--gray-bg); color: var(--gray); }
+
+  /* ── Review method badge ── */
+  .review-method-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; vertical-align: middle; margin-left: 8px; }
+  .review-method-badge.agent-teams { background: var(--blue-bg, #dbeafe); color: #1d4ed8; }
+  .review-method-badge.main-agent { background: var(--gray-bg); color: var(--gray); }
+
+  /* ── Agent badges in agentic review table ── */
+  .agent-tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 500; background: var(--gray-bg); color: var(--gray); }
+
+  /* ── Timing ── */
+  .time-label { font-family: var(--mono); font-size: 15px; font-weight: 700; }
+  .time-label.normal { color: #166534; }
+  .time-label.acceptable { color: #854d0e; }
+  .time-label.watch { color: #f97316; }
+  .time-label.refactor { color: #ef4444; }
+  [data-theme="dark"] .time-label.normal { color: #34d399; }
+  [data-theme="dark"] .time-label.acceptable { color: #fde047; }
+  [data-theme="dark"] .time-label.watch { color: #fdba74; }
+  [data-theme="dark"] .time-label.refactor { color: #fca5a5; }
+  .time-health-sub { font-size: 10px; font-weight: 500; color: var(--text-muted); margin-top: 1px; }
+  .health-tag { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; padding: 2px 8px; border-radius: 4px; }
+  .health-tag.normal { background: var(--green-bg); color: #166534; }
+  .health-tag.acceptable { background: var(--yellow-bg); color: #854d0e; }
+  .health-tag.watch { background: var(--orange-bg); color: #9a3412; }
+  .health-tag.refactor { background: var(--red-bg); color: #991b1b; }
+
+  /* ── Decision cards ── */
+  .decision-card { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+  .decision-header { padding: 12px 16px; cursor: pointer; display: flex; gap: 12px; align-items: flex-start; transition: background 0.15s; }
+  .decision-header:hover { background: var(--gray-bg); }
+  .decision-num { font-weight: 700; color: var(--blue); font-size: 14px; min-width: 24px; }
+  .decision-title { font-weight: 600; font-size: 13px; }
+  .decision-rationale { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .decision-body { display: none; padding: 0 16px 16px; border-top: 1px solid var(--border); }
+  .decision-card.open .decision-body { display: block; }
+  .decision-zones { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+  .zone-tag { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600; background: var(--blue-bg); color: #1d4ed8; }
+  .decision-files { margin-top: 10px; }
+  .decision-files table { font-size: 12px; }
+  .decision-files td { padding: 4px 8px; }
+
+  /* ── Convergence ── */
+  .convergence-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .conv-card { border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: box-shadow 0.2s; }
+  .conv-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .conv-card h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-secondary); margin-bottom: 8px; }
+  .conv-status { font-size: 20px; font-weight: 700; }
+  .conv-status.passing { color: #166534; }
+  .conv-status.warning { color: #854d0e; }
+  .conv-status.failing { color: #991b1b; }
+  .conv-detail { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+  .conv-card-detail { display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-secondary); }
+  .conv-card.open .conv-card-detail { display: block; }
+  .conv-card-detail ul { margin: 4px 0 0 16px; list-style: disc; }
+  .conv-card-detail li { margin-bottom: 2px; }
+
+  /* ── Post-merge ── */
+  .pm-item { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+  .pm-header { padding: 10px 16px; cursor: pointer; display: flex; gap: 10px; align-items: center; transition: background 0.15s; }
+  .pm-header:hover { background: var(--gray-bg); }
+  .pm-body { display: none; padding: 0 16px 16px; border-top: 1px solid var(--border); }
+  .pm-item.open .pm-body { display: block; }
+  .priority { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+  .priority.low { background: var(--blue-bg); color: #1d4ed8; }
+  .priority.medium { background: var(--yellow-bg); color: #854d0e; }
+  .priority.cosmetic { background: var(--gray-bg); color: var(--gray); }
+  .code-block { background: #1e293b; color: #e2e8f0; padding: 12px 16px; border-radius: 6px; font-family: var(--mono); font-size: 12px; line-height: 1.6; overflow-x: auto; margin: 8px 0; white-space: pre; }
+  .scenario-box { padding: 10px 14px; border-radius: 6px; margin: 6px 0; font-size: 12px; }
+  .scenario-box.failure { background: var(--red-bg); border-left: 3px solid var(--red); }
+  .scenario-box.success { background: var(--green-bg); border-left: 3px solid var(--green); }
+  .scenario-label { font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 4px; }
+
+  /* ── Spec & Scenarios ── */
+  .spec-list { list-style: none; padding: 0; }
+  .spec-list li { padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; display: flex; gap: 8px; align-items: center; }
+  .spec-list li:last-child { border-bottom: none; }
+  .scenario-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .scenario-card { border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: 12px; cursor: pointer; transition: background 0.15s; }
+  .scenario-card:hover { background: var(--gray-bg); }
+  .scenario-card .name { font-weight: 600; }
+  .scenario-card .status { font-size: 11px; margin-top: 2px; }
+  .scenario-card-detail { display: none; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-secondary); }
+  .scenario-card.open .scenario-card-detail { display: block; }
+  .scenario-card-detail dt { font-weight: 600; color: var(--text); margin-top: 4px; }
+  .scenario-card-detail dd { margin-left: 0; margin-bottom: 2px; }
+  .scenario-category { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-left: 6px; }
+  .scenario-category.cat-environment { background: #dcfce7; color: #166534; }
+  .scenario-category.cat-training { background: #dbeafe; color: #1d4ed8; }
+  .scenario-category.cat-pipeline { background: #f3e8ff; color: #6d28d9; }
+  .scenario-category.cat-integration { background: #fff7ed; color: #9a3412; }
+  [data-theme="dark"] .scenario-category.cat-environment { background: #064e3b; color: #6ee7b7; }
+  [data-theme="dark"] .scenario-category.cat-training { background: #1e3a5f; color: #93c5fd; }
+  [data-theme="dark"] .scenario-category.cat-pipeline { background: #2e1065; color: #c4b5fd; }
+  [data-theme="dark"] .scenario-category.cat-integration { background: #7c2d12; color: #fdba74; }
+  .scenario-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 10px; font-size: 11px; color: var(--text-secondary); }
+  .scenario-card.zone-dimmed { opacity: 0.35; }
+  .scenario-card.zone-glow { box-shadow: 0 0 0 2px var(--blue); }
+
+  /* ── Factory History ── */
+  .history-timeline { position: relative; padding-left: 24px; }
+  .history-timeline::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: var(--border); }
+  .history-event { position: relative; margin-bottom: 16px; padding: 12px 16px; background: white; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: box-shadow 0.2s; }
+  .history-event:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .history-event::before { content: ''; position: absolute; left: -20px; top: 16px; width: 10px; height: 10px; border-radius: 50%; background: var(--blue); border: 2px solid white; }
+  .history-event.intervention::before { background: var(--orange); }
+  .history-event .event-title { font-weight: 600; font-size: 13px; }
+  .history-event .event-detail { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+  .history-event .event-meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; font-family: var(--mono); }
+  .history-event-detail { display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-secondary); }
+  .history-event.open .history-event-detail { display: block; }
+  .event-agent { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; background: var(--blue-bg); color: #1d4ed8; margin-left: 4px; }
+  .event-agent.human { background: var(--orange-bg); color: #9a3412; }
+  .history-legend { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; padding: 10px 14px; background: var(--gray-bg); border-radius: 6px; font-size: 11px; color: var(--text-secondary); }
+  .history-legend-item { display: flex; align-items: center; gap: 6px; }
+  .history-legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* ── Footer ── */
+  .footer { text-align: center; padding: 16px; font-size: 11px; color: var(--text-muted); }
+
+  /* ── Zone tag color variants ── */
+  .zone-tag.factory { background: var(--blue-bg); color: #1d4ed8; }
+  .zone-tag.product { background: #dcfce7; color: #166534; }
+  .zone-tag.infra { background: var(--purple-bg); color: #6d28d9; }
+
+  /* ── Architecture legend ── */
+  .arch-legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px; padding: 10px 14px; background: var(--gray-bg); border-radius: 6px; font-size: 11px; color: var(--text-secondary); }
+  .arch-legend-item { display: flex; align-items: center; gap: 6px; }
+  .arch-legend-swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.1); }
+  .arch-legend-circle { width: 14px; height: 14px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; color: white; }
+
+  /* ── What Changed zone detail blocks ── */
+  .wc-zone-detail { display: none; padding: 8px 0; }
+  .wc-zone-detail.active { display: block; }
+  .wc-zone-detail h4 { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+
+  /* ── Agentic review ── */
+  .adv-scroll { max-height: 500px; overflow-y: auto; }
+  .adv-row { cursor: pointer; transition: max-height 0.3s ease, opacity 0.3s ease; }
+  .adv-row:hover { background: var(--gray-bg); }
+  .adv-row.collapsed-row { max-height: 24px; opacity: 0.5; overflow: hidden; }
+  .adv-no-match { display: none; padding: 16px; text-align: center; color: var(--text-muted); font-size: 13px; font-style: italic; }
+  .adv-no-match.visible { display: block; }
+  .adv-detail-row { display: none; }
+  .adv-detail-row.open { display: table-row; }
+  .adv-detail-row td { background: #fafbfc; padding: 12px 20px; font-size: 12px; border-bottom: 1px solid var(--border); }
+
+  /* Agent grade badges (compact per-file) */
+  .agent-badges-cell { white-space: nowrap; }
+  .agent-grade-badge { display: inline-flex; align-items: center; gap: 2px; margin-right: 6px; padding: 1px 4px; border-radius: 4px; background: var(--gray-bg); font-size: 11px; }
+  .agent-grade-badge .agent-abbrev { font-weight: 700; color: var(--text-muted); font-size: 10px; font-family: var(--mono); }
+  .agent-grade-badge .grade { font-size: 11px; padding: 0 2px; }
+
+  /* Agent legend */
+  .agent-legend { display: inline-flex; gap: 12px; margin-left: 12px; font-size: 11px; color: var(--text-muted); vertical-align: middle; }
+  .agent-legend-item { display: inline-flex; align-items: center; gap: 3px; cursor: help; }
+  .agent-legend-item .agent-abbrev { font-weight: 700; font-family: var(--mono); font-size: 10px; background: var(--gray-bg); padding: 1px 3px; border-radius: 3px; }
+
+  /* Per-agent detail breakdown (inside expanded row) */
+  .agent-detail-entry { padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .agent-detail-entry:last-child { border-bottom: none; }
+  .agent-detail-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .agent-detail-header .agent-abbrev { font-weight: 700; font-family: var(--mono); font-size: 10px; background: var(--gray-bg); padding: 1px 4px; border-radius: 3px; }
+  .agent-detail-header .grade { font-size: 11px; }
+  .agent-detail-name { font-size: 11px; color: var(--text-muted); }
+  .agent-detail-body { font-size: 12px; line-height: 1.5; padding-left: 4px; }
+
+  /* ── CI sub-check drill-down ── */
+  .ci-check-item { padding: 6px 0; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s; }
+  .ci-check-item:last-child { border-bottom: none; }
+  .ci-check-item:hover { background: #f0f4f8; }
+  .ci-check-summary { font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .ci-check-summary .chevron-sm { font-size: 10px; color: var(--text-muted); transition: transform 0.2s; display: inline-block; }
+  .ci-check-item.open .chevron-sm { transform: rotate(90deg); }
+  .ci-check-detail { display: none; padding: 6px 0 4px 20px; font-size: 11px; color: var(--text-secondary); }
+  .ci-check-item.open .ci-check-detail { display: block; }
+
+  /* ── Floating architecture diagram ── */
+  .arch-floating { position: fixed; top: 16px; right: 16px; width: 40%; max-width: 480px; z-index: 100; background: rgba(255,255,255,0.95); border-radius: 10px; border: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,0.12); padding: 10px; transition: opacity 0.3s ease, transform 0.3s ease; opacity: 0; transform: translateX(40px); pointer-events: none; }
+  .arch-floating.visible { opacity: 1; transform: translateX(0); pointer-events: auto; }
+  .arch-floating svg { width: 100%; height: auto; }
+  .arch-floating-close { position: absolute; top: 6px; right: 10px; background: none; border: none; font-size: 16px; cursor: pointer; color: var(--text-muted); z-index: 101; padding: 2px 6px; border-radius: 4px; }
+  .arch-floating-close:hover { background: var(--gray-bg); color: var(--text); }
+
+  /* ── File path modal ── */
+  .file-modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.45); z-index: 200; justify-content: center; align-items: center; }
+  .file-modal-overlay.visible { display: flex; }
+  .file-modal { background: #1e1e1e; border-radius: 10px; width: 95vw; max-width: 1400px; height: 90vh; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.4); display: flex; flex-direction: column; }
+  .file-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: #2d2d2d; border-bottom: 1px solid #404040; flex-shrink: 0; }
+  .file-modal-header h3 { font-size: 13px; font-family: var(--mono); font-weight: 500; color: #cccccc; }
+  .file-modal-header .fm-stats { font-size: 11px; font-family: var(--mono); margin-left: 12px; }
+  .file-modal-header .fm-stats .fm-add { color: #3fb950; }
+  .file-modal-header .fm-stats .fm-del { color: #f85149; }
+  .file-modal-close { background: none; border: none; font-size: 18px; cursor: pointer; color: #808080; padding: 2px 8px; border-radius: 4px; }
+  .file-modal-close:hover { background: #404040; color: #cccccc; }
+  .file-modal-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 6px 16px; background: #252526; border-bottom: 1px solid #404040; flex-shrink: 0; }
+  .file-modal-tabs { display: flex; gap: 0; }
+  .file-modal-tab { padding: 6px 14px; font-size: 11px; font-weight: 600; cursor: pointer; border: none; background: none; color: #808080; border-bottom: 2px solid transparent; border-radius: 4px 4px 0 0; }
+  .file-modal-tab:hover { color: #cccccc; background: #2d2d2d; }
+  .file-modal-tab.active { color: #ffffff; border-bottom-color: var(--blue); background: #1e1e1e; }
+  .file-modal-github { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: #2d2d2d; border: 1px solid #404040; border-radius: 4px; color: #cccccc; text-decoration: none; font-size: 11px; font-weight: 500; }
+  .file-modal-github:hover { background: #404040; color: white; }
+  .file-modal-body { flex: 1; overflow: auto; background: #1e1e1e; }
+
+  /* ── Diff rendering ── */
+  .diff-view { font-family: var(--mono); font-size: 12px; line-height: 1.55; }
+  .diff-unified { width: 100%; border-collapse: collapse; }
+  .diff-unified td { padding: 0 12px; white-space: pre-wrap; word-break: break-all; vertical-align: top; border: none; }
+  .diff-new-file-banner { padding: 8px 16px; background: rgba(63,185,80,0.1); color: #3fb950; font-size: 12px; font-weight: 500; border-bottom: 1px solid #333333; }
+  .diff-deleted-file-banner { padding: 8px 16px; background: rgba(248,81,73,0.1); color: #f85149; font-size: 12px; font-weight: 500; border-bottom: 1px solid #333333; }
+  .diff-unified .diff-ln { width: 50px; min-width: 50px; text-align: right; color: #636363; user-select: none; padding-right: 8px; font-size: 11px; border-right: 1px solid #333333; }
+  .diff-unified .diff-add { background: rgba(63,185,80,0.15); color: #3fb950; }
+  .diff-unified .diff-del { background: rgba(248,81,73,0.15); color: #f85149; }
+  .diff-unified .diff-ctx { color: #cccccc; }
+  .diff-unified .diff-hunk { background: rgba(56,139,253,0.12); color: #58a6ff; padding: 6px 12px; font-style: italic; }
+  .diff-split { width: 100%; border-collapse: collapse; }
+  .diff-split td { padding: 0 6px; white-space: pre; vertical-align: top; border: none; font-family: var(--mono); font-size: 12px; line-height: 1.55; }
+  .diff-split-wrapper { overflow-x: auto; }
+  .diff-split .diff-ln { width: 40px; min-width: 40px; text-align: right; color: #636363; user-select: none; padding-right: 6px; font-size: 11px; }
+  .diff-split .diff-sep { width: 2px; min-width: 2px; background: #2d2d2d; padding: 0; }
+  .diff-split .diff-code-left, .diff-split .diff-code-right { min-width: 0; max-width: 50vw; white-space: pre; overflow-x: auto; }
+  .diff-split .diff-add { background: rgba(63,185,80,0.15); color: #3fb950; }
+  .diff-split .diff-del { background: rgba(248,81,73,0.15); color: #f85149; }
+  .diff-split .diff-ctx { color: #cccccc; }
+  .diff-split .diff-empty { background: #161616; }
+  .diff-split .diff-hunk td { background: rgba(56,139,253,0.08); color: #58a6ff; font-style: italic; padding: 4px 8px; }
+  .diff-raw { color: #cccccc; }
+  .diff-raw table { width: 100%; border-collapse: collapse; }
+  .diff-raw td { padding: 0 12px; white-space: pre-wrap; word-break: break-all; vertical-align: top; border: none; font-family: var(--mono); font-size: 12px; line-height: 1.55; }
+  .diff-raw .diff-ln { width: 50px; min-width: 50px; text-align: right; color: #636363; user-select: none; padding-right: 8px; font-size: 11px; border-right: 1px solid #333333; }
+  .diff-loading { color: #808080; text-align: center; padding: 60px 20px; font-size: 13px; }
+  .diff-error { color: #f85149; text-align: center; padding: 40px 20px; font-size: 13px; }
+  .file-path-link { color: inherit; text-decoration: none; border-bottom: 1px dashed var(--text-muted); cursor: pointer; transition: border-color 0.15s; }
+  .file-path-link:hover { border-bottom-color: var(--blue); color: var(--blue); }
+
+  /* ── CI Chevron rotation ── */
+  .ci-chevron { display: inline-block; transition: transform 0.2s; }
+  tr.expandable.ci-open .ci-chevron { transform: rotate(180deg); }
+
+  /* ── Status badges ── */
+  .status-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .status-badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: 16px; font-size: 12px; font-weight: 600; }
+  .status-badge.pass { background: var(--green-bg); color: #166534; }
+  .status-badge.info { background: var(--blue-bg); color: #1d4ed8; }
+  .status-badge.warn { background: var(--yellow-bg); color: #854d0e; }
+  .status-badge.fail { background: #fef2f2; color: #991b1b; }
+  .gate-popover { display: none; position: absolute; background: white; border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); font-size: 12px; z-index: 50; max-width: 300px; }
+  .gate-popover.visible { display: block; }
+  .gate-clickable { cursor: pointer; border-bottom: 1px dashed var(--text-muted); }
+  .gate-clickable:hover { color: var(--blue); border-bottom-color: var(--blue); }
+  .unverified-flag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 9px; font-weight: 700; background: var(--orange-bg); color: #9a3412; margin-left: 6px; text-transform: uppercase; }
+
+  @media (max-width: 768px) {
+    .stats { flex-direction: column; gap: 8px; }
+    .convergence-grid { grid-template-columns: 1fr; }
+    .scenario-grid { grid-template-columns: 1fr; }
+    .container { padding: 12px 8px; }
+    .arch-floating { width: 60%; }
+    .file-modal { width: 98vw; height: 95vh; }
+  }
+</style>
+</head>
+<body>
+<!-- Visual inspection watermark: visible until removed by the reviewing agent -->
+<div id="visual-inspection-banner" style="position:fixed;top:0;left:0;right:0;z-index:10000;background:#dc2626;color:white;text-align:center;padding:12px 20px;font-weight:700;font-size:15px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.3);letter-spacing:0.3px">
+  This Pack Has NOT Been Visually Inspected
+</div>
+<div id="visual-inspection-spacer" style="height:48px"></div>
+<div class="container">
+
+  <!-- ══ DATA INJECTION POINT ══ -->
+  <!-- The rendering script injects the ReviewPackData JSON here -->
+
+  <!-- ══ HEADER ══ -->
+  <div class="header">
+    <h1 id="pr-title"><!-- INJECT: header.title --></h1>
+    <div class="meta">
+      <a id="pr-url" href="#" target="_blank"><!-- INJECT: header.prUrl --></a><br>
+      <span id="pr-branch-info"><!-- INJECT: header.headBranch --> &rarr; <!-- INJECT: header.baseBranch --></span>
+      &nbsp;|&nbsp; HEAD: <code id="pr-sha"><!-- INJECT: header.headSha --></code>
+    </div>
+    <div class="stats" id="pr-stats">
+      <!-- INJECT: stat items for additions, deletions, files, commits -->
+    </div>
+    <div class="status-row" id="pr-status-row">
+      <!-- INJECT: status badges -->
+      <div class="theme-toggle" style="margin-left:auto">
+        <button onclick="setTheme('light')" title="Light theme" data-theme-btn="light">&#x2600;</button>
+        <button onclick="setTheme('dark')" title="Dark theme" data-theme-btn="dark">&#x1F319;</button>
+        <button onclick="setTheme('system')" title="System theme" data-theme-btn="system">&#x2699;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB BAR ══ -->
+  <div class="tab-bar" id="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('review')">Review</button>
+    <!-- INJECT: Factory History tab button (conditionally, only if factoryHistory is present) -->
+  </div>
+
+  <!-- ══ TAB 1: REVIEW ══ -->
+  <div id="tab-review" class="tab-content active">
+    <div class="tab-panel" style="padding:20px 24px">
+
+    <!-- Section: Architecture -->
+    <div class="section" style="border:none;margin-bottom:0">
+      <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+        <h2>Architecture</h2>
+        <span class="chevron">&#x25BC;</span>
+      </div>
+      <div class="section-body">
+        <div class="arch-controls">
+          <button class="arch-toggle active" onclick="setArchView('update',this)">Update (this PR)</button>
+          <button class="arch-toggle" onclick="setArchView('baseline',this)">Baseline (before merge)</button>
+          <span style="margin-left:auto;display:inline-flex;gap:4px;align-items:center">
+            <button class="arch-toggle" onclick="archZoom(-1)" title="Zoom out">&minus;</button>
+            <button class="arch-toggle" onclick="archZoom(0)" title="Fit to content">Fit</button>
+            <button class="arch-toggle" onclick="archZoom(1)" title="Zoom in">+</button>
+          </span>
+          <span class="arch-hint">Click a zone to filter findings &bull; Click background to reset</span>
+        </div>
+        <svg id="arch-diagram" viewBox="0 0 780 360" style="width:100%;max-width:780px;background:#fafbfc;border-radius:8px;border:1px solid var(--border)">
+          <!-- INJECT: architecture zones, labels, arrows from DATA.architecture -->
+          <!-- Row labels -->
+          <!-- Zone boxes (rect.zone-box[data-zone="..."]) -->
+          <!-- Zone labels (text.zone-label) -->
+          <!-- Zone sublabels (text.zone-sublabel) -->
+          <!-- File count circles (circle.zone-count-bg + text.zone-file-count) -->
+          <!-- Flow arrows (line with marker-end) -->
+        </svg>
+        <div id="zone-filter-info" style="margin-top:8px;font-size:12px;color:var(--blue);font-weight:600;display:none"></div>
+        <div class="arch-legend">
+          <div class="arch-legend-item"><div class="arch-legend-circle" style="background:#3b82f6">3</div> Blue circle = files changed in zone</div>
+          <div class="arch-legend-item"><div class="arch-legend-swatch" style="background:#dbeafe;border-color:#3b82f6"></div> Factory infrastructure</div>
+          <div class="arch-legend-item"><div class="arch-legend-swatch" style="background:#dcfce7;border-color:#22c55e"></div> Product code</div>
+          <div class="arch-legend-item"><div class="arch-legend-swatch" style="background:#f3e8ff;border-color:#8b5cf6"></div> Infrastructure &amp; docs</div>
+          <div class="arch-legend-item" style="margin-left:auto;font-style:italic">Click zone to filter &bull; click background to reset</div>
+        </div>
+      </div>
+    </div>
+
+    </div><!-- end tab-panel -->
+
+    <!-- Section: Spec & Scenarios -->
+    <div class="section">
+      <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+        <h2>Spec &amp; Scenarios</h2>
+        <span class="chevron">&#x25BC;</span>
+      </div>
+      <div class="section-body">
+        <h3 style="font-size:13px;margin-bottom:8px">Specifications</h3>
+        <ul class="spec-list" id="spec-list">
+          <!-- INJECT: specification items from DATA.specs -->
+        </ul>
+        <h3 style="font-size:13px;margin:14px 0 8px">Scenarios</h3>
+        <div class="scenario-legend" id="scenario-legend">
+          <!-- INJECT: scenario category legend items -->
+        </div>
+        <div class="scenario-grid" id="scenario-grid">
+          <!-- INJECT: scenario cards from DATA.scenarios -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Section: What Changed -->
+    <div class="section">
+      <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+        <h2>What Changed</h2>
+        <span class="chevron">&#x25BC;</span>
+      </div>
+      <div class="section-body" id="what-changed-body">
+        <p style="margin-bottom:4px;font-size:11px;color:var(--text-muted)">Generated from <code>git diff</code> by delegated diff-reading agent. Code diffs are ground truth.</p>
+        <div class="wc-default" id="wc-default">
+          <!-- INJECT: whatChanged.defaultSummary.infrastructure and .product -->
+        </div>
+        <!-- INJECT: wc-zone-detail divs for each zone -->
+      </div>
+    </div>
+
+    <!-- Section: Agentic Review -->
+    <div class="section">
+      <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+        <h2 id="adv-header">Agentic Review <!-- INJECT: adversarial review method badge --></h2>
+        <span class="chevron">&#x25BC;</span>
+      </div>
+      <div class="section-body">
+        <div class="adv-scroll">
+        <div id="adv-no-match" class="adv-no-match">No review findings in this zone.</div>
+        <table id="adv-table">
+          <thead><tr><th>File</th><th>Agents</th><th>Zone</th><th>Notable</th></tr></thead>
+          <tbody>
+            <!-- INJECT: adversarial finding rows from DATA.agenticReview.findings -->
+            <!-- Each row: tr.adv-row (file-level, grouped) + tr.adv-detail-row (per-agent breakdown) -->
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section: CI Performance -->
+    <div class="section">
+      <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+        <h2>CI Performance</h2>
+        <span class="chevron">&#x25BC;</span>
+      </div>
+      <div class="section-body">
+        <table>
+          <thead><tr><th>Check</th><th>Status</th><th>Time</th><th></th></tr></thead>
+          <tbody id="ci-table-body">
+            <!-- INJECT: CI check rows from DATA.ciPerformance -->
+            <!-- Each: tr.expandable + tr.detail-row with sub-checks -->
+          </tbody>
+        </table>
+        <p style="margin-top:10px;font-size:11px;color:var(--text-muted)">
+          <strong>Thresholds:</strong> &#x2713; under 1m = normal &bull; &#x25CB; 1-5m = acceptable &bull; &#x26A0; 5-10m = watch &bull; &#x2716; over 10m = needs refactoring
+        </p>
+      </div>
+    </div>
+
+    <!-- Section: Key Decisions -->
+    <div class="section">
+      <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+        <h2>Key Decisions</h2>
+        <span class="chevron">&#x25BC;</span>
+      </div>
+      <div class="section-body" id="decisions-container">
+        <!-- INJECT: decision cards from DATA.decisions -->
+      </div>
+    </div>
+
+    <!-- Section: Convergence Result -->
+    <div class="section">
+      <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+        <h2>Convergence Result</h2>
+        <span class="chevron">&#x25BC;</span>
+      </div>
+      <div class="section-body">
+        <div class="convergence-grid" id="convergence-grid">
+          <!-- INJECT: convergence gate cards + overall card from DATA.convergence -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Section: Post-Merge Items -->
+    <div class="section">
+      <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+        <h2>Post-Merge Items</h2>
+        <span class="chevron">&#x25BC;</span>
+      </div>
+      <div class="section-body" id="post-merge-container">
+        <!-- INJECT: post-merge items from DATA.postMergeItems -->
+      </div>
+    </div>
+
+  </div><!-- end tab-review -->
+
+  <!-- ══ TAB 2: FACTORY HISTORY (conditional) ══ -->
+  <div id="tab-history" class="tab-content">
+    <div class="tab-panel" style="padding:20px 24px">
+      <h2 style="font-size:15px;font-weight:700;margin-bottom:16px">Factory Convergence History</h2>
+      <div class="history-legend">
+        <div class="history-legend-item"><div class="history-legend-dot" style="background:var(--blue)"></div> Automated event</div>
+        <div class="history-legend-item"><div class="history-legend-dot" style="background:var(--orange)"></div> Human/agent intervention</div>
+        <div class="history-legend-item" style="margin-left:auto;font-style:italic">Click event to expand details</div>
+      </div>
+      <div class="convergence-grid" style="margin-bottom:20px" id="history-summary-cards">
+        <!-- INJECT: iteration count + satisfaction trajectory cards -->
+      </div>
+      <h3 style="font-size:13px;font-weight:700;margin-bottom:12px">Timeline</h3>
+      <div class="history-timeline" id="history-timeline">
+        <!-- INJECT: factory history events from DATA.factoryHistory.timeline -->
+      </div>
+      <h3 style="font-size:13px;font-weight:700;margin:20px 0 12px">Gate Findings by Iteration</h3>
+      <table id="gate-findings-table">
+        <thead><tr><th>Phase</th><th>Gate 1</th><th>Gate 2</th><th>Gate 3</th><th>Action</th></tr></thead>
+        <tbody>
+          <!-- INJECT: gate finding rows from DATA.factoryHistory.gateFindings -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer">
+    Generated by review pack agent &nbsp;|&nbsp; <span id="footer-date"><!-- INJECT: header.generatedAt --></span> &nbsp;|&nbsp; HEAD: <span id="footer-sha"><!-- INJECT: header.headSha --></span><br>
+    <span style="font-size:10px">Deterministic rendering from structured data &bull; Code diffs are ground truth</span>
+  </div>
+
+</div>
+
+<!-- Floating architecture diagram (populated by JS) -->
+<div id="arch-floating" class="arch-floating">
+  <button class="arch-floating-close" onclick="dismissFloatingDiagram()" title="Dismiss floating diagram">&times;</button>
+  <div id="arch-floating-content"></div>
+</div>
+
+<!-- File diff modal -->
+<div id="file-modal-overlay" class="file-modal-overlay" onclick="if(event.target===this)closeFileModal()">
+  <div class="file-modal">
+    <div class="file-modal-header">
+      <div style="display:flex;align-items:center;gap:8px;overflow:hidden">
+        <h3 id="file-modal-path" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></h3>
+        <span id="file-modal-stats" class="fm-stats"></span>
+      </div>
+      <button class="file-modal-close" onclick="closeFileModal()">&times;</button>
+    </div>
+    <div class="file-modal-toolbar">
+      <div class="file-modal-tabs">
+        <button class="file-modal-tab active" data-view="side-by-side" onclick="setFileModalTab(this,'side-by-side')">Side-by-side</button>
+        <button class="file-modal-tab" data-view="integrated" onclick="setFileModalTab(this,'integrated')">Unified</button>
+        <button class="file-modal-tab" data-view="raw" onclick="setFileModalTab(this,'raw')">Raw file</button>
+      </div>
+      <a id="file-modal-github-link" class="file-modal-github" href="#" target="_blank">View on GitHub &rarr;</a>
+    </div>
+    <div class="file-modal-body" id="file-modal-body">
+      <div class="diff-loading">Loading diff data&hellip;</div>
+    </div>
+  </div>
+</div>
+
+<!-- Gate popover -->
+<div id="gate-popover" class="gate-popover"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// DATA INJECTION POINT
+// Replace this empty object with the ReviewPackData JSON
+// ═══════════════════════════════════════════
+const DATA = {};
+
+// ═══════════════════════════════════════════
+// Theme switching (Light / Dark / System)
+// ═══════════════════════════════════════════
+(function initTheme() {
+  const stored = localStorage.getItem('pr-pack-theme') || 'system';
+  applyTheme(stored);
+  updateThemeButtons(stored);
+})();
+
+function setTheme(theme) {
+  localStorage.setItem('pr-pack-theme', theme);
+  applyTheme(theme);
+  updateThemeButtons(theme);
+}
+
+function applyTheme(theme) {
+  if (theme === 'system') {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+  } else {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+}
+
+function updateThemeButtons(theme) {
+  document.querySelectorAll('.theme-toggle button').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-theme-btn') === theme);
+  });
+}
+
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  const stored = localStorage.getItem('pr-pack-theme') || 'system';
+  if (stored === 'system') applyTheme('system');
+});
+
+// ═══════════════════════════════════════════
+// Tab switching
+// ═══════════════════════════════════════════
+function switchTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ═══════════════════════════════════════════
+// CI job detail toggle
+// ═══════════════════════════════════════════
+function toggleCIDetail(row) {
+  const detail = row.nextElementSibling;
+  if (detail && detail.classList.contains('detail-row')) {
+    detail.classList.toggle('open');
+    row.classList.toggle('ci-open');
+  }
+}
+
+// ═══════════════════════════════════════════
+// Decision card toggle + zone highlighting
+// ═══════════════════════════════════════════
+function toggleDecision(card) {
+  const wasOpen = card.classList.contains('open');
+  document.querySelectorAll('.decision-card').forEach(c => c.classList.remove('open'));
+  if (!wasOpen) {
+    card.classList.add('open');
+    const zones = card.dataset.zones.split(' ');
+    highlightZones(zones);
+  } else {
+    resetZones();
+  }
+}
+
+// ═══════════════════════════════════════════
+// Adversarial review row toggle
+// ═══════════════════════════════════════════
+function toggleAdvDetail(row) {
+  const detail = row.nextElementSibling;
+  if (detail && detail.classList.contains('adv-detail-row')) {
+    detail.classList.toggle('open');
+  }
+}
+
+// ═══════════════════════════════════════════
+// Architecture zone highlighting (cross-section filtering)
+// ═══════════════════════════════════════════
+let currentActiveZones = null;
+
+function highlightZones(activeZones) {
+  currentActiveZones = activeZones;
+
+  // 1. Highlight zones in main and floating diagrams
+  ['#arch-diagram', '#arch-floating'].forEach(sel => {
+    document.querySelectorAll(sel + ' .zone-box').forEach(box => {
+      const zone = box.dataset.zone;
+      if (activeZones.includes(zone)) {
+        box.classList.remove('dimmed');
+        box.classList.add('highlighted');
+      } else {
+        box.classList.add('dimmed');
+        box.classList.remove('highlighted');
+      }
+    });
+  });
+
+  const info = document.getElementById('zone-filter-info');
+  info.textContent = 'Showing zones: ' + activeZones.join(', ');
+  info.style.display = 'block';
+
+  // 2. Filter adversarial review rows
+  let anyMatch = false;
+  document.querySelectorAll('.adv-row').forEach(row => {
+    const rowZones = row.dataset.zones.split(' ');
+    const match = rowZones.some(z => activeZones.includes(z));
+    row.classList.toggle('collapsed-row', !match);
+    if (match) anyMatch = true;
+    const detailRow = row.nextElementSibling;
+    if (detailRow && detailRow.classList.contains('adv-detail-row')) {
+      if (!match) {
+        detailRow.style.display = 'none';
+        detailRow.classList.remove('open');
+      } else {
+        detailRow.style.display = '';
+      }
+    }
+  });
+  const noMatch = document.getElementById('adv-no-match');
+  if (noMatch) noMatch.classList.toggle('visible', !anyMatch);
+
+  // 3. Filter scenario cards
+  document.querySelectorAll('.scenario-card[data-zone]').forEach(card => {
+    const cardZones = card.dataset.zone.split(' ');
+    const match = cardZones.some(z => activeZones.includes(z));
+    card.classList.toggle('zone-dimmed', !match);
+    card.classList.toggle('zone-glow', match);
+  });
+
+  // 4. Filter What Changed section
+  const wcDefault = document.getElementById('wc-default');
+  if (wcDefault) wcDefault.style.display = 'none';
+  document.querySelectorAll('.wc-zone-detail').forEach(d => {
+    d.classList.toggle('active', activeZones.includes(d.dataset.zone));
+  });
+  if (!document.querySelector('.wc-zone-detail.active') && wcDefault) {
+    wcDefault.style.display = '';
+  }
+}
+
+function resetZones() {
+  currentActiveZones = null;
+  document.querySelectorAll('.zone-box').forEach(box => box.classList.remove('dimmed', 'highlighted'));
+  document.getElementById('zone-filter-info').style.display = 'none';
+  document.querySelectorAll('.adv-row').forEach(row => row.classList.remove('collapsed-row'));
+  document.querySelectorAll('.adv-detail-row').forEach(row => row.style.display = '');
+  const noMatch = document.getElementById('adv-no-match');
+  if (noMatch) noMatch.classList.remove('visible');
+  document.querySelectorAll('.scenario-card[data-zone]').forEach(card => card.classList.remove('zone-dimmed', 'zone-glow'));
+  const wcDefault = document.getElementById('wc-default');
+  if (wcDefault) wcDefault.style.display = '';
+  document.querySelectorAll('.wc-zone-detail').forEach(d => d.classList.remove('active'));
+}
+
+// ═══════════════════════════════════════════
+// Zone click handlers
+// ═══════════════════════════════════════════
+function attachZoneClickHandlers(container) {
+  container.querySelectorAll('.zone-box').forEach(box => {
+    box.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const zone = box.dataset.zone;
+      if (currentActiveZones && currentActiveZones.length === 1 && currentActiveZones[0] === zone) {
+        resetZones();
+      } else {
+        highlightZones([zone]);
+      }
+    });
+  });
+}
+
+// Attach to main diagram
+const mainDiagram = document.getElementById('arch-diagram');
+if (mainDiagram) {
+  attachZoneClickHandlers(mainDiagram);
+  mainDiagram.addEventListener('click', (e) => {
+    if (e.target.tagName === 'svg' || (e.target.tagName === 'text' && e.target.classList.contains('arch-row-label'))) {
+      resetZones();
+      document.querySelectorAll('.decision-card').forEach(c => c.classList.remove('open'));
+    }
+  });
+}
+
+// ═══════════════════════════════════════════
+// Architecture view toggle
+// ═══════════════════════════════════════════
+function setArchView(view, btn) {
+  document.querySelectorAll('.arch-toggle').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (view === 'baseline') {
+    document.querySelectorAll('.zone-box').forEach(box => { box.style.opacity = '0.25'; });
+    document.getElementById('zone-filter-info').textContent = 'Baseline view: before merge';
+    document.getElementById('zone-filter-info').style.display = 'block';
+  } else {
+    document.querySelectorAll('.zone-box').forEach(box => {
+      box.style.opacity = '1';
+      box.classList.remove('dimmed', 'highlighted');
+    });
+    document.getElementById('zone-filter-info').style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════
+// Architecture zoom
+// ═══════════════════════════════════════════
+let archZoomLevel = 1;
+const archOriginalViewBox = (function() {
+  const svg = document.getElementById('arch-diagram');
+  return svg ? svg.getAttribute('viewBox') : '0 0 780 400';
+})();
+
+function archZoom(direction) {
+  const svg = document.getElementById('arch-diagram');
+  if (!svg) return;
+  const parts = archOriginalViewBox.split(/\s+/).map(Number);
+  if (direction === 0) {
+    archZoomLevel = 1;
+  } else {
+    archZoomLevel = Math.max(0.5, Math.min(2.5, archZoomLevel + direction * 0.25));
+  }
+  const cx = parts[0] + parts[2] / 2;
+  const cy = parts[1] + parts[3] / 2;
+  const newW = parts[2] / archZoomLevel;
+  const newH = parts[3] / archZoomLevel;
+  svg.setAttribute('viewBox',
+    (cx - newW/2).toFixed(0) + ' ' + (cy - newH/2).toFixed(0) + ' ' +
+    newW.toFixed(0) + ' ' + newH.toFixed(0));
+}
+
+// ═══════════════════════════════════════════
+// Sticky floating architecture diagram
+// ═══════════════════════════════════════════
+let floatingDismissed = false;
+
+(function initFloatingDiagram() {
+  const archSection = document.getElementById('arch-diagram');
+  const floatingContainer = document.getElementById('arch-floating');
+  const floatingContent = document.getElementById('arch-floating-content');
+  if (!archSection || !floatingContainer) return;
+
+  const svgClone = archSection.cloneNode(true);
+  svgClone.removeAttribute('id');
+  svgClone.style.width = '100%';
+  svgClone.style.maxWidth = 'none';
+  floatingContent.appendChild(svgClone);
+
+  attachZoneClickHandlers(floatingContainer);
+  svgClone.addEventListener('click', (e) => {
+    if (e.target.tagName === 'svg' || (e.target.tagName === 'text' && e.target.classList.contains('arch-row-label'))) {
+      resetZones();
+    }
+  });
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (floatingDismissed) return;
+      floatingContainer.classList.toggle('visible', !entry.isIntersecting);
+    });
+  }, { threshold: 0.1 });
+  observer.observe(archSection);
+})();
+
+function dismissFloatingDiagram() {
+  floatingDismissed = true;
+  document.getElementById('arch-floating').classList.remove('visible');
+}
+
+// ═══════════════════════════════════════════
+// Diff data cache
+// ═══════════════════════════════════════════
+let diffDataCache = null;
+let diffDataLoading = false;
+let diffDataCallbacks = [];
+
+function loadDiffData(cb) {
+  if (diffDataCache) { cb(diffDataCache); return; }
+  diffDataCallbacks.push(cb);
+  if (diffDataLoading) return;
+  diffDataLoading = true;
+  fetch('pr_diff_data.json')
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(data => {
+      diffDataCache = data;
+      diffDataCallbacks.forEach(fn => fn(data));
+      diffDataCallbacks = [];
+    })
+    .catch(err => {
+      diffDataCallbacks.forEach(fn => fn(null, err));
+      diffDataCallbacks = [];
+    })
+    .finally(() => { diffDataLoading = false; });
+}
+
+// ═══════════════════════════════════════════
+// File diff modal
+// ═══════════════════════════════════════════
+let currentFilePath = null;
+let currentFileData = null;
+let currentView = 'side-by-side';
+
+function openFileModal(path) {
+  currentFilePath = path;
+  const overlay = document.getElementById('file-modal-overlay');
+  const pathEl = document.getElementById('file-modal-path');
+  const statsEl = document.getElementById('file-modal-stats');
+  const link = document.getElementById('file-modal-github-link');
+  const body = document.getElementById('file-modal-body');
+
+  pathEl.textContent = path;
+  // Build GitHub URL from DATA if available
+  const prUrl = (DATA.header && DATA.header.prUrl) || '';
+  const headBranch = (DATA.header && DATA.header.headBranch) || 'main';
+  const repoUrl = prUrl.replace(/\/pull\/\d+$/, '');
+  link.href = repoUrl + '/blob/' + headBranch + '/' + path;
+
+  document.querySelectorAll('.file-modal-tab').forEach(t => t.classList.remove('active'));
+  const activeTab = document.querySelector('.file-modal-tab[data-view="' + currentView + '"]');
+  if (activeTab) activeTab.classList.add('active');
+
+  statsEl.innerHTML = '';
+  body.innerHTML = '<div class="diff-loading">Loading diff data&hellip;</div>';
+  overlay.classList.add('visible');
+  document.body.style.overflow = 'hidden';
+
+  loadDiffData((data, err) => {
+    if (err || !data) {
+      body.innerHTML = '<div class="diff-error">Failed to load diff data.</div>';
+      return;
+    }
+    currentFileData = data.files[path] || null;
+    if (!currentFileData) {
+      // Check for embedded reference file content (spec files, etc.)
+      var refContent = (typeof REFERENCE_FILES !== 'undefined') && REFERENCE_FILES[path];
+      if (refContent) {
+        currentFileData = { raw: refContent, diff: '', additions: 0, deletions: 0 };
+        statsEl.innerHTML = '<span style="color:var(--text-secondary);font-size:12px">' +
+          'Reference file &mdash; not modified in this PR</span>';
+        // Default to raw view for reference files
+        currentView = 'raw';
+        document.querySelectorAll('.file-modal-tab').forEach(function(t) { t.classList.remove('active'); });
+        var rawTab = document.querySelector('.file-modal-tab[data-view="raw"]');
+        if (rawTab) rawTab.classList.add('active');
+        renderDiffView('raw');
+        return;
+      }
+      var ghLink = link.href;
+      body.innerHTML = '<div style="text-align:center;padding:40px 20px">' +
+        '<div style="font-size:14px;color:var(--text-secondary);margin-bottom:16px">' +
+        'This file was not modified in this PR.</div>' +
+        '<a href="' + escapeHtml(ghLink) + '" target="_blank" ' +
+        'style="display:inline-block;padding:10px 24px;background:var(--blue);color:white;' +
+        'border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">' +
+        'View on GitHub &rarr;</a></div>';
+      return;
+    }
+    statsEl.innerHTML = '<span class="fm-add">+' + currentFileData.additions + '</span> <span class="fm-del">-' + currentFileData.deletions + '</span>';
+    renderDiffView(currentView);
+  });
+}
+
+function closeFileModal() {
+  document.getElementById('file-modal-overlay').classList.remove('visible');
+  document.body.style.overflow = '';
+  currentFilePath = null;
+  currentFileData = null;
+}
+
+function setFileModalTab(btn, view) {
+  document.querySelectorAll('.file-modal-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  currentView = view;
+  if (currentFileData) renderDiffView(view);
+}
+
+function escapeHtml(s) {
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+function renderDiffView(view) {
+  const body = document.getElementById('file-modal-body');
+  if (!currentFileData) return;
+  if (view === 'raw') renderRawView(body);
+  else if (view === 'integrated') renderUnifiedView(body);
+  else renderSplitView(body);
+}
+
+// ═══════════════════════════════════════════
+// Syntax highlighting (lightweight, no deps)
+// ═══════════════════════════════════════════
+function detectLanguage(filePath) {
+  if (!filePath) return 'text';
+  const ext = filePath.split('.').pop().toLowerCase();
+  const map = {
+    'py': 'python', 'yaml': 'yaml', 'yml': 'yaml', 'md': 'markdown',
+    'sh': 'shell', 'bash': 'shell', 'js': 'javascript', 'ts': 'javascript',
+    'jsx': 'javascript', 'tsx': 'javascript',
+  };
+  return map[ext] || 'text';
+}
+
+function highlightCode(text, language) {
+  if (language === 'text') return text;
+
+  if (language === 'python') {
+    text = text.replace(/(&#39;&#39;&#39;[\s\S]*?&#39;&#39;&#39;|&quot;&quot;&quot;[\s\S]*?&quot;&quot;&quot;)/g, '<span style="color:#ce9178">$1</span>');
+    text = text.replace(/((?<!\\)&#39;(?:[^\\]|\\.)*?&#39;|(?<!\\)&quot;(?:[^\\]|\\.)*?&quot;)/g, function(m) {
+      if (m.indexOf('style=') !== -1) return m;
+      return '<span style="color:#ce9178">' + m + '</span>';
+    });
+    text = text.replace(/(#[^\n]*)/g, function(m) {
+      if (m.indexOf('style=') !== -1) return m;
+      return '<span style="color:#6a9955">' + m + '</span>';
+    });
+    text = text.replace(/(@\w+)/g, '<span style="color:#dcdcaa">$1</span>');
+    text = text.replace(/\b(True|False|None)\b/g, '<span style="color:#569cd6">$1</span>');
+    text = text.replace(/\b(def|class|import|from|if|else|elif|for|while|return|yield|with|as|try|except|finally|raise|not|and|or|in|is|pass|break|continue|lambda|global|nonlocal|async|await|self)\b/g, function(m) {
+      return '<span style="color:#c586c0">' + m + '</span>';
+    });
+    text = text.replace(/\b(\d+\.?\d*(?:e[+-]?\d+)?)\b/g, '<span style="color:#b5cea8">$1</span>');
+    return text;
+  }
+
+  if (language === 'yaml') {
+    text = text.replace(/(#[^\n]*)/g, '<span style="color:#6a9955">$1</span>');
+    text = text.replace(/\b(true|false|yes|no|on|off)\b/gi, '<span style="color:#569cd6">$1</span>');
+    text = text.replace(/^(\s*)([\w][\w.-]*?)(:)/gm, '$1<span style="color:#9cdcfe">$2</span>$3');
+    text = text.replace(/(&#39;[^]*?&#39;|&quot;[^]*?&quot;)/g, function(m) {
+      if (m.indexOf('style=') !== -1) return m;
+      return '<span style="color:#ce9178">' + m + '</span>';
+    });
+    return text;
+  }
+
+  if (language === 'markdown') {
+    text = text.replace(/^(#{1,6}\s.*)$/gm, '<span style="color:#569cd6">$1</span>');
+    text = text.replace(/(\*\*[^*]+\*\*)/g, '<span style="color:#dcdcaa;font-weight:bold">$1</span>');
+    text = text.replace(/(`[^`]+`)/g, '<span style="color:#ce9178">$1</span>');
+    return text;
+  }
+
+  if (language === 'shell') {
+    text = text.replace(/(#[^\n]*)/g, '<span style="color:#6a9955">$1</span>');
+    text = text.replace(/(&#39;[^]*?&#39;|&quot;[^]*?&quot;)/g, function(m) {
+      if (m.indexOf('style=') !== -1) return m;
+      return '<span style="color:#ce9178">' + m + '</span>';
+    });
+    text = text.replace(/(\$\{?\w+\}?)/g, '<span style="color:#9cdcfe">$1</span>');
+    text = text.replace(/\b(if|then|else|elif|fi|for|do|done|while|case|esac|echo|export|set|source|local|readonly|declare|unset|shift|eval|exec|trap|exit|return|function)\b/g, '<span style="color:#c586c0">$1</span>');
+    return text;
+  }
+
+  if (language === 'javascript') {
+    text = text.replace(/(&#39;[^]*?&#39;|&quot;[^]*?&quot;|`[^]*?`)/g, function(m) {
+      if (m.indexOf('style=') !== -1) return m;
+      return '<span style="color:#ce9178">' + m + '</span>';
+    });
+    text = text.replace(/(\/\/[^\n]*)/g, function(m) {
+      if (m.indexOf('style=') !== -1) return m;
+      return '<span style="color:#6a9955">' + m + '</span>';
+    });
+    text = text.replace(/\b(true|false|null|undefined|NaN|Infinity)\b/g, '<span style="color:#569cd6">$1</span>');
+    text = text.replace(/\b(const|let|var|function|class|if|else|for|while|do|switch|case|break|continue|return|import|export|from|default|new|this|typeof|instanceof|in|of|try|catch|finally|throw|async|await|yield)\b/g, '<span style="color:#c586c0">$1</span>');
+    return text;
+  }
+
+  return text;
+}
+
+// ── Raw file view ──
+function renderRawView(container) {
+  const raw = currentFileData.raw || '';
+  if (!raw) {
+    container.innerHTML = '<div class="diff-error">File was deleted or is binary.</div>';
+    return;
+  }
+  const lang = detectLanguage(currentFilePath);
+  const lines = raw.split('\n');
+  let html = '<div class="diff-view diff-raw"><table>';
+  for (let i = 0; i < lines.length; i++) {
+    const escaped = escapeHtml(lines[i]);
+    const highlighted = highlightCode(escaped, lang);
+    html += '<tr><td class="diff-ln">' + (i + 1) + '</td><td>' + highlighted + '</td></tr>';
+  }
+  html += '</table></div>';
+  container.innerHTML = html;
+}
+
+// ── Unified (integrated) diff view ──
+function renderUnifiedView(container) {
+  const diff = currentFileData.diff || '';
+  if (!diff) { container.innerHTML = '<div class="diff-error">No diff available.</div>'; return; }
+  const lines = diff.split('\n');
+  let html = '<div class="diff-view"><table class="diff-unified">';
+  let oldLn = 0, newLn = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.startsWith('diff --git') || line.startsWith('index ') || line.startsWith('---') || line.startsWith('+++')) continue;
+    if (isDiffMetaLine(line)) continue;
+    if (line.startsWith('@@')) {
+      const m = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)/);
+      if (m) { oldLn = parseInt(m[1]); newLn = parseInt(m[2]); html += '<tr><td class="diff-ln" colspan="2"></td><td class="diff-hunk">' + escapeHtml(line) + '</td></tr>'; }
+      continue;
+    }
+    if (line.startsWith('+')) { html += '<tr class="diff-add"><td class="diff-ln"></td><td class="diff-ln">' + newLn + '</td><td>' + escapeHtml(line.slice(1)) + '</td></tr>'; newLn++; continue; }
+    if (line.startsWith('-')) { html += '<tr class="diff-del"><td class="diff-ln">' + oldLn + '</td><td class="diff-ln"></td><td>' + escapeHtml(line.slice(1)) + '</td></tr>'; oldLn++; continue; }
+    if (line.startsWith(' ') || line === '') { html += '<tr class="diff-ctx"><td class="diff-ln">' + oldLn + '</td><td class="diff-ln">' + newLn + '</td><td>' + escapeHtml(line.slice(1)) + '</td></tr>'; oldLn++; newLn++; }
+  }
+  html += '</table></div>';
+  container.innerHTML = html;
+}
+
+const DIFF_SKIP_PATTERNS = [/^new file mode/, /^deleted file mode/, /^old mode/, /^new mode/, /^similarity index/, /^rename from/, /^rename to/, /^Binary files/];
+function isDiffMetaLine(line) { return DIFF_SKIP_PATTERNS.some(p => p.test(line)); }
+
+// ── Side-by-side diff view ──
+function renderSplitView(container) {
+  const diff = currentFileData.diff || '';
+  if (!diff) { container.innerHTML = '<div class="diff-error">No diff available.</div>'; return; }
+
+  const isNewFile = currentFileData.status === 'added' || (currentFileData.deletions === 0 && currentFileData.additions > 0);
+  const isDeletedFile = currentFileData.status === 'deleted' || (currentFileData.additions === 0 && currentFileData.deletions > 0);
+
+  if (isNewFile || isDeletedFile) {
+    const bannerClass = isNewFile ? 'diff-new-file-banner' : 'diff-deleted-file-banner';
+    const bannerText = isNewFile ? 'New file &mdash; showing additions' : 'Deleted file &mdash; showing deletions';
+    const lines = diff.split('\n');
+    let html = '<div class="' + bannerClass + '">' + bannerText + '</div><div class="diff-view diff-split-wrapper"><table class="diff-unified">';
+    let ln = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.startsWith('diff --git') || line.startsWith('index ') || line.startsWith('---') || line.startsWith('+++')) continue;
+      if (isDiffMetaLine(line)) continue;
+      if (line.startsWith('@@')) { const m = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)/); if (m) { ln = isNewFile ? parseInt(m[2]) : parseInt(m[1]); html += '<tr><td class="diff-ln"></td><td class="diff-hunk">' + escapeHtml(line) + '</td></tr>'; } continue; }
+      if (isNewFile && line.startsWith('+')) { html += '<tr class="diff-add"><td class="diff-ln">' + ln + '</td><td>' + escapeHtml(line.slice(1)) + '</td></tr>'; ln++; }
+      else if (isDeletedFile && line.startsWith('-')) { html += '<tr class="diff-del"><td class="diff-ln">' + ln + '</td><td>' + escapeHtml(line.slice(1)) + '</td></tr>'; ln++; }
+      else if (line.startsWith(' ') || line === '') { html += '<tr class="diff-ctx"><td class="diff-ln">' + ln + '</td><td>' + escapeHtml(line.slice(1)) + '</td></tr>'; ln++; }
+    }
+    html += '</table></div>';
+    container.innerHTML = html;
+    return;
+  }
+
+  // Parse unified diff into side-by-side pairs
+  const lines = diff.split('\n');
+  const pairs = [];
+  let oldLn = 0, newLn = 0;
+  const addBuffer = [], delBuffer = [];
+
+  function flushBuffers() {
+    const max = Math.max(addBuffer.length, delBuffer.length);
+    for (let j = 0; j < max; j++) {
+      const hasOld = j < delBuffer.length, hasNew = j < addBuffer.length;
+      pairs.push({ type: hasOld && hasNew ? 'change' : hasNew ? 'add' : 'del', oldLn: hasOld ? delBuffer[j].ln : null, newLn: hasNew ? addBuffer[j].ln : null, oldText: hasOld ? delBuffer[j].text : '', newText: hasNew ? addBuffer[j].text : '' });
+    }
+    addBuffer.length = 0; delBuffer.length = 0;
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.startsWith('diff --git') || line.startsWith('index ') || line.startsWith('---') || line.startsWith('+++')) continue;
+    if (isDiffMetaLine(line)) continue;
+    if (line.startsWith('@@')) { flushBuffers(); const m = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)/); if (m) { oldLn = parseInt(m[1]); newLn = parseInt(m[2]); pairs.push({ type: 'hunk', hunkText: line }); } continue; }
+    if (line.startsWith('+')) { addBuffer.push({ ln: newLn, text: line.slice(1) }); newLn++; }
+    else if (line.startsWith('-')) { delBuffer.push({ ln: oldLn, text: line.slice(1) }); oldLn++; }
+    else { flushBuffers(); pairs.push({ type: 'ctx', oldLn: oldLn, newLn: newLn, oldText: line.slice(1), newText: line.slice(1) }); oldLn++; newLn++; }
+  }
+  flushBuffers();
+
+  let html = '<div class="diff-view diff-split-wrapper"><table class="diff-split">';
+  for (const p of pairs) {
+    if (p.type === 'hunk') { html += '<tr class="diff-hunk"><td colspan="5" style="padding:4px 8px;background:rgba(56,139,253,0.08);color:#58a6ff;font-style:italic;font-size:11px">' + escapeHtml(p.hunkText) + '</td></tr>'; continue; }
+    const leftCls = p.type === 'del' || p.type === 'change' ? ' diff-del' : p.type === 'add' ? ' diff-empty' : ' diff-ctx';
+    const rightCls = p.type === 'add' || p.type === 'change' ? ' diff-add' : p.type === 'del' ? ' diff-empty' : ' diff-ctx';
+    html += '<tr><td class="diff-ln' + leftCls + '">' + (p.oldLn != null ? p.oldLn : '') + '</td><td class="diff-code-left' + leftCls + '">' + (p.type === 'add' ? '' : escapeHtml(p.oldText)) + '</td><td class="diff-sep"></td><td class="diff-ln' + rightCls + '">' + (p.newLn != null ? p.newLn : '') + '</td><td class="diff-code-right' + rightCls + '">' + (p.type === 'del' ? '' : escapeHtml(p.newText)) + '</td></tr>';
+  }
+  html += '</table></div>';
+  container.innerHTML = html;
+}
+
+// Close modal on Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { closeFileModal(); hideGatePopover(); }
+});
+
+// ═══════════════════════════════════════════
+// Gate findings popover
+// ═══════════════════════════════════════════
+function showGatePopover(event, text) {
+  event.stopPropagation();
+  const popover = document.getElementById('gate-popover');
+  popover.textContent = '';
+  const lines = text.split('\\n');
+  lines.forEach((line, i) => {
+    popover.appendChild(document.createTextNode(line));
+    if (i < lines.length - 1) popover.appendChild(document.createElement('br'));
+  });
+  const rect = event.target.getBoundingClientRect();
+  popover.style.left = rect.left + 'px';
+  popover.style.top = (rect.bottom + 6) + 'px';
+  popover.classList.add('visible');
+  setTimeout(() => { hideGatePopover(); }, 5000);
+}
+
+function hideGatePopover() {
+  document.getElementById('gate-popover').classList.remove('visible');
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.classList.contains('gate-clickable')) hideGatePopover();
+});
+</script>
+</body>
+</html>

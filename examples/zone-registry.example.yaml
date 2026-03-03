@@ -1,0 +1,31 @@
+# Zone Registry Example
+# Copy this to .claude/zone-registry.yaml and customize for your project.
+# The review pack uses this to map files to architectural zones.
+
+zones:
+  source:
+    paths: ["src/**"]
+    specs: []
+    category: product
+    label: "Source"
+    sublabel: "Application code"
+  tests:
+    paths: ["tests/**"]
+    category: product
+    label: "Tests"
+    sublabel: "Test suite"
+  config:
+    paths: ["*.toml", "*.yaml", "Makefile", "requirements*"]
+    category: infra
+    label: "Config"
+    sublabel: "Build and project configuration"
+  docs:
+    paths: ["docs/**", "*.md"]
+    category: infra
+    label: "Docs"
+    sublabel: "Documentation"
+  ci:
+    paths: [".github/**"]
+    category: infra
+    label: "CI"
+    sublabel: "Continuous integration"
