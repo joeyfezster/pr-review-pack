@@ -31,6 +31,22 @@ from pathlib import Path
 
 import yaml
 
+
+def _get_repo_slug(override: str | None = None) -> str:
+    """Return owner/repo from CLI flag or git remote origin."""
+    if override:
+        return override
+    url = subprocess.check_output(
+        ["git", "remote", "get-url", "origin"], text=True
+    ).strip()
+    # git@github.com:owner/repo.git  OR  https://github.com/owner/repo.git
+    if ":" in url and "@" in url:
+        slug = url.split(":")[-1]
+    else:
+        slug = "/".join(url.split("/")[-2:])
+    return slug.removesuffix(".git")
+
+
 # ── Zone position layout ────────────────────────────────────────────
 # Deterministic: category → row, sequential x within row.
 ROW_Y = {"factory": 30, "product": 160, "infra": 290}
@@ -102,7 +118,8 @@ def parse_ci_time(started: str, completed: str) -> float:
 
 def build_header(pr_number: int, diff_data: dict, pr_meta: dict,
                  scenario_data: dict | None, ci_checks: list,
-                 comment_counts: dict, gate0_data: dict | None) -> dict:
+                 comment_counts: dict, gate0_data: dict | None,
+                 repo_slug: str = "") -> dict:
     """Build the header section from deterministic sources."""
     # Gate 0 badge
     if gate0_data:
@@ -149,7 +166,7 @@ def build_header(pr_number: int, diff_data: dict, pr_meta: dict,
     return {
         "title": pr_meta.get("title", f"PR #{pr_number}"),
         "prNumber": pr_number,
-        "prUrl": pr_meta.get("url", f"https://github.com/joeyfezster/building_ai_w_ai/pull/{pr_number}"),
+        "prUrl": pr_meta.get("url", f"https://github.com/{repo_slug}/pull/{pr_number}"),
         "headBranch": pr_meta.get("headRefName", ""),
         "baseBranch": pr_meta.get("baseRefName", "main"),
         "headSha": pr_meta.get("headRefOid", diff_data.get("head_sha", ""))[:7],
@@ -323,7 +340,7 @@ def build_convergence(scenario_data: dict | None, ci_checks: list,
         g0_status_text = "NOT RUN"
         g0_detail = (
             "gate0_results.json not found. "
-            "Run: python packages/dark-factory/scripts/run_gate0.py"
+            "Run: python scripts/run_gate0.py (from dark-factory package)"
         )
 
     # Gate 1 — we can only say pass/fail based on CI validate job
@@ -387,7 +404,8 @@ def build_convergence(scenario_data: dict | None, ci_checks: list,
 
 def scaffold(pr_number: int, diff_data_path: str, zone_registry_path: str,
              scenario_results_path: str | None, gate0_results_path: str | None,
-             existing_path: str | None, output_path: str) -> None:
+             existing_path: str | None, output_path: str,
+             repo_slug: str = "") -> None:
     # Load inputs
     diff_data = json.loads(Path(diff_data_path).read_text())
     zones_registry = yaml.safe_load(Path(zone_registry_path).read_text()).get("zones", {})
@@ -421,8 +439,9 @@ def scaffold(pr_number: int, diff_data_path: str, zone_registry_path: str,
     ci_checks = json.loads(ci_raw) if ci_raw else []
 
     # Fetch comment counts
+    owner, name = repo_slug.split("/") if "/" in repo_slug else ("", "")
     comment_query = f'''{{
-      repository(owner: "joeyfezster", name: "building_ai_w_ai") {{
+      repository(owner: "{owner}", name: "{name}") {{
         pullRequest(number: {pr_number}) {{
           reviewThreads(first: 100) {{
             nodes {{ isResolved }}
@@ -445,7 +464,7 @@ def scaffold(pr_number: int, diff_data_path: str, zone_registry_path: str,
     # Build deterministic sections
     header = build_header(
         pr_number, diff_data, pr_meta, scenario_data,
-        ci_checks, comment_counts, gate0_data,
+        ci_checks, comment_counts, gate0_data, repo_slug,
     )
     architecture = build_architecture(zones_registry, diff_data)
     specs = build_specs(zones_registry)
@@ -545,7 +564,11 @@ def main() -> None:
     parser.add_argument("--existing", default=None,
                         help="Existing JSON (preserves semantic fields)")
     parser.add_argument("--output", required=True)
+    parser.add_argument("--repo", default=None,
+                        help="GitHub repo slug (owner/repo). Auto-detected from git remote if omitted.")
     args = parser.parse_args()
+
+    repo_slug = _get_repo_slug(args.repo)
 
     scaffold(
         pr_number=args.pr,
@@ -555,6 +578,7 @@ def main() -> None:
         gate0_results_path=args.gate0_results,
         existing_path=args.existing,
         output_path=args.output,
+        repo_slug=repo_slug,
     )
 
 

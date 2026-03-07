@@ -6,13 +6,18 @@ The project lead reviews the report, not the code. The review pack is the artifa
 
 ## Prerequisites
 
+- **Python 3.12+** with `pyyaml` installed (`pip install -r requirements.txt`)
+- **git**
+- **gh CLI** (authenticated -- run `gh auth login`) -- used for PR metadata, CI checks, and comment resolution
 - **Claude Code** with Agent Teams enabled (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`)
-- **Python 3.12+**
-- **git** and **gh CLI** (authenticated)
 
 ## Quick Start
 
-1. Copy `packages/pr-review-pack/` into your repo's `.claude/skills/pr-review-pack/` directory.
+1. Clone into your repo's Claude Code skills directory:
+   ```bash
+   git clone https://github.com/joeyfezster/pr-review-pack.git .claude/skills/pr-review-pack
+   pip install -r .claude/skills/pr-review-pack/requirements.txt
+   ```
 2. Create a zone registry from the example:
    ```bash
    cp .claude/skills/pr-review-pack/examples/zone-registry.example.yaml .claude/zone-registry.yaml
