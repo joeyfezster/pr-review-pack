@@ -183,6 +183,8 @@
   .arch-toggle { padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: white; color: var(--text-secondary); }
   .arch-toggle.active { background: var(--blue); color: white; border-color: var(--blue); }
   .arch-hint { font-size: 11px; color: var(--text-muted); margin-left: 8px; }
+  #arch-diagram { cursor: grab; }
+  #arch-diagram.panning { cursor: grabbing; }
   .zone-box { cursor: pointer; transition: opacity 0.3s, filter 0.3s; }
   .zone-box:hover { filter: brightness(0.95); }
   .zone-box.dimmed { opacity: 0.12; }
@@ -973,6 +975,58 @@ function archZoom(direction) {
     (cx - newW/2).toFixed(0) + ' ' + (cy - newH/2).toFixed(0) + ' ' +
     newW.toFixed(0) + ' ' + newH.toFixed(0));
 }
+
+// ═══════════════════════════════════════════
+// Architecture pan (click-to-drag)
+// ═══════════════════════════════════════════
+(function initArchPan() {
+  const svg = document.getElementById('arch-diagram');
+  if (!svg) return;
+
+  let isPanning = false;
+  let startX, startY, startViewBox;
+
+  function isClickableTarget(el) {
+    while (el && el !== svg) {
+      if (el.classList && el.classList.contains('zone-box')) return true;
+      if (el.classList && el.classList.contains('zone-label')) return true;
+      if (el.classList && el.classList.contains('zone-sublabel')) return true;
+      if (el.classList && el.classList.contains('zone-count-bg')) return true;
+      if (el.classList && el.classList.contains('zone-file-count')) return true;
+      el = el.parentNode;
+    }
+    return false;
+  }
+
+  svg.addEventListener('mousedown', (e) => {
+    if (e.button !== 0 || isClickableTarget(e.target)) return;
+    isPanning = true;
+    svg.classList.add('panning');
+    startX = e.clientX;
+    startY = e.clientY;
+    startViewBox = svg.getAttribute('viewBox').split(/\s+/).map(Number);
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isPanning) return;
+    const svgRect = svg.getBoundingClientRect();
+    const scaleX = startViewBox[2] / svgRect.width;
+    const scaleY = startViewBox[3] / svgRect.height;
+    const dx = (startX - e.clientX) * scaleX;
+    const dy = (startY - e.clientY) * scaleY;
+    svg.setAttribute('viewBox',
+      (startViewBox[0] + dx).toFixed(0) + ' ' +
+      (startViewBox[1] + dy).toFixed(0) + ' ' +
+      startViewBox[2] + ' ' + startViewBox[3]);
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (!isPanning) return;
+    isPanning = false;
+    svg.classList.remove('panning');
+  });
+})();
 
 // ═══════════════════════════════════════════
 // Sticky floating architecture diagram
