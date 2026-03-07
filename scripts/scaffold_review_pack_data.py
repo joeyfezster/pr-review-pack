@@ -564,8 +564,10 @@ def main() -> None:
     parser.add_argument("--existing", default=None,
                         help="Existing JSON (preserves semantic fields)")
     parser.add_argument("--output", required=True)
-    parser.add_argument("--repo", default=None,
-                        help="GitHub repo slug (owner/repo). Auto-detected from git remote if omitted.")
+    parser.add_argument(
+        "--repo", default=None,
+        help="GitHub repo slug (owner/repo). Auto-detected from git remote if omitted.",
+    )
     args = parser.parse_args()
 
     repo_slug = _get_repo_slug(args.repo)
