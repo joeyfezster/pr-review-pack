@@ -3,6 +3,7 @@ name: pr-review-pack
 description: This skill should be used when the user asks to "generate a review pack", "create a PR review pack", "build a review pack for this PR", "make a review report", or when a PR is ready for review and needs a review pack artifact. Generates a self-contained interactive HTML review pack following the three-pass pipeline.
 user-invocable: true
 argument-hint: "[PR-url-or-number]"
+allowed-tools: Bash(python3 *), Bash(gh *), Bash(git diff *), Bash(git log *), Bash(git show *), Bash(git status *), Bash(screencapture *), Bash(osascript *), Bash(open *), Bash(sleep *), Bash(which *), Read, Edit, Write, Glob, Grep
 ---
 
 # PR Review Pack Generator
@@ -25,60 +26,7 @@ Example for PR #6: `docs/pr6_review_pack.html`, `docs/pr6_diff_data.json`.
 
 ## Prerequisites
 
-Before generating a review pack, verify all PR readiness criteria are met. **All three gates must be green. If any gate fails, stop and fix it before proceeding.** Never present a review pack with a failed prerequisite.
-
-**CRITICAL: Prerequisites must be checked in order. Gate 2 (comments) CANNOT be checked until Gate 1 (CI) is fully complete.** Bot reviewers (Copilot, Codex connector) post their comments AFTER CI finishes. Checking comments before CI completes will produce a stale "0 comments" result that becomes false minutes later. This has happened before — don't repeat it.
-
-### Gate 1: CI checks GREEN on HEAD
-
-```bash
-gh pr checks <N>
-```
-
-Wait until ALL checks complete (not just start). CI typically takes 4-6 minutes. If a bot pushed the HEAD commit (GITHUB_TOKEN), CI may not have re-triggered — push a human-authored commit to fix.
-
-### Gate 2: All review comments resolved
-
-**Run this AFTER Gate 1 is fully green.** Bot reviewers post comments after CI completes.
-
-```bash
-# Get unresolved thread count via GraphQL
-gh api graphql -f query='
-{
-  repository(owner: "{owner}", name: "{repo}") {
-    pullRequest(number: {N}) {
-      reviewThreads(first: 100) {
-        nodes { isResolved }
-      }
-    }
-  }
-}' --jq '{
-  total: (.data.repository.pullRequest.reviewThreads.nodes | length),
-  unresolved: ([.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length)
-}'
-```
-
-If `unresolved > 0`: resolve or address every comment before proceeding. Both human and AI reviewer comments (Copilot, Codex bot) count.
-
-**Handling unresolved comments:** For each comment, the orchestrator must evaluate and route:
-
-1. **Evaluate** the comment. Bot reviewers can be wrong. For each recommendation, reason about: Is it valid? Is it in scope? What severity does it actually warrant? Not every recommendation becomes action.
-2. **Route by who can fix it:**
-   - **Orchestrator's agent team territory** (non-product: infra, config, dependency compilation, docs, CI): Spawn an agent to fix it directly. Resolve the thread after the fix is pushed.
-   - **Attractor territory** (product code OR complex logic OR security issues OR code performance): Synthesize the comment into `artifacts/factory/post_merge_feedback.md` — preserving the file path, line number, what was flagged, and the orchestrator's assessment. Then loop back to the attractor (new factory iteration) with this feedback.
-   - **Invalid/false-positive**: Resolve the thread with a reply explaining why the recommendation was declined.
-
-**Every thread resolution MUST include a reply comment** explaining how it was resolved — what was done, by whom, and where (commit SHA or feedback file). Never resolve a thread silently. The comment is the audit trail.
-
-In both routing cases, the goal is to fix it now — not carry tech debt. The distinction is only about which actor handles the fix.
-
-**Comment counts are deterministic metadata.** They must be pulled via the GraphQL query above and injected directly into the review pack data — never passed through an LLM agent for counting. Pass 1 (deterministic) owns PR metadata extraction, not Pass 2 (semantic). The badge shows `X/Y comments resolved` where Y is the total thread count and X is the resolved count, both from the API.
-
-### Gate 3: The review pack itself
-
-This is what this skill produces. It is always the last gate.
-
-If any gate is unmet, state what is blocking and resolve it before proceeding.
+Before generating, verify all PR readiness gates are met **in order**. See `references/prerequisites.md` for the full gate-checking procedure (CI → comments → pack). All three gates must be green — if any fails, stop and fix before proceeding.
 
 ## Three-Pass Pipeline
 
@@ -289,43 +237,6 @@ The registry enables:
 - **Decision to Zone:** LLM-produced but verifiable -- must have at least one file in the diff touching that zone's paths
 - **CI Job to Zone:** static mapping (which gates cover which zones)
 
-## Quick Start
-
-Minimal steps to generate a review pack for PR #N:
-
-1. **Verify readiness.** Run `gh pr checks <N>` and check comments. All green? Proceed.
-
-2. **Run Pass 1.** From the project repo root:
-   ```bash
-   python3 .claude/skills/pr-review-pack/scripts/generate_diff_data.py \
-     --base main --head HEAD --output docs/pr{N}_diff_data.json
-   ```
-
-3. **Load zone registry.** Read the project's zone registry file. If it does not exist, create one based on the diff file list and project structure.
-
-4. **Run Pass 2.** Spawn the semantic analysis team. Provide them:
-   - The diff data JSON from Pass 1
-   - The zone registry
-   - The file-to-zone mapping
-   - PR metadata from `gh pr view <N> --json title,number,headRefName,baseRefName,url,commits`
-   - CI check data from `gh pr checks <N>`
-
-   The team produces the `ReviewPackData` JSON. Save to `/tmp/pr{N}_review_pack_data.json`.
-
-5. **Verify Pass 2 output.** For each decision-to-zone claim, confirm at least one file in the diff touches that zone. Flag unverified claims. Confirm code snippet line references exist in the diff.
-
-6. **Run Pass 3.** Render the HTML with embedded diff data:
-   ```bash
-   python3 .claude/skills/pr-review-pack/scripts/render_review_pack.py \
-     --data /tmp/pr{N}_review_pack_data.json \
-     --output docs/pr{N}_review_pack.html \
-     --diff-data docs/pr{N}_diff_data.json
-   ```
-
-7. **Validate.** Run the programmatic validation check. Open in browser if possible.
-
-8. **Deliver.** The HTML file is the review pack. It is fully self-contained — diff data is embedded inline, no companion files needed.
-
 ## Architecture Diagram: Source of Truth (Open Design)
 
 The architecture diagram in the review pack must have **continuity across PRs**. The "updated" diagram after PR N must become the "baseline" diagram before PR N+1. This is not about pixel-perfect positioning — it's about comparing consistent design changes over time.
@@ -361,15 +272,12 @@ If a decision claims to affect zone X but no files in zone X's paths appear in t
 
 ## Reference Files
 
-Detailed specifications for each component of the review pack:
-
-| Reference | What It Covers |
-|-----------|---------------|
-| `references/build-spec.md` | **Authoritative build specification** — full data schema, zone registry spec, section-by-section guide, pipeline delegation, CSS design system, validation checklist. The comprehensive "what and why." |
-| `references/data-schema.md` | Quick-access: TypeScript-style data schema for ReviewPackData |
-| `references/section-guide.md` | Quick-access: section-by-section build reference (all 9 sections + Factory History) |
-| `references/css-design-system.md` | Quick-access: CSS tokens, dark mode, component patterns, layout |
-| `references/validation-checklist.md` | Quick-access: pre-delivery validation checks |
-| `scripts/generate_diff_data.py` | Git diff extraction script (Pass 1) |
-| `scripts/render_review_pack.py` | HTML renderer script (Pass 3) — injects data into template |
-| `assets/template.html` | HTML template skeleton with `<!-- INJECT: -->` markers and JS interactivity |
+Agent-facing references for building the review pack:
+- `references/build-spec.md` — authoritative build specification (data schema, section guide, CSS, validation)
+- `references/data-schema.md` — TypeScript-style data schema for ReviewPackData
+- `references/section-guide.md` — section-by-section build reference
+- `references/css-design-system.md` — CSS tokens, dark mode, component patterns
+- `references/validation-checklist.md` — pre-delivery validation checks
+- `references/prerequisites.md` — PR readiness gate-checking procedure (CI, comments, routing)
+- `references/pass2b-invocation.md` — exact agent invocation pattern for Pass 2b (who to spawn, what they receive, how to merge)
+- `references/pass2b-output-schema.md` — exact JSON shapes Pass 2b must produce (types + examples for every field)

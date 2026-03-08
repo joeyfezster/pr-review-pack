@@ -93,6 +93,37 @@ If your repo has component specifications in `specs/`, the review pack will cros
 
 When used within the Dark Factory loop, the PR Review Pack reuses Gate 0 Tier 2 (LLM review agent) findings if `artifacts/factory/gate0_results.json` exists. This avoids running the same LLM review twice -- once in Gate 0 and again in the review pack.
 
+## Permissions & Setup
+
+**This skill is extremely permissive.** The SKILL.md `allowed-tools` frontmatter pre-approves broad bash patterns (`python3 *`, `gh *`, `osascript *`, `screencapture *`) to avoid constant permission prompts during the multi-step pipeline. Review the list before adopting.
+
+### Claude Code Permissions
+
+The skill's `allowed-tools` should handle most prompts automatically. If you still get permission requests, add these to your project's `.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 *)", "Bash(gh *)", "Bash(git diff *)", "Bash(git log *)",
+      "Bash(git show *)", "Bash(git status *)", "Bash(screencapture *)",
+      "Bash(osascript *)", "Bash(open *)", "Bash(sleep *)", "Bash(which *)"
+    ]
+  }
+}
+```
+
+### macOS Permissions (one-time, per machine)
+
+Visual validation uses `screencapture` and `osascript` (for scrolling the browser). These require OS-level grants that cannot be automated:
+
+| Permission | Where to grant | When prompted |
+|------------|---------------|---------------|
+| **Screen Recording** | System Settings → Privacy & Security → Screen Recording → iTerm2 | First `screencapture` call |
+| **Accessibility** | System Settings → Privacy & Security → Accessibility → iTerm2 | First `osascript` keystroke call |
+
+Grant once per Mac. **Restart iTerm2 after granting.** If you skip visual validation, these aren't needed — but the red "NOT Visually Inspected" banner will remain on the review pack.
+
 ## License
 
 Apache 2.0 -- see [LICENSE](LICENSE) for details.
