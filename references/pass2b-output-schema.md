@@ -271,8 +271,8 @@ interface CodeSnippet {
       "lineRange": "lines 95-98",
       "code": "protected_dirs = ['scenarios', 'scripts', 'agents', 'specs']\nfor d in protected_dirs:\n    if Path(d).exists():\n        # check for modifications"
     },
-    "failureScenario": "Codex modifies factory scripts at packages/dark-factory/scripts/ without CI flagging it. Factory integrity is silently compromised.",
-    "successScenario": "protected_dirs updated to ['scenarios', 'packages/dark-factory/scripts', 'packages/review-prompts', 'agents', 'specs']. CI correctly flags unauthorized changes to factory infrastructure.",
+    "failureScenario": "Codex modifies factory scripts without CI flagging it. Factory integrity is silently compromised.",
+    "successScenario": "protected_dirs updated to include factory script and review prompt paths. CI correctly flags unauthorized changes to factory infrastructure.",
     "zones": ["ci-pipeline"]
   },
   {
