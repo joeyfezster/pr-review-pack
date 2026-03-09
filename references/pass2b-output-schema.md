@@ -94,14 +94,14 @@ interface AgenticFinding {
 | `findings[].notable` | string | Plain text, one line, no HTML |
 | `findings[].detail` | string | HTML-safe. Use `<code>`, `<strong>`, `<br>`, `<p>`. NO markdown. |
 | `findings[].gradeSortOrder` | number | 0=N/A, 1=A, 2=B+, 3=B, 4=C, 5=F |
-| `findings[].agent` | string | One of: `"code-health"`, `"security"`, `"test-integrity"`, `"adversarial"` |
+| `findings[].agent` | string | One of: `"code-health"`, `"security"`, `"test-integrity"`, `"adversarial"`, `"architecture"` |
 
 ### Common Mistakes (DO NOT MAKE THESE)
 
 - `zones` as an array `["zone-a", "zone-b"]` — WRONG. Must be a space-separated string: `"zone-a zone-b"`
 - `detail` using markdown (`**bold**`, `` `code` ``) — WRONG. Use HTML (`<strong>bold</strong>`, `<code>code</code>`)
 - Missing `gradeSortOrder` — WRONG. The renderer uses this for severity sorting.
-- `agent` value mismatch (e.g., `"Code Health"` instead of `"code-health"`) — WRONG. Use the exact hyphenated lowercase values.
+- `agent` value mismatch (e.g., `"Code Health"` instead of `"code-health"`) — WRONG. Use the exact hyphenated lowercase values: `"code-health"`, `"security"`, `"test-integrity"`, `"adversarial"`, `"architecture"`.
 
 ---
 
@@ -428,6 +428,121 @@ null
 
 ---
 
+## architectureAssessment
+
+Produced by the architecture reviewer (Workstream A, agent 5). Extracted from the `ARCHITECTURE_ASSESSMENT:` JSON block in the architect's response. Set to `null` if the architecture reviewer was not run or produced no assessment.
+
+```typescript
+interface ArchitectureAssessment {
+  baselineDiagram: ArchitectureDiagramData | null;  // architecture BEFORE this PR
+  updateDiagram: ArchitectureDiagramData | null;    // architecture AFTER this PR
+  diagramNarrative: string;                          // HTML-safe explanation of what changed
+
+  unzonedFiles: UnzonedFileEntry[];
+  zoneChanges: ZoneChangeEntry[];
+  registryWarnings: RegistryWarning[];
+  couplingWarnings: CouplingWarning[];
+  docRecommendations: DocRecommendation[];
+  decisionZoneVerification: DecisionVerification[];
+
+  overallHealth: "healthy" | "needs-attention" | "action-required";
+  summary: string;                                   // HTML-safe one-paragraph summary
+}
+
+interface ArchitectureDiagramData {
+  zones: ArchitectureZone[];
+  arrows: ArchitectureArrow[];
+  rowLabels: RowLabel[];
+  highlights: string[];          // zone IDs to visually emphasize
+  narrative: string;             // what this diagram shows
+}
+
+interface UnzonedFileEntry {
+  path: string;
+  suggestedZone: string | null;
+  reason: string;
+}
+
+interface ZoneChangeEntry {
+  type: "new_zone_recommended" | "zone_split" | "zone_merge" | "zone_renamed" | "zone_removed";
+  zone: string;
+  reason: string;
+  suggestedPaths?: string[];
+}
+
+interface RegistryWarning {
+  zone: string;
+  warning: string;
+  severity: "CRITICAL" | "WARNING" | "NIT";
+}
+
+interface CouplingWarning {
+  fromZone: string;
+  toZone: string;
+  files: string[];
+  evidence: string;
+}
+
+interface DocRecommendation {
+  type: "update_needed" | "new_doc_suggested" | "stale_reference";
+  path: string;
+  reason: string;
+}
+
+interface DecisionVerification {
+  decisionNumber: number;
+  claimedZones: string[];
+  verified: boolean;
+  reason: string;
+}
+```
+
+### Example
+
+```json
+{
+  "baselineDiagram": null,
+  "updateDiagram": null,
+  "diagramNarrative": "<p>No architectural changes in this PR.</p>",
+  "unzonedFiles": [
+    {"path": "README.md", "suggestedZone": null, "reason": "Documentation file, no zone match"}
+  ],
+  "zoneChanges": [],
+  "registryWarnings": [
+    {"zone": "zone-beta", "warning": "Missing specs reference", "severity": "WARNING"}
+  ],
+  "couplingWarnings": [],
+  "docRecommendations": [],
+  "decisionZoneVerification": [
+    {"decisionNumber": 1, "claimedZones": ["zone-alpha"], "verified": true, "reason": "3 files in diff touch zone-alpha paths"}
+  ],
+  "overallHealth": "needs-attention",
+  "summary": "<p>1 unzoned file and 1 registry warning.</p>"
+}
+```
+
+### Field Constraints
+
+| Field | Type | Constraint |
+|-------|------|-----------|
+| `overallHealth` | string | One of: `"healthy"`, `"needs-attention"`, `"action-required"` |
+| `summary` | string | HTML-safe paragraph. Use `<p>`, `<code>`, `<strong>`. |
+| `diagramNarrative` | string | HTML-safe. Summarizes what changed architecturally. |
+| `unzonedFiles[].path` | string | File path. Must exist in the diff data. |
+| `unzonedFiles[].suggestedZone` | string or null | Zone ID suggestion, or null if no match. |
+| `registryWarnings[].severity` | string | One of: `"CRITICAL"`, `"WARNING"`, `"NIT"` |
+| `couplingWarnings[].fromZone` | string | Zone ID where the import originates |
+| `couplingWarnings[].toZone` | string | Zone ID being imported into |
+| `decisionZoneVerification[].verified` | boolean | true if zone claim verified against diff |
+
+### `overallHealth` values
+
+- `"healthy"` — all files zoned, registry is complete, no structural issues
+- `"needs-attention"` — minor gaps (a few unzoned files, missing docs) that don't block merge
+- `"action-required"` — significant architectural gaps that should be addressed (many unzoned files, stale zones, major structural change undocumented). This value triggers a `needs-review` status in the review pack.
+
+---
+
 ## Complete Pass 2b Output Shape
 
 When merged into the scaffold JSON, the complete semantic addition looks like this:
@@ -438,6 +553,19 @@ When merged into the scaffold JSON, the complete semantic addition looks like th
     "overallGrade": "B+",
     "reviewMethod": "agent-teams",
     "findings": [ ... ]
+  },
+  "architectureAssessment": {
+    "baselineDiagram": null,
+    "updateDiagram": null,
+    "diagramNarrative": "<p>...</p>",
+    "unzonedFiles": [ ... ],
+    "zoneChanges": [],
+    "registryWarnings": [ ... ],
+    "couplingWarnings": [],
+    "docRecommendations": [],
+    "decisionZoneVerification": [ ... ],
+    "overallHealth": "needs-attention",
+    "summary": "<p>...</p>"
   },
   "whatChanged": {
     "defaultSummary": {

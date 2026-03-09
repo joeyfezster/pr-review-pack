@@ -1,0 +1,21 @@
+{
+  "name": "pr-review-pack",
+  "version": "1.0.0",
+  "description": "Self-contained interactive HTML review pack generator for pull requests, implemented as a Claude Code skill with agent-team-based code review.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "example": "examples",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  }
+}

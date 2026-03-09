@@ -146,7 +146,9 @@ def build_header(pr_number: int, diff_data: dict, pr_meta: dict,
         sc_total = scenario_data.get("total", 0)
     else:
         sc_pass = sc_total = 0
-    if sc_pass == sc_total and sc_total > 0:
+    if sc_total == 0:
+        sc_type = "info"  # no scenarios — neutral, not a failure
+    elif sc_pass == sc_total:
         sc_type = "pass"
     else:
         sc_type = "warn" if sc_pass > 0 else "fail"
@@ -180,9 +182,11 @@ def build_header(pr_number: int, diff_data: dict, pr_meta: dict,
             {"label": f"CI {ci_pass}/{ci_total}",
              "type": ci_type,
              "icon": "\u2713" if ci_type == "pass" else "\u2717"},
-            {"label": f"{sc_pass}/{sc_total} Scenarios",
+            {"label": "No Scenarios" if sc_total == 0
+             else f"{sc_pass}/{sc_total} Scenarios",
              "type": sc_type,
-             "icon": "\u2713" if sc_type == "pass" else "\u26a0"},
+             "icon": "\u2014" if sc_total == 0
+             else ("\u2713" if sc_type == "pass" else "\u26a0")},
             {"label": f"{resolved}/{total_comments} comments resolved",
              "type": cm_type,
              "icon": "\u2713" if cm_type == "pass" else "\u26a0"},
@@ -195,14 +199,24 @@ def build_header(pr_number: int, diff_data: dict, pr_meta: dict,
 def build_architecture(zones_registry: dict, diff_data: dict) -> dict:
     """Build architecture diagram data from zone registry + diff."""
     files = diff_data.get("files", {})
-    # Count files per zone
+    # Count files per zone, track unzoned files
     zone_file_counts: dict[str, int] = {}
     zone_modified: dict[str, bool] = {}
+    unzoned_files: list[str] = []
     for filepath in files:
         matched = match_file_to_zones(filepath, zones_registry)
+        if not matched:
+            unzoned_files.append(filepath)
         for z in matched:
             zone_file_counts[z] = zone_file_counts.get(z, 0) + 1
             zone_modified[z] = True
+    if unzoned_files:
+        print(
+            f"WARNING: {len(unzoned_files)} file(s) not mapped to any zone:",
+            file=sys.stderr,
+        )
+        for f in unzoned_files:
+            print(f"  - {f}", file=sys.stderr)
 
     # Layout: group by category row, sequential x placement
     category_x: dict[str, int] = {}
@@ -243,7 +257,12 @@ def build_architecture(zones_registry: dict, diff_data: dict) -> dict:
             "to": {"x": p2["x"], "y": p2["y"] + p2["height"] // 2},
         })
 
-    return {"zones": arch_zones, "arrows": arrows, "rowLabels": ROW_LABELS}
+    return {
+        "zones": arch_zones,
+        "arrows": arrows,
+        "rowLabels": ROW_LABELS,
+        "unzonedFiles": unzoned_files,
+    }
 
 
 def build_specs(zones_registry: dict) -> list[dict]:
@@ -262,18 +281,37 @@ def build_specs(zones_registry: dict) -> list[dict]:
     return specs
 
 
-def build_scenarios(scenario_data: dict | None) -> list[dict]:
+def build_category_zone_map(zones_registry: dict) -> dict[str, str]:
+    """Build a mapping from scenario categories to zone IDs.
+
+    Derives the mapping dynamically from the zone registry by matching
+    category names to zone IDs. Falls back to empty string for unknown
+    categories (unzoned).
+
+    This replaces the previous hardcoded MiniPong-specific mapping,
+    making the scaffold project-agnostic.
+    """
+    mapping: dict[str, str] = {}
+    for zone_id, zone_def in zones_registry.items():
+        # Use the zone ID itself as a category key
+        mapping[zone_id] = zone_id
+        # Also map the zone label (lowercased) to the zone ID
+        label = zone_def.get("label", "").lower()
+        if label and label not in mapping:
+            mapping[label] = zone_id
+    return mapping
+
+
+def build_scenarios(
+    scenario_data: dict | None,
+    category_zone_map: dict[str, str] | None = None,
+) -> list[dict]:
     """Build scenarios from scenario_results.json."""
     if not scenario_data:
         return []
+    if category_zone_map is None:
+        category_zone_map = {}
     scenarios = []
-    category_zone_map = {
-        "environment": "environment",
-        "training": "training",
-        "pipeline": "training",
-        "integration": "config",
-        "dashboard": "dashboard",
-    }
     for r in scenario_data.get("results", []):
         cat = r.get("category", "integration")
         scenarios.append({
@@ -289,6 +327,126 @@ def build_scenarios(scenario_data: dict | None) -> list[dict]:
             },
         })
     return scenarios
+
+
+def compute_status(
+    convergence: dict,
+    agentic_review: dict,
+    *,
+    reviewed_sha: str = "",
+    head_sha: str = "",
+    commit_gap: int = 0,
+    architecture_assessment: dict | None = None,
+) -> dict:
+    """Compute the review pack status from gates, findings, and commit scope.
+
+    Returns:
+        {
+            "value": "ready"|"needs-review"|"blocked",
+            "text": str,
+            "reasons": list[str],
+        }
+    """
+    reasons: list[str] = []
+
+    # Check gates
+    gates = convergence.get("gates", [])
+    any_failing = any(g.get("status") == "failing" for g in gates)
+    overall = convergence.get("overall", {})
+    overall_failing = overall.get("status") == "failing"
+
+    # Check for critical/F findings
+    findings = agentic_review.get("findings", [])
+    has_f_grade = any(f.get("grade") == "F" for f in findings)
+    has_c_grade = any(f.get("grade") == "C" for f in findings)
+    c_count = sum(1 for f in findings if f.get("grade") == "C")
+
+    # Blocked conditions
+    if any_failing:
+        failing_gates = [
+            g.get("name", f"gate {i}")
+            for i, g in enumerate(gates)
+            if g.get("status") == "failing"
+        ]
+        reasons.append(f"Failing gates: {', '.join(failing_gates)}")
+    if overall_failing:
+        reasons.append("Overall convergence failing")
+    if has_f_grade:
+        f_count = sum(1 for f in findings if f.get("grade") == "F")
+        reasons.append(f"{f_count} critical finding(s) (F grade)")
+
+    if reasons:
+        return {
+            "value": "blocked",
+            "text": "BLOCKED",
+            "reasons": reasons,
+        }
+
+    # Needs-review conditions
+    if has_c_grade:
+        reasons.append(f"C-grade findings in {c_count} file(s)")
+    if commit_gap > 0:
+        reasons.append(
+            f"{commit_gap} commit(s) not covered by agent analysis"
+        )
+    if (
+        architecture_assessment
+        and architecture_assessment.get("overallHealth") == "action-required"
+    ):
+        reasons.append("Architecture assessment requires attention")
+
+    if reasons:
+        return {
+            "value": "needs-review",
+            "text": "NEEDS REVIEW",
+            "reasons": reasons,
+        }
+
+    return {
+        "value": "ready",
+        "text": "READY",
+        "reasons": [],
+    }
+
+
+# Backward-compatible alias
+def compute_verdict(convergence: dict, agentic_review: dict) -> dict:
+    """Legacy wrapper — delegates to compute_status.
+
+    Returns the old-style dict with "status" key for backward compat.
+    """
+    result = compute_status(convergence, agentic_review)
+    return {
+        "status": _status_value_to_legacy(result["value"]),
+        "text": result["text"]
+        + (" \u2014 " + "; ".join(result["reasons"]) if result["reasons"] else ""),
+    }
+
+
+def _status_value_to_legacy(value: str) -> str:
+    """Map new status values to legacy verdict values."""
+    return {"ready": "ready", "needs-review": "review", "blocked": "blocked"}.get(
+        value, "review"
+    )
+
+
+def build_code_diffs(diff_data: dict, zones_registry: dict) -> list[dict]:
+    """Build code diff file list from Pass 1 diff data + zone registry.
+
+    Returns a list of CodeDiffFile dicts for the v2 sidebar/tier-3 section.
+    """
+    files = diff_data.get("files", {})
+    result = []
+    for filepath, file_info in files.items():
+        zones = match_file_to_zones(filepath, zones_registry)
+        result.append({
+            "path": filepath,
+            "additions": file_info.get("additions", 0),
+            "deletions": file_info.get("deletions", 0),
+            "status": file_info.get("status", "modified"),
+            "zones": zones,
+        })
+    return result
 
 
 def build_ci_performance(ci_checks_raw: list[dict]) -> list[dict]:
@@ -347,54 +505,68 @@ def build_convergence(scenario_data: dict | None, ci_checks: list,
     validate_jobs = [c for c in ci_checks if c.get("name") == "validate"]
     gate1_pass = all(c.get("state") == "SUCCESS" for c in validate_jobs) if validate_jobs else False
 
-    # Gate 3 — from scenarios
+    # Gate 3 — from scenarios (only if scenarios exist)
     if scenario_data:
         sc_pass = scenario_data.get("passed", 0)
         sc_total = scenario_data.get("total", 0)
-        gate3_pass = sc_pass == sc_total and sc_total > 0
     else:
         sc_pass = sc_total = 0
-        gate3_pass = False
+    has_scenarios = sc_total > 0
+    gate3_pass = sc_pass == sc_total if has_scenarios else True
 
     all_pass = gate0_pass and gate1_pass and gate3_pass
 
+    gates = [
+        {
+            "name": "Gate 0 \u2014 Two-Tier Review",
+            "status": "passing" if gate0_pass else "failing",
+            "statusText": g0_status_text,
+            "summary": g0_detail,
+            "detail": "",
+        },
+        {
+            "name": "Gate 1 \u2014 Deterministic",
+            "status": "passing" if gate1_pass else "failing",
+            "statusText": "PASSING" if gate1_pass else "FAILING",
+            "summary": "",
+            "detail": "",
+        },
+        {
+            "name": "Gate 2 \u2014 NFR",
+            "status": "passing",
+            "statusText": "PASS",
+            "summary": "",
+            "detail": "",
+        },
+    ]
+    if has_scenarios:
+        gates.append({
+            "name": "Gate 3 \u2014 Scenarios",
+            "status": "passing" if gate3_pass else "failing",
+            "statusText": (
+                f"{sc_pass}/{sc_total}"
+                f" ({sc_pass * 100 // max(sc_total, 1)}%)"
+            ),
+            "summary": (
+                f"{sc_pass} of {sc_total} holdout scenarios pass."
+            ),
+            "detail": "",
+        })
+
+    scenario_note = (
+        f" {sc_pass}/{sc_total} scenario satisfaction."
+        if has_scenarios else ""
+    )
     return {
-        "gates": [
-            {
-                "name": "Gate 0 \u2014 Two-Tier Review",
-                "status": "passing" if gate0_pass else "failing",
-                "statusText": g0_status_text,
-                "summary": g0_detail,
-                "detail": "",
-            },
-            {
-                "name": "Gate 1 \u2014 Deterministic",
-                "status": "passing" if gate1_pass else "failing",
-                "statusText": "PASSING" if gate1_pass else "FAILING",
-                "summary": "",
-                "detail": "",
-            },
-            {
-                "name": "Gate 2 \u2014 NFR",
-                "status": "passing",
-                "statusText": "PASS",
-                "summary": "",
-                "detail": "",
-            },
-            {
-                "name": "Gate 3 \u2014 Scenarios",
-                "status": "passing" if gate3_pass else "failing",
-                "statusText": f"{sc_pass}/{sc_total} ({sc_pass * 100 // max(sc_total, 1)}%)",
-                "summary": f"{sc_pass} of {sc_total} holdout scenarios pass.",
-                "detail": "",
-            },
-        ],
+        "gates": gates,
         "overall": {
             "status": "passing" if all_pass else "failing",
             "statusText": "READY TO MERGE" if all_pass else "NOT READY",
-            "summary": f"All gates pass. {sc_pass}/{sc_total} scenario satisfaction."
-            if all_pass
-            else f"Gates not all passing. {sc_pass}/{sc_total} scenarios.",
+            "summary": (
+                f"All gates pass.{scenario_note}"
+                if all_pass
+                else f"Gates not all passing.{scenario_note}"
+            ),
             "detail": "",
         },
     }
@@ -468,9 +640,47 @@ def scaffold(pr_number: int, diff_data_path: str, zone_registry_path: str,
     )
     architecture = build_architecture(zones_registry, diff_data)
     specs = build_specs(zones_registry)
-    scenarios = build_scenarios(scenario_data)
+    cat_zone_map = build_category_zone_map(zones_registry)
+    scenarios = build_scenarios(scenario_data, cat_zone_map)
     ci_perf = build_ci_performance(ci_checks)
     convergence = build_convergence(scenario_data, ci_checks, gate0_data)
+
+    # v2 extensions: status, commit scope, code diffs
+    agentic_review_data = (
+        existing.get("agenticReview", {"findings": []}) if existing
+        else {"findings": []}
+    )
+
+    # Commit scope tracking
+    head_sha = pr_meta.get("headRefOid", diff_data.get("head_sha", ""))
+    reviewed_sha = (
+        existing.get("reviewedCommitSHA", head_sha) if existing else head_sha
+    )
+    # Compute commit gap (how many commits between reviewed and HEAD)
+    commit_gap = 0
+    if reviewed_sha and head_sha and reviewed_sha != head_sha:
+        gap_raw = run_gh([
+            "api", f"repos/{repo_slug}/compare/{reviewed_sha[:12]}...{head_sha[:12]}",
+            "--jq", ".ahead_by",
+        ])
+        try:
+            commit_gap = int(gap_raw) if gap_raw else 0
+        except ValueError:
+            commit_gap = 0
+
+    status = compute_status(
+        convergence, agentic_review_data,
+        reviewed_sha=reviewed_sha,
+        head_sha=head_sha,
+        commit_gap=commit_gap,
+    )
+    # Legacy alias for backward compat with v1 template
+    verdict = {
+        "status": _status_value_to_legacy(status["value"]),
+        "text": status["text"]
+        + (" \u2014 " + "; ".join(status["reasons"]) if status["reasons"] else ""),
+    }
+    code_diffs = build_code_diffs(diff_data, zones_registry)
 
     # Semantic fields: preserve from existing or leave empty
     semantic_defaults = {
@@ -479,13 +689,30 @@ def scaffold(pr_number: int, diff_data_path: str, zone_registry_path: str,
         "decisions": [],
         "postMergeItems": [],
         "factoryHistory": None,
+        "architectureAssessment": None,
     }
+
+    now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
     result: dict = {
         "header": header,
         "architecture": architecture,
         "specs": specs,
         "scenarios": scenarios,
+        # v2 status model (new)
+        "status": status,
+        "reviewedCommitSHA": reviewed_sha,
+        "reviewedCommitDate": (
+            existing.get("reviewedCommitDate", now_iso) if existing else now_iso
+        ),
+        "headCommitSHA": head_sha,
+        "headCommitDate": now_iso,
+        "commitGap": commit_gap,
+        "lastRefreshed": now_iso,
+        "packMode": existing.get("packMode", "live") if existing else "live",
+        # Legacy verdict (backward compat with v1 template)
+        "verdict": verdict,
+        "codeDiffs": code_diffs,
         "whatChanged": (
             existing.get("whatChanged", semantic_defaults["whatChanged"])
             if existing else semantic_defaults["whatChanged"]
@@ -507,6 +734,10 @@ def scaffold(pr_number: int, diff_data_path: str, zone_registry_path: str,
         "factoryHistory": (
             existing.get("factoryHistory", semantic_defaults["factoryHistory"])
             if existing else semantic_defaults["factoryHistory"]
+        ),
+        "architectureAssessment": (
+            existing.get("architectureAssessment", semantic_defaults["architectureAssessment"])
+            if existing else semantic_defaults["architectureAssessment"]
         ),
     }
 

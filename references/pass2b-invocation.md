@@ -12,9 +12,9 @@ The factory's Tier 2 pattern (SKILL.md Step 4) is the blueprint — but adapted 
 
 Pass 2b has two independent workstreams. They can run in parallel.
 
-### Workstream A: Agentic Review (4 agents)
+### Workstream A: Agentic Review (5 agents)
 
-Four specialized review agents, each reviewing the diff through its own paradigm. These produce the `agenticReview` section of the review pack.
+Five specialized review agents, each reviewing the diff through its own paradigm. These produce the `agenticReview` section and (for the architecture agent) the `architectureAssessment` section of the review pack.
 
 ### Workstream B: Semantic Analysis (1 agent)
 
@@ -22,7 +22,7 @@ One agent that reads the diff and produces `whatChanged`, `decisions`, `postMerg
 
 ---
 
-## Workstream A: Agentic Review — 4-Agent Invocation
+## Workstream A: Agentic Review — 5-Agent Invocation
 
 ### Agent Definitions
 
@@ -32,10 +32,11 @@ One agent that reads the diff and produces `whatChanged`, `decisions`, `postMerg
 | `security-reviewer` | SE | `packages/review-prompts/security_review.md` | Security vulnerabilities |
 | `test-integrity-reviewer` | TI | `packages/review-prompts/test_integrity_review.md` | Test quality and integrity |
 | `adversarial-reviewer` | AD | `packages/review-prompts/adversarial_review.md` | Gaming, spec violations, architectural dishonesty |
+| `architecture-reviewer` | AR | `packages/review-prompts/architecture_review.md` | Zone coverage, coupling, structural changes, architecture documentation |
 
 ### Launch Pattern
 
-Spawn all 4 agents in parallel using the Agent tool. Each agent receives the same base context plus its paradigm-specific prompt.
+Spawn all 5 agents in parallel using the Agent tool. Each agent receives the same base context plus its paradigm-specific prompt.
 
 ```
 For each agent:
@@ -94,7 +95,16 @@ For each agent:
   "
 ```
 
-**The adversarial reviewer additionally receives:** The contents of `specs/*.md` files (the component specifications). The other 3 agents do NOT receive specs — they review code quality, not spec compliance.
+**The adversarial reviewer additionally receives:** The contents of `specs/*.md` files (the component specifications). The other 3 code-level agents do NOT receive specs — they review code quality, not spec compliance.
+
+**The architecture reviewer additionally receives:**
+- Full repository file tree (`find . -type f` excluding `.git`, `node_modules`, `__pycache__`) — needed for holistic architecture assessment beyond the diff
+- The `architecture` section from the scaffold JSON — current zone layout (positions, categories, file counts, modification flags)
+- Whatever architecture docs exist in the repo — `docs/architecture.md`, `docs/architecture/*.md`, ADRs, README architecture sections, or zone registry `architectureDocs` pointers. The format varies by project — the architect reads whatever is available.
+
+**The architecture reviewer produces two outputs:**
+1. **Findings** — standard `AgenticFinding[]` format (merged into `agenticReview.findings[]`, rendered with AR badge)
+2. **Architecture Assessment** — a separate `ARCHITECTURE_ASSESSMENT:` JSON block extracted to `data.architectureAssessment` (new top-level field). See `pass2b-output-schema.md` for the shape.
 
 ### Reuse of Existing Gate 0 Tier 2 Files
 
@@ -106,6 +116,7 @@ For each agent:
 | `artifacts/factory/gate0_tier2_security.md` | security-reviewer |
 | `artifacts/factory/gate0_tier2_test_integrity.md` | test-integrity-reviewer |
 | `artifacts/factory/gate0_tier2_adversarial.md` | adversarial-reviewer |
+| `artifacts/factory/gate0_tier2_architecture.md` | architecture-reviewer |
 
 **If a file exists AND was produced for the same HEAD SHA as this review pack:**
 - Parse the findings from the markdown file (they use the `FINDING: / SEVERITY: / FILE: / LINE: / EVIDENCE: / IMPACT: / FIX:` format)
@@ -135,11 +146,11 @@ The gate0_tier2 files use a text format. Map fields as follows:
 - WARNING → B
 - NIT → A
 
-### Merging 4 Agent Outputs into `agenticReview`
+### Merging 5 Agent Outputs into `agenticReview` and `architectureAssessment`
 
-After all 4 agents complete (or their existing files are converted), merge:
+After all 5 agents complete (or their existing files are converted), merge:
 
-1. **Collect all findings** from all 4 agents into a single `findings[]` array.
+1. **Collect all findings** from all 5 agents into a single `findings[]` array.
 
 2. **Group by file.** Multiple agents may have findings for the same file. Keep all findings — the review pack renders per-file rows with per-agent grade badges (CH:A SE:B TI:A AD:B+).
 
@@ -305,12 +316,17 @@ After both workstreams complete, the orchestrator (not an agent) merges results 
 
 scaffold = json.load(open("/tmp/pr{N}_review_pack_data.json"))
 
-# From Workstream A (agentic review)
+# From Workstream A (agentic review — 5 agents)
 scaffold["agenticReview"] = {
     "overallGrade": computed_overall_grade,
     "reviewMethod": "agent-teams",
-    "findings": merged_findings_list
+    "findings": merged_findings_list  # findings from all 5 agents
 }
+
+# From Workstream A — architecture reviewer's assessment (extracted separately)
+# The architecture reviewer produces an ARCHITECTURE_ASSESSMENT: JSON block
+# in addition to its standard findings. Extract it to a top-level field.
+scaffold["architectureAssessment"] = architecture_assessment_json  # or None if not available
 
 # From Workstream B (semantic analysis)
 semantic_output = json.loads(workstream_b_agent_output)

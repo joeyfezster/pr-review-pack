@@ -8,6 +8,7 @@ Complete TypeScript-style interfaces for the `ReviewPackData` object. This is th
 interface ReviewPackData {
   header: PRHeader;
   architecture: ArchitectureData;
+  architectureAssessment: ArchitectureAssessment | null;  // v2: from architecture reviewer
   specs: Specification[];
   scenarios: Scenario[];
   whatChanged: WhatChanged;
@@ -17,6 +18,57 @@ interface ReviewPackData {
   convergence: ConvergenceResult;
   postMergeItems: PostMergeItem[];
   factoryHistory: FactoryHistory | null;  // null if not a factory PR
+  codeDiffs?: CodeDiffFile[];             // v2: per-file diff metadata for inline code diffs section
+
+  // v2: Status model (replaces verdict)
+  status: ReviewStatus;
+  reviewedCommitSHA: string;              // SHA when LLM analysis ran
+  reviewedCommitDate: string;             // ISO timestamp
+  headCommitSHA: string;                  // Current PR HEAD SHA
+  headCommitDate: string;                 // ISO timestamp
+  commitGap: number;                      // commits between reviewed and HEAD
+  lastRefreshed: string;                  // ISO timestamp of last deterministic refresh
+  packMode: "live" | "merged";            // live = refreshable, merged = frozen snapshot
+
+  // Legacy (backward compat with v1)
+  verdict?: Verdict;
+}
+```
+
+## Review Status (v2)
+
+```typescript
+interface ReviewStatus {
+  value: "ready" | "needs-review" | "blocked";  // merge readiness signal
+  text: string;                                  // "READY", "NEEDS REVIEW", "BLOCKED"
+  reasons: string[];                             // why this status (empty for ready)
+}
+```
+
+Reasons examples:
+- `"C-grade findings in 3 file(s)"` — agentic review warnings
+- `"2 commit(s) not covered by agent analysis"` — commit gap
+- `"Failing gates: Gate 1"` — gate failures
+- `"1 critical finding(s) (F grade)"` — F-grade findings
+
+## Verdict (v1 legacy)
+
+```typescript
+interface Verdict {
+  status: "ready" | "review" | "blocked";  // merge readiness signal
+  text: string;                            // human-readable verdict summary
+}
+```
+
+## Code Diff Files (v2)
+
+```typescript
+interface CodeDiffFile {
+  path: string;                            // file path relative to repo root
+  additions: number;                       // lines added
+  deletions: number;                       // lines deleted
+  status: "added" | "modified" | "deleted" | "renamed";
+  zones: string[];                         // zone IDs this file belongs to
 }
 ```
 
@@ -153,9 +205,83 @@ interface AgenticFinding {
   notable: string;                  // one-line summary of finding
   detail: string;                   // full explanation (HTML-safe)
   gradeSortOrder: number;           // 0=N/A, 1=B, 2=B+, 3=A (for severity sort)
-  agent: string;                    // which agent produced this finding (e.g. "code-health", "security", "test-integrity", "adversarial")
+  agent: string;                    // which agent produced this finding (e.g. "code-health", "security", "test-integrity", "adversarial", "architecture")
 }
 ```
+
+## Architecture Assessment (v2)
+
+Produced by the architecture reviewer. Feeds the architecture assessment section, SVG diagram warnings, and decision verification. `null` when the architecture reviewer is not run.
+
+```typescript
+interface ArchitectureAssessment {
+  baselineDiagram: ArchitectureDiagramData | null;  // architecture BEFORE this PR
+  updateDiagram: ArchitectureDiagramData | null;    // architecture AFTER this PR
+  diagramNarrative: string;                          // HTML-safe: what changed architecturally
+
+  unzonedFiles: UnzonedFileEntry[];        // files matching no zone patterns
+  zoneChanges: ZoneChangeEntry[];          // structural changes detected
+  registryWarnings: RegistryWarning[];     // zone registry health issues
+  couplingWarnings: CouplingWarning[];     // cross-zone coupling detected
+  docRecommendations: DocRecommendation[]; // architecture doc maintenance needs
+  decisionZoneVerification: DecisionVerification[];  // validates decision-to-zone claims
+
+  overallHealth: "healthy" | "needs-attention" | "action-required";
+  summary: string;                         // HTML-safe one-paragraph summary
+}
+
+interface ArchitectureDiagramData {
+  zones: ArchitectureZone[];               // reuses existing ArchitectureZone interface
+  arrows: ArchitectureArrow[];             // relationships between zones
+  rowLabels: RowLabel[];
+  highlights: string[];                    // zone IDs to visually emphasize
+  narrative: string;                       // what this diagram shows
+}
+
+interface UnzonedFileEntry {
+  path: string;
+  suggestedZone: string | null;
+  reason: string;
+}
+
+interface ZoneChangeEntry {
+  type: "new_zone_recommended" | "zone_split" | "zone_merge" | "zone_renamed" | "zone_removed";
+  zone: string;
+  reason: string;
+  suggestedPaths?: string[];
+}
+
+interface RegistryWarning {
+  zone: string;
+  warning: string;
+  severity: "CRITICAL" | "WARNING" | "NIT";
+}
+
+interface CouplingWarning {
+  fromZone: string;
+  toZone: string;
+  files: string[];
+  evidence: string;
+}
+
+interface DocRecommendation {
+  type: "update_needed" | "new_doc_suggested" | "stale_reference";
+  path: string;
+  reason: string;
+}
+
+interface DecisionVerification {
+  decisionNumber: number;
+  claimedZones: string[];
+  verified: boolean;
+  reason: string;
+}
+```
+
+`overallHealth` values:
+- `"healthy"` — all files zoned, registry complete, no structural issues
+- `"needs-attention"` — minor gaps (a few unzoned files, missing docs)
+- `"action-required"` — significant architectural gaps. Triggers `needs-review` status.
 
 ## CI Performance
 
