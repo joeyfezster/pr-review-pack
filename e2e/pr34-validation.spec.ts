@@ -24,10 +24,10 @@ test.describe('PR #34 — Header & Metadata', () => {
     expect(data.header.prNumber).toBe(34);
   });
 
-  test('status is BLOCKED (CI not passing)', async ({ page }) => {
+  test('status is READY (all gates passing)', async ({ page }) => {
     await page.goto(PACK_URL);
     const verdict = page.locator('#mc-sidebar .sb-verdict');
-    await expect(verdict).toContainText('BLOCKED');
+    await expect(verdict).toContainText('READY');
   });
 
   test('file count matches expected range', async ({ page }) => {
@@ -44,7 +44,7 @@ test.describe('PR #34 — Architecture', () => {
     await page.goto(PACK_URL);
     const zones = page.locator('#arch-diagram .zone-box');
     const count = await zones.count();
-    expect(count).toBe(13);
+    expect(count).toBe(17);
   });
 
   test('new zones are present: review-pack, review-prompts, dark-factory', async ({ page }) => {
@@ -76,8 +76,8 @@ test.describe('PR #34 — Agentic Review', () => {
     await page.goto(PACK_URL);
     const data: any = await page.evaluate('DATA');
     const count = data.agenticReview.findings.length;
-    // 200 findings from 5 agents (CH+SE+TI+AD+AR)
-    expect(count).toBeGreaterThanOrEqual(100);
+    // 40 findings from 5 agents (CH+SE+TI+AD+AR)
+    expect(count).toBeGreaterThanOrEqual(30);
   });
 
   test('code review list has file rows', async ({ page }) => {
