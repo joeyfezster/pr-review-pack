@@ -22,6 +22,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Always exclude generated review pack artifacts from diff data.
+# These files are outputs of this pipeline — including them creates a
+# recursive blowup (review pack embeds diff data which includes itself).
+DEFAULT_EXCLUDES = [
+    "docs/pr*_review_pack.html",
+    "docs/pr*_diff_data.json",
+]
+
 
 def run(cmd: list[str], cwd: Path | None = None) -> str:
     """Run a git command and return stdout. Prints stderr on failure."""
@@ -193,7 +201,7 @@ def main() -> None:
     print(f"Found {len(numstat)} changed files.")
 
     # Build per-file data
-    exclude_patterns = args.exclude or []
+    exclude_patterns = DEFAULT_EXCLUDES + (args.exclude or [])
     files_data: dict[str, dict] = {}
     for adds, dels, filepath, is_binary in numstat:
         if any(fnmatch.fnmatch(filepath, p) for p in exclude_patterns):
