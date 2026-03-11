@@ -171,10 +171,16 @@
   .sb-commit-list .commit-covered { color: var(--green-text, #166534); }
   .sb-commit-list .commit-new { color: var(--orange-text, #b45309); }
 
-  /* Status reasons — tooltip on hover (non-ready only) */
-  .sb-status-reasons { display: none; position: absolute; left: 0; right: 0; top: 100%; z-index: 100; margin-top: 4px; padding: 8px 10px; font-size: 11px; color: var(--text-primary); background: var(--card-bg, white); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); list-style: disc; }
-  .sb-status-reasons li { margin: 3px 0 3px 14px; }
+  /* Status reasons — tooltip on hover, color-matched to verdict severity */
+  .sb-status-reasons { display: none; position: absolute; left: 0; right: 0; top: 100%; z-index: 100; margin-top: 4px; padding: 8px 10px; font-size: 11px; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.25); }
+  .sb-status-reasons li { margin: 3px 0 3px 14px; list-style: disc; }
   .sb-verdict-wrapper:hover .sb-status-reasons { display: block; }
+  /* Blocked: red-tinted tooltip */
+  .sb-verdict.blocked ~ .sb-status-reasons { background: var(--red-bg); color: #991b1b; border: 1px solid #fca5a5; }
+  [data-theme="dark"] .sb-verdict.blocked ~ .sb-status-reasons { background: #450a0a; color: #fca5a5; border-color: #7f1d1d; }
+  /* Needs-review: yellow-tinted tooltip */
+  .sb-verdict.needs-review ~ .sb-status-reasons, .sb-verdict.review ~ .sb-status-reasons { background: var(--yellow-bg); color: #854d0e; border: 1px solid #fde047; }
+  [data-theme="dark"] .sb-verdict.needs-review ~ .sb-status-reasons, [data-theme="dark"] .sb-verdict.review ~ .sb-status-reasons { background: #451a03; color: #fde047; border-color: #713f12; }
 
   /* Merge button */
   .sb-merge-btn { width: 100%; padding: 8px 12px; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer; border: none; margin-bottom: 12px; transition: opacity 0.2s; }
