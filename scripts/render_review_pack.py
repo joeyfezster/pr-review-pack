@@ -70,6 +70,18 @@ STATUS_STYLE = {
 
 # ── Helpers ──────────────────────────────────────────────────────────
 
+
+def _zone_tag(
+    zone_id: str,
+    zone_categories: dict[str, str] | None = None,
+) -> str:
+    """Render a single zone tag span with correct category CSS class."""
+    cats = zone_categories or {}
+    cat = cats.get(zone_id, "product")
+    css = layer_tag_class(cat)
+    return f'<span class="zone-tag {css}">{esc(zone_id)}</span>'
+
+
 def esc(text: str) -> str:
     """HTML-escape plain text."""
     return html.escape(str(text))
@@ -493,26 +505,30 @@ def render_scenario_cards(scenarios: list[dict]) -> str:
 
 
 def render_what_changed_default(wc: dict) -> str:
-    """Infrastructure + product summaries. These fields may contain HTML."""
+    """Infrastructure + product summaries.
+
+    These fields are plain-text summaries produced by the Pass 2 LLM agent.
+    They should NOT contain HTML — escape for safety.
+    """
     default = wc.get("defaultSummary", {})
     parts = []
     infra = default.get("infrastructure", "")
     if infra:
-        parts.append(f'<p><strong>Infrastructure:</strong> {infra}</p>')
+        parts.append(f'<p><strong>Infrastructure:</strong> {esc(infra)}</p>')
     product = default.get("product", "")
     if product:
-        parts.append(f'<p><strong>Product:</strong> {product}</p>')
+        parts.append(f'<p><strong>Product:</strong> {esc(product)}</p>')
     return "\n          ".join(parts)
 
 
 def render_what_changed_zones(wc: dict) -> str:
     divs = []
     for z in wc.get("zoneDetails", []):
-        # description may contain HTML
+        # description is a plain-text summary from the Pass 2 LLM agent — escape it.
         divs.append(
             f'<div class="wc-zone-detail" data-zone="{esc(z["zoneId"])}">\n'
             f'  <h4>{esc(z["title"])}</h4>\n'
-            f'  <p>{z["description"]}</p>\n'
+            f'  <p>{esc(z["description"])}</p>\n'
             f'</div>'
         )
     return "\n        ".join(divs)
@@ -547,12 +563,18 @@ def render_agentic_legend() -> str:
     )
 
 
-def render_agentic_rows(review: dict) -> str:
+def render_agentic_rows(review: dict, zone_categories: dict[str, str] | None = None) -> str:
     """Render agentic review rows grouped by file.
 
     Each file gets one master row with compact agent grade badges.
     Expanding shows per-agent detail.
+
+    Args:
+        review: The agenticReview dict containing findings.
+        zone_categories: Mapping of zone ID → category (e.g. "factory", "product", "infra").
     """
+    if zone_categories is None:
+        zone_categories = {}
     findings = review.get("findings", [])
     if not findings:
         return ""
@@ -588,6 +610,10 @@ def render_agentic_rows(review: dict) -> str:
         notable_finding = min(file_findings, key=lambda f: GRADE_SORT.get(f.get("grade", "N/A"), 5))
         notable_text = notable_finding.get("notable", "")
 
+        # Resolve zone category from first zone ID
+        first_zone = zones.split()[0] if zones.strip() else ""
+        zone_cat = zone_categories.get(first_zone, "product")
+
         # Master row (one per file)
         rows.append(
             f'<tr class="adv-row" data-zones="{esc(zones)}" '
@@ -597,13 +623,15 @@ def render_agentic_rows(review: dict) -> str:
             f"openFileModal('{esc(filepath)}')\">"
             f'{esc(filepath)}</code></td>\n'
             f'  <td class="agent-badges-cell">{badges_html}</td>\n'
-            f'  <td><span class="zone-tag {layer_tag_class("product")}">'
+            f'  <td><span class="zone-tag {layer_tag_class(zone_cat)}">'
             f'{esc(zones)}</span></td>\n'
             f'  <td>{esc(notable_text)}</td>\n'
             f'</tr>\n'
         )
 
         # Detail row: per-agent breakdown
+        # detail is HTML-safe: sanitized at ingestion by the Gate 0 review
+        # agents. Contains structured HTML from agent analysis.
         detail_parts = []
         for f in file_findings:
             agent_name = f.get("agent", "") or "main"
@@ -631,14 +659,17 @@ def render_agentic_rows(review: dict) -> str:
     return "\n            ".join(rows)
 
 
-def render_ci_rows(ci_checks: list[dict]) -> str:
+def render_ci_rows(ci_checks: list[dict], zone_categories: dict[str, str] | None = None) -> str:
+    if zone_categories is None:
+        zone_categories = {}
     rows = []
     for ci in ci_checks:
         status_css = "pass" if ci["status"] == "pass" else "fail"
         health_css = ci.get("healthTag", "normal")
         detail = ci.get("detail", {})
 
-        # Sub-checks
+        # Sub-checks — detail is HTML-safe: contains structured text from
+        # the scaffold's CI performance builder, not raw user input.
         sub_html = ""
         for chk in detail.get("checks", []):
             sub_html += (
@@ -647,12 +678,12 @@ def render_ci_rows(ci_checks: list[dict]) -> str:
                 f'  <div class="ci-check-summary">'
                 f'<span class="ci-sub-chevron">&#x25B6;</span> '
                 f'{esc(chk["label"])}</div>\n'
-                f'  <div class="ci-check-detail">{chk.get("detail", "")}</div>\n'
+                f'  <div class="ci-check-detail">{esc(chk.get("detail", ""))}</div>\n'
                 "</div>\n"
             )
 
         zones_html = " ".join(
-            f'<span class="zone-tag product">{esc(z)}</span>'
+            _zone_tag(z, zone_categories)
             for z in detail.get("zones", [])
         )
         specs_html = " ".join(
@@ -690,7 +721,12 @@ def render_ci_rows(ci_checks: list[dict]) -> str:
     return "\n            ".join(rows)
 
 
-def render_decision_cards(decisions: list[dict]) -> str:
+def render_decision_cards(
+    decisions: list[dict],
+    zone_categories: dict[str, str] | None = None,
+) -> str:
+    if zone_categories is None:
+        zone_categories = {}
     cards = []
     for d in decisions:
         zones_str = d.get("zones", "")
@@ -701,7 +737,7 @@ def render_decision_cards(decisions: list[dict]) -> str:
             else ""
         )
         zone_tags = " ".join(
-            f'<span class="zone-tag product">{esc(z)}</span>'
+            _zone_tag(z, zone_categories)
             for z in zones_str.split()
         )
 
@@ -722,7 +758,8 @@ def render_decision_cards(decisions: list[dict]) -> str:
                 f"<tbody>{file_rows}</tbody></table>"
             )
 
-        # body may contain HTML
+        # body is HTML-safe: sanitized at ingestion by the Pass 2 LLM agent
+        # and reviewed in the adversarial pass. Title/rationale are escaped.
         cards.append(
             f'<div class="decision-card" data-zones="{esc(zones_str)}">\n'
             f'  <div class="decision-header" '
@@ -749,7 +786,8 @@ def render_convergence_grid(convergence: dict) -> str:
     cards = []
     for gate in convergence.get("gates", []):
         st = gate.get("status", "passing")
-        # detail may contain HTML
+        # detail is HTML-safe: contains structured HTML from the Pass 2 LLM
+        # agent, reviewed in the adversarial pass. name/summary are escaped.
         cards.append(
             f'<div class="conv-card" onclick="this.classList.toggle(\'open\')">\n'
             f'  <div class="conv-name">{esc(gate["name"])}</div>\n'
@@ -761,6 +799,7 @@ def render_convergence_grid(convergence: dict) -> str:
     overall = convergence.get("overall", {})
     if overall:
         st = overall.get("status", "passing")
+        # detail is HTML-safe: sanitized at ingestion
         cards.append(
             f'<div class="conv-card" onclick="this.classList.toggle(\'open\')">\n'
             f'  <div class="conv-name">Overall</div>\n'
@@ -772,7 +811,12 @@ def render_convergence_grid(convergence: dict) -> str:
     return "\n          ".join(cards)
 
 
-def render_post_merge_items(items: list[dict]) -> str:
+def render_post_merge_items(
+    items: list[dict],
+    zone_categories: dict[str, str] | None = None,
+) -> str:
+    if zone_categories is None:
+        zone_categories = {}
     rendered = []
     for item in items:
         priority = item.get("priority", "low")
@@ -789,18 +833,20 @@ def render_post_merge_items(items: list[dict]) -> str:
             )
 
         zones_html = " ".join(
-            f'<span class="zone-tag product">{esc(z)}</span>'
+            _zone_tag(z, zone_categories)
             for z in item.get("zones", [])
         )
 
-        # title and description may contain HTML
+        # title is escaped (plain text label).
+        # description is HTML-safe: sanitized at ingestion by the Pass 2
+        # LLM agent, reviewed in the adversarial pass.
         rendered.append(
             f'<div class="pm-item">\n'
             f'  <div class="pm-header" '
             f"onclick=\"this.parentElement.classList.toggle('open')\">\n"
             f'    <span class="priority {priority}">'
             f"{esc(priority.upper())}</span>\n"
-            f'    <span>{item.get("title", "")}</span>\n'
+            f'    <span>{esc(item.get("title", ""))}</span>\n'
             f"  </div>\n"
             f'  <div class="pm-body">\n'
             f'    <p>{item.get("description", "")}</p>\n'
@@ -851,7 +897,8 @@ def render_history_timeline(events: list[dict]) -> str:
         ev_class = "intervention" if ev.get("type") == "intervention" else ""
         agent = ev.get("agent", {})
         agent_class = "human" if agent.get("type") == "human" else ""
-        # expandedDetail may contain HTML
+        # expandedDetail is HTML-safe: sanitized at ingestion by the factory
+        # orchestrator. Contains structured HTML for timeline expansion.
         rendered.append(
             f'<div class="history-event {ev_class}" '
             f'onclick="this.classList.toggle(\'open\')">\n'
@@ -1009,7 +1056,7 @@ def render_sidebar_verdict(data: dict) -> str:
         "blocked": "&#x2717;",
     }.get(value, "?")
 
-    html = f'<div class="sb-verdict-wrapper">'
+    html = '<div class="sb-verdict-wrapper">'
     html += f'\n  <div class="sb-verdict {value}">{icon} {esc(text)}</div>'
     if reasons:
         html += '\n  <ul class="sb-status-reasons">'
@@ -1094,7 +1141,12 @@ def render_sidebar_merge_button(data: dict) -> str:
 
 
 def render_sidebar_refresh_button(data: dict) -> str:
-    """Render the refresh button — copies the full refresh command on click."""
+    """Render the refresh button — copies the full refresh command on click.
+
+    NOTE: The embedded command includes the machine-specific CWD path,
+    making this button only useful on the machine that rendered the pack.
+    This is acceptable — refresh is a developer workflow, not a CI artifact.
+    """
     pr_number = data.get("header", {}).get("prNumber", "?")
     # Derive repo path from git remote or current working directory
     repo_root = Path.cwd()
@@ -1351,6 +1403,11 @@ def render_code_diffs_list(data: dict) -> str:
     code_diffs = data.get("codeDiffs", [])
     if not code_diffs:
         return '<p style="color:var(--text-muted);font-size:13px">No files changed.</p>'
+    # Build zone ID → category lookup from architecture data
+    zone_categories = {
+        z["id"]: z.get("category", "product")
+        for z in data.get("architecture", {}).get("zones", [])
+    }
     items = []
     for cd in code_diffs:
         path = cd.get("path", "")
@@ -1360,7 +1417,7 @@ def render_code_diffs_list(data: dict) -> str:
         zones = cd.get("zones", [])
         zones_str = " ".join(zones)
         zone_tags = " ".join(
-            f'<span class="zone-tag {layer_tag_class("product")}">{esc(z)}</span>'
+            _zone_tag(z, zone_categories)
             for z in zones
         )
         items.append(
@@ -1401,6 +1458,12 @@ def render_code_review_list(data: dict) -> str:
     findings = data.get("agenticReview", {}).get("findings", [])
     code_diffs = data.get("codeDiffs", [])
 
+    # Build zone ID → category lookup from architecture data
+    zone_categories = {
+        z["id"]: z.get("category", "product")
+        for z in data.get("architecture", {}).get("zones", [])
+    }
+
     # All agent paradigms in display order
     agent_paradigms = [
         ("CH", "code-health", "Code Health"),
@@ -1409,8 +1472,6 @@ def render_code_review_list(data: dict) -> str:
         ("AD", "adversarial", "Adversarial"),
         ("AR", "architecture", "Architecture"),
     ]
-    abbrev_order = [a[0] for a in agent_paradigms]
-
     # Build findings lookup by file path
     findings_by_file: dict[str, list[dict]] = {}
     for f in findings:
@@ -1496,7 +1557,7 @@ def render_code_review_list(data: dict) -> str:
         if zones:
             zone_list = zones if isinstance(zones, list) else zones.split()
             zone_html = " ".join(
-                f'<span class="zone-tag {layer_tag_class(z)}">{esc(z)}</span>'
+                _zone_tag(z, zone_categories)
                 for z in zone_list
             )
 
@@ -1520,11 +1581,13 @@ def render_code_review_list(data: dict) -> str:
 
         # Detail row: per-agent breakdown (all paradigms, including "no comments")
         detail_parts: list[str] = []
-        for abbrev, agent_key, agent_name in agent_paradigms:
+        for abbrev, _agent_key, agent_name in agent_paradigms:
             agent_findings = agent_details.get(abbrev, [])
             if agent_findings:
                 grade = agent_grades.get(abbrev, "N/A")
                 gc = GRADE_CLASS.get(grade, "na")
+                # detail is HTML-safe: sanitized at ingestion by the Gate 0
+                # review agents. Contains structured HTML from agent analysis.
                 detail_text = " ".join(
                     ff.get("detail", "") or ff.get("notable", "")
                     for ff in agent_findings
@@ -1741,19 +1804,39 @@ def render(
             + render_agentic_legend()
         ),
         "<!-- INJECT: adversarial finding rows from DATA.agenticReview.findings -->": (
-            render_agentic_rows(data.get("agenticReview", {}))
+            render_agentic_rows(
+                data.get("agenticReview", {}),
+                zone_categories={
+                    z["id"]: z.get("category", "product")
+                    for z in data.get("architecture", {}).get("zones", [])
+                },
+            )
         ),
         "<!-- INJECT: CI check rows from DATA.ciPerformance -->": render_ci_rows(
-            data.get("ciPerformance", [])
+            data.get("ciPerformance", []),
+            zone_categories={
+                z["id"]: z.get("category", "product")
+                for z in data.get("architecture", {}).get("zones", [])
+            },
         ),
         "<!-- INJECT: decision cards from DATA.decisions -->": render_decision_cards(
-            data.get("decisions", [])
+            data.get("decisions", []),
+            zone_categories={
+                z["id"]: z.get("category", "product")
+                for z in data.get("architecture", {}).get("zones", [])
+            },
         ),
         "<!-- INJECT: convergence gate cards + overall card from DATA.convergence -->": (
             render_convergence_grid(data.get("convergence", {}))
         ),
         "<!-- INJECT: post-merge items from DATA.postMergeItems -->": (
-            render_post_merge_items(data.get("postMergeItems", []))
+            render_post_merge_items(
+                data.get("postMergeItems", []),
+                zone_categories={
+                    z["id"]: z.get("category", "product")
+                    for z in data.get("architecture", {}).get("zones", [])
+                },
+            )
         ),
     }
 

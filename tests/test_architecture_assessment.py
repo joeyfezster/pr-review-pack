@@ -13,7 +13,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 from render_review_pack import render_architecture_assessment
 
-
 # ── Empty / None ─────────────────────────────────────────────────────
 
 
@@ -136,7 +135,11 @@ class TestUnzonedFiles:
             {
                 "architectureAssessment": {
                     "unzonedFiles": [
-                        {"path": "<script>alert(1)</script>", "suggestedZone": None, "reason": "test"},
+                        {
+                            "path": "<script>alert(1)</script>",
+                            "suggestedZone": None,
+                            "reason": "test",
+                        },
                     ],
                 },
             }

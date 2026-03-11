@@ -287,14 +287,12 @@ test.describe('Sidebar Navigation', () => {
     // Collapse the last tier
     const lastDivider = page.locator('.tier-divider').last();
     await lastDivider.click();
-    await page.waitForTimeout(200);
     const lastContent = page.locator('.tier-content').last();
     await expect(lastContent).toHaveClass(/collapsed/);
 
     // Click the last nav item to auto-expand
     const navItems = page.locator('#mc-sidebar .sb-nav-item');
     await navItems.last().click();
-    await page.waitForTimeout(500);
     await expect(lastContent).not.toHaveClass(/collapsed/);
   });
 });
@@ -376,7 +374,6 @@ test.describe('Code Diffs', () => {
     await dismissBanner(page);
     const pathLink = page.locator('.cr-file-row .file-path-link').first();
     await pathLink.click();
-    await page.waitForTimeout(300);
     const modal = page.locator('.file-modal');
     await expect(modal).toBeVisible();
   });
@@ -426,7 +423,6 @@ test.describe('Expandable Sections', () => {
     expect(count).toBeGreaterThan(0);
     const header = cards.first().locator('.decision-header');
     await header.click();
-    await page.waitForTimeout(200);
     await expect(cards.first()).toHaveClass(/open/);
   });
 
@@ -717,7 +713,6 @@ test.describe('Zone Chip Double-Click Deselect', () => {
     await page.waitForSelector('.sb-arch-chip', { timeout: 5000 });
     const chip = page.locator('.sb-arch-chip:not(.unzoned)').first();
     await chip.click();
-    await page.waitForTimeout(300);
 
     const clearFilter = page.locator('#mc-sidebar #sb-clear-filter');
     await expect(clearFilter).toBeVisible();
@@ -732,14 +727,12 @@ test.describe('Zone Chip Double-Click Deselect', () => {
 
     // Single-click to activate filter
     await chip.click();
-    await page.waitForTimeout(300);
 
     const clearFilter = page.locator('#mc-sidebar #sb-clear-filter');
     await expect(clearFilter).toBeVisible();
 
     // Double-click to deselect (chips stay in grid mode now)
     await chip.dblclick();
-    await page.waitForTimeout(300);
 
     await expect(clearFilter).toBeHidden();
   });
@@ -753,20 +746,16 @@ test.describe('Zone Chip Double-Click Deselect', () => {
 
     // Activate filter
     await chip.click();
-    await page.waitForTimeout(300);
 
     // Some zones should be dimmed
     const dimmed = page.locator('#arch-diagram .zone-box.dimmed');
-    const dimmedCount = await dimmed.count();
-    expect(dimmedCount).toBeGreaterThan(0);
+    await expect(dimmed.first()).toBeVisible();
 
     // Double-click to reset
     await chip.dblclick();
-    await page.waitForTimeout(300);
 
     // No zones should be dimmed
-    const dimmedAfter = await page.locator('#arch-diagram .zone-box.dimmed').count();
-    expect(dimmedAfter).toBe(0);
+    await expect(dimmed).toHaveCount(0);
   });
 });
 
@@ -941,7 +930,6 @@ test.describe('Code Review — Per-Agent Columns', () => {
     // Expand first file's detail row
     const firstRow = page.locator('.cr-file-row').first();
     await firstRow.click();
-    await page.waitForTimeout(200);
 
     const detailRow = page.locator('.cr-detail-row').first();
     await expect(detailRow).toHaveClass(/open/);
@@ -971,20 +959,17 @@ test.describe('Code Review — Per-Agent Columns', () => {
 
     // Click to expand
     await firstRow.click();
-    await page.waitForTimeout(200);
     await expect(detailRow).toHaveClass(/open/);
 
     // Verify agent detail content is visible
     const agentDetails = detailRow.locator('.agent-detail-entry');
-    const count = await agentDetails.count();
-    expect(count).toBe(5);
+    await expect(agentDetails).toHaveCount(5);
   });
 
   test('expanded detail shows comment text for agents with findings', async ({ page }) => {
     await page.goto(READY_PACK);
     // Expand first file (src/alpha/core.py) — has CH:A, SE:C, TI:B, AD:A, AR:A
     await page.locator('.cr-file-row').first().click();
-    await page.waitForTimeout(200);
 
     const detailRow = page.locator('.cr-detail-row.open').first();
     const bodies = detailRow.locator('.agent-detail-body');
@@ -1001,7 +986,7 @@ test.describe('Code Review — Per-Agent Columns', () => {
     // Both files have all 5 agents, so no "no comments" entries expected
     // But let's verify the mechanism works by checking no-comment class
     await page.locator('.cr-file-row').first().click();
-    await page.waitForTimeout(200);
+    await page.locator('.cr-detail-row.open').first().waitFor();
     const noComments = page.locator('.cr-detail-row.open .cr-no-comment');
     const count = await noComments.count();
     // With all agents present, expect 0
@@ -1015,7 +1000,6 @@ test.describe('Code Review — Per-Agent Columns', () => {
     // Click the file path link specifically
     const pathLink = page.locator('.cr-file-row .file-path-link').first();
     await pathLink.click();
-    await page.waitForTimeout(300);
 
     // File modal should appear
     const modal = page.locator('.file-modal');
@@ -1032,7 +1016,6 @@ test.describe('Code Review — Per-Agent Columns', () => {
 
     const pathLink = page.locator('.cr-file-row .file-path-link').first();
     await pathLink.click();
-    await page.waitForTimeout(300);
 
     const modal = page.locator('.file-modal');
     await expect(modal).toBeVisible();

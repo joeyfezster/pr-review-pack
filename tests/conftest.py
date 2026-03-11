@@ -2,6 +2,13 @@
 
 All fixtures use abstract, domain-neutral zone names (zone-alpha, zone-beta,
 zone-gamma) to keep the pr-review-pack project-agnostic.
+
+NOTE: sample_review_pack_data duplicates the structure of BASE_DATA in
+e2e/generate_fixtures.py. The duplication is intentional — conftest serves
+pytest unit tests (fast, no rendering), while generate_fixtures serves E2E
+Playwright tests (full HTML rendering). They have different lifecycles and
+different extension points. TODO: consider extracting a shared fixture
+module if the data structures diverge further.
 """
 from __future__ import annotations
 
@@ -318,7 +325,11 @@ def sample_review_pack_data() -> dict:
             "updateDiagram": None,
             "diagramNarrative": "<p>No architectural changes in this PR.</p>",
             "unzonedFiles": [
-                {"path": "README.md", "suggestedZone": None, "reason": "Documentation file, no zone match"},
+                {
+                    "path": "README.md",
+                    "suggestedZone": None,
+                    "reason": "Documentation file, no zone match",
+                },
             ],
             "zoneChanges": [],
             "registryWarnings": [
@@ -327,11 +338,26 @@ def sample_review_pack_data() -> dict:
             "couplingWarnings": [],
             "docRecommendations": [],
             "decisionZoneVerification": [
-                {"decisionNumber": 1, "claimedZones": ["zone-alpha"], "verified": True, "reason": "3 files in diff touch zone-alpha paths"},
+                {
+                    "decisionNumber": 1,
+                    "claimedZones": ["zone-alpha"],
+                    "verified": True,
+                    "reason": "3 files in diff touch zone-alpha paths",
+                },
             ],
             "overallHealth": "needs-attention",
             "summary": "<p>1 unzoned file and 1 registry warning.</p>",
         },
+        "status": {
+            "value": "ready",
+            "text": "READY",
+            "reasons": [],
+        },
+        "reviewedCommitSHA": "abc1234",
+        "headCommitSHA": "abc1234",
+        "commitGap": 0,
+        "lastRefreshed": "2026-03-08T12:00:00Z",
+        "packMode": "live",
         "verdict": {"status": "ready", "text": "READY"},
         "codeDiffs": [
             {

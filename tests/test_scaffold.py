@@ -176,11 +176,29 @@ class TestComputeStatus:
     def test_needs_review_c_grade(self):
         result = compute_status(
             self._passing_convergence(),
-            {"findings": [{"grade": "C"}, {"grade": "C"}, {"grade": "A"}]},
+            {"findings": [
+                {"file": "src/a.py", "grade": "C"},
+                {"file": "src/b.py", "grade": "C"},
+                {"file": "src/c.py", "grade": "A"},
+            ]},
         )
         assert result["value"] == "needs-review"
         assert result["text"] == "NEEDS REVIEW"
         assert "2 file(s)" in result["reasons"][0]
+
+    def test_needs_review_c_grade_dedupes_same_file(self):
+        """Multiple C-grade findings on the same file count as 1 file."""
+        result = compute_status(
+            self._passing_convergence(),
+            {"findings": [
+                {"file": "src/a.py", "agent": "code-health", "grade": "C"},
+                {"file": "src/a.py", "agent": "security", "grade": "C"},
+                {"file": "src/a.py", "agent": "adversarial", "grade": "C"},
+                {"file": "src/b.py", "agent": "code-health", "grade": "A"},
+            ]},
+        )
+        assert result["value"] == "needs-review"
+        assert "1 file(s)" in result["reasons"][0]
 
     def test_needs_review_commit_gap(self):
         result = compute_status(
@@ -194,7 +212,7 @@ class TestComputeStatus:
     def test_needs_review_both_c_grade_and_commit_gap(self):
         result = compute_status(
             self._passing_convergence(),
-            {"findings": [{"grade": "C"}]},
+            {"findings": [{"file": "src/a.py", "grade": "C"}]},
             commit_gap=2,
         )
         assert result["value"] == "needs-review"

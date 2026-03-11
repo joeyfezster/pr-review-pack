@@ -18,10 +18,14 @@ from pathlib import Path
 PACKAGE_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(PACKAGE_DIR / "scripts"))
 
-from render_review_pack import render
+from render_review_pack import render  # noqa: E402
 
-
-# ── Base fixture data (mirrors conftest.py sample_review_pack_data) ──
+# ── Base fixture data ──
+# NOTE: This structure mirrors conftest.py::sample_review_pack_data.
+# The duplication is intentional — conftest serves pytest unit tests,
+# while this module serves E2E Playwright tests (full HTML rendering).
+# They have different lifecycles. TODO: consider extracting a shared
+# fixture module if the data structures diverge further.
 
 BASE_DATA: dict = {
     "header": {
@@ -83,8 +87,16 @@ BASE_DATA: dict = {
         ],
     },
     "specs": [
-        {"path": "specs/alpha_spec.md", "icon": "\U0001f4cb", "description": "Alpha component specification"},
-        {"path": "specs/beta_spec.md", "icon": "\U0001f4cb", "description": "Beta component specification"},
+        {
+            "path": "specs/alpha_spec.md",
+            "icon": "\U0001f4cb",
+            "description": "Alpha component specification",
+        },
+        {
+            "path": "specs/beta_spec.md",
+            "icon": "\U0001f4cb",
+            "description": "Beta component specification",
+        },
     ],
     "scenarios": [
         {
@@ -92,14 +104,22 @@ BASE_DATA: dict = {
             "category": "integration",
             "status": "pass",
             "zone": "zone-alpha",
-            "detail": {"what": "Alpha processes input correctly", "how": "Exit code 0, 1.2s", "result": "All assertions passed"},
+            "detail": {
+                "what": "Alpha processes input correctly",
+                "how": "Exit code 0, 1.2s",
+                "result": "All assertions passed",
+            },
         },
         {
             "name": "Beta handles edge case",
             "category": "pipeline",
             "status": "fail",
             "zone": "zone-beta",
-            "detail": {"what": "Beta handles edge case", "how": "Exit code 1, 0.5s", "result": "Assertion failed: expected 42 got 0"},
+            "detail": {
+                "what": "Beta handles edge case",
+                "how": "Exit code 1, 0.5s",
+                "result": "Assertion failed: expected 42 got 0",
+            },
         },
     ],
     "whatChanged": {
@@ -108,8 +128,16 @@ BASE_DATA: dict = {
             "product": "Added feature X to zone-alpha with new API endpoints.",
         },
         "zoneDetails": [
-            {"zoneId": "zone-alpha", "title": "Zone Alpha Changes", "description": "New API endpoints for feature X."},
-            {"zoneId": "zone-beta", "title": "Zone Beta Changes", "description": "Updated integration tests."},
+            {
+                "zoneId": "zone-alpha",
+                "title": "Zone Alpha Changes",
+                "description": "New API endpoints for feature X.",
+            },
+            {
+                "zoneId": "zone-beta",
+                "title": "Zone Beta Changes",
+                "description": "Updated integration tests.",
+            },
         ],
     },
     "agenticReview": {
@@ -223,7 +251,10 @@ BASE_DATA: dict = {
                 "gates": "Gate 1",
                 "zones": ["zone-alpha", "zone-beta"],
                 "specRefs": ["specs/alpha_spec.md"],
-                "checks": [{"label": "ruff check", "detail": "No issues"}, {"label": "mypy", "detail": "0 errors"}],
+                "checks": [
+                    {"label": "ruff check", "detail": "No issues"},
+                    {"label": "mypy", "detail": "0 errors"},
+                ],
                 "notes": "All checks green.",
             },
         },
@@ -260,19 +291,52 @@ BASE_DATA: dict = {
     ],
     "convergence": {
         "gates": [
-            {"name": "Gate 0 \u2014 Two-Tier Review", "status": "passing", "statusText": "Tier 1: 5/5 checks, 0 critical, 2 warn", "summary": "All deterministic checks passed.", "detail": ""},
-            {"name": "Gate 1 \u2014 Deterministic", "status": "passing", "statusText": "PASSING", "summary": "Lint, type, test all green.", "detail": ""},
-            {"name": "Gate 2 \u2014 NFR", "status": "passing", "statusText": "PASS", "summary": "Non-functional requirements met.", "detail": ""},
-            {"name": "Gate 3 \u2014 Scenarios", "status": "passing", "statusText": "5/5 (100%)", "summary": "5 of 5 holdout scenarios pass.", "detail": ""},
+            {
+                "name": "Gate 0 \u2014 Two-Tier Review",
+                "status": "passing",
+                "statusText": "Tier 1: 5/5 checks, 0 critical, 2 warn",
+                "summary": "All deterministic checks passed.",
+                "detail": "",
+            },
+            {
+                "name": "Gate 1 \u2014 Deterministic",
+                "status": "passing",
+                "statusText": "PASSING",
+                "summary": "Lint, type, test all green.",
+                "detail": "",
+            },
+            {
+                "name": "Gate 2 \u2014 NFR",
+                "status": "passing",
+                "statusText": "PASS",
+                "summary": "Non-functional requirements met.",
+                "detail": "",
+            },
+            {
+                "name": "Gate 3 \u2014 Scenarios",
+                "status": "passing",
+                "statusText": "5/5 (100%)",
+                "summary": "5 of 5 holdout scenarios pass.",
+                "detail": "",
+            },
         ],
-        "overall": {"status": "passing", "statusText": "READY TO MERGE", "summary": "All gates pass. 5/5 scenario satisfaction.", "detail": ""},
+        "overall": {
+            "status": "passing",
+            "statusText": "READY TO MERGE",
+            "summary": "All gates pass. 5/5 scenario satisfaction.",
+            "detail": "",
+        },
     },
     "postMergeItems": [
         {
             "title": "Monitor async handler latency",
             "priority": "medium",
             "description": "New async handlers need production monitoring.",
-            "codeSnippet": {"file": "src/alpha/core.py", "lineRange": "L45-L60", "code": "async def handle_request(data):\n    return await process(data)"},
+            "codeSnippet": {
+                "file": "src/alpha/core.py",
+                "lineRange": "L45-L60",
+                "code": "async def handle_request(data):\n    return await process(data)",
+            },
             "failureScenario": "Latency spikes under load go undetected.",
             "successScenario": "Dashboard alerts on p99 > 200ms.",
             "zones": ["zone-alpha"],
@@ -283,19 +347,70 @@ BASE_DATA: dict = {
         "baselineDiagram": None,
         "updateDiagram": None,
         "diagramNarrative": "<p>No architectural changes in this PR.</p>",
-        "unzonedFiles": [{"path": "README.md", "suggestedZone": None, "reason": "Documentation file, no zone match"}],
-        "zoneChanges": [{"type": "new_zone_recommended", "zone": "zone-delta", "reason": "New utility module at src/utils/ has no zone assignment", "suggestedPaths": ["src/utils/**"]}],
-        "registryWarnings": [{"zone": "zone-beta", "warning": "Missing specs reference", "severity": "WARNING"}],
-        "couplingWarnings": [{"fromZone": "zone-alpha", "toZone": "zone-beta", "files": ["src/alpha/core.py"], "evidence": "Direct import of beta internals in alpha module"}],
-        "docRecommendations": [{"type": "update_needed", "path": "docs/architecture.md", "reason": "Zone registry does not reflect new API endpoints in zone-alpha"}],
-        "decisionZoneVerification": [{"decisionNumber": 1, "claimedZones": ["zone-alpha"], "verified": True, "reason": "3 files in diff touch zone-alpha paths"}],
+        "unzonedFiles": [
+            {
+                "path": "README.md",
+                "suggestedZone": None,
+                "reason": "Documentation file, no zone match",
+            },
+        ],
+        "zoneChanges": [
+            {
+                "type": "new_zone_recommended",
+                "zone": "zone-delta",
+                "reason": "New utility module at src/utils/ has no zone assignment",
+                "suggestedPaths": ["src/utils/**"],
+            },
+        ],
+        "registryWarnings": [
+            {
+                "zone": "zone-beta",
+                "warning": "Missing specs reference",
+                "severity": "WARNING",
+            },
+        ],
+        "couplingWarnings": [
+            {
+                "fromZone": "zone-alpha",
+                "toZone": "zone-beta",
+                "files": ["src/alpha/core.py"],
+                "evidence": "Direct import of beta internals in alpha module",
+            },
+        ],
+        "docRecommendations": [
+            {
+                "type": "update_needed",
+                "path": "docs/architecture.md",
+                "reason": "Zone registry does not reflect new API endpoints in zone-alpha",
+            },
+        ],
+        "decisionZoneVerification": [
+            {
+                "decisionNumber": 1,
+                "claimedZones": ["zone-alpha"],
+                "verified": True,
+                "reason": "3 files in diff touch zone-alpha paths",
+            },
+        ],
         "overallHealth": "needs-attention",
         "summary": "<p>1 unzoned file and 1 registry warning.</p>",
     },
     "verdict": {"status": "ready", "text": "READY"},
     "codeDiffs": [
-        {"path": "src/alpha/core.py", "additions": 30, "deletions": 5, "status": "modified", "zones": ["zone-alpha"]},
-        {"path": "infra/deploy.sh", "additions": 12, "deletions": 2, "status": "modified", "zones": ["zone-gamma"]},
+        {
+            "path": "src/alpha/core.py",
+            "additions": 30,
+            "deletions": 5,
+            "status": "modified",
+            "zones": ["zone-alpha"],
+        },
+        {
+            "path": "infra/deploy.sh",
+            "additions": 12,
+            "deletions": 2,
+            "status": "modified",
+            "zones": ["zone-gamma"],
+        },
     ],
 }
 
@@ -306,8 +421,18 @@ DIFF_DATA: dict = {
     "total_deletions": 7,
     "total_files": 2,
     "files": {
-        "src/alpha/core.py": {"additions": 30, "deletions": 5, "status": "modified", "diff": "@@ -1,5 +1,30 @@\n+# new code\n"},
-        "infra/deploy.sh": {"additions": 12, "deletions": 2, "status": "modified", "diff": "@@ -1,2 +1,12 @@\n+#!/bin/bash\n"},
+        "src/alpha/core.py": {
+            "additions": 30,
+            "deletions": 5,
+            "status": "modified",
+            "diff": "@@ -1,5 +1,30 @@\n+# new code\n",
+        },
+        "infra/deploy.sh": {
+            "additions": 12,
+            "deletions": 2,
+            "status": "modified",
+            "diff": "@@ -1,2 +1,12 @@\n+#!/bin/bash\n",
+        },
     },
 }
 
@@ -316,13 +441,48 @@ FACTORY_HISTORY: dict = {
     "satisfactionTrajectory": "60% -> 80% -> 100%",
     "satisfactionDetail": "Converged after 3 iterations.",
     "timeline": [
-        {"title": "Iteration 1 started", "type": "action", "agent": {"type": "agent", "label": "Codex"}, "detail": "Initial code generation.", "meta": "2026-03-08T10:00:00Z", "expandedDetail": "<p>Full iteration 1 details.</p>"},
-        {"title": "Human review requested", "type": "intervention", "agent": {"type": "human", "label": "Joey"}, "detail": "Spec clarification needed.", "meta": "2026-03-08T11:00:00Z", "expandedDetail": "<p>Joey clarified the edge case.</p>"},
-        {"title": "Iteration 2 completed", "type": "action", "agent": {"type": "agent", "label": "Factory"}, "detail": "All scenarios passing.", "meta": "2026-03-08T12:00:00Z", "expandedDetail": ""},
+        {
+            "title": "Iteration 1 started",
+            "type": "action",
+            "agent": {"type": "agent", "label": "Codex"},
+            "detail": "Initial code generation.",
+            "meta": "2026-03-08T10:00:00Z",
+            "expandedDetail": "<p>Full iteration 1 details.</p>",
+        },
+        {
+            "title": "Human review requested",
+            "type": "intervention",
+            "agent": {"type": "human", "label": "Joey"},
+            "detail": "Spec clarification needed.",
+            "meta": "2026-03-08T11:00:00Z",
+            "expandedDetail": "<p>Joey clarified the edge case.</p>",
+        },
+        {
+            "title": "Iteration 2 completed",
+            "type": "action",
+            "agent": {"type": "agent", "label": "Factory"},
+            "detail": "All scenarios passing.",
+            "meta": "2026-03-08T12:00:00Z",
+            "expandedDetail": "",
+        },
     ],
     "gateFindings": [
-        {"phase": "Iteration 1", "phasePopover": "First factory iteration", "gate1": {"status": "pass", "label": "PASS", "popover": "All lint checks passed"}, "gate2": {"status": "pass", "label": "PASS", "popover": "NFR checks passed"}, "gate3": {"status": "fail", "label": "3/5", "popover": "2 scenarios failed"}, "action": "Continue"},
-        {"phase": "Iteration 2", "phasePopover": "Second factory iteration", "gate1": {"status": "pass", "label": "PASS", "popover": ""}, "gate2": {"status": "pass", "label": "PASS", "popover": ""}, "gate3": {"status": "pass", "label": "5/5", "popover": "All scenarios passed"}, "action": "Converged"},
+        {
+            "phase": "Iteration 1",
+            "phasePopover": "First factory iteration",
+            "gate1": {"status": "pass", "label": "PASS", "popover": "All lint checks passed"},
+            "gate2": {"status": "pass", "label": "PASS", "popover": "NFR checks passed"},
+            "gate3": {"status": "fail", "label": "3/5", "popover": "2 scenarios failed"},
+            "action": "Continue",
+        },
+        {
+            "phase": "Iteration 2",
+            "phasePopover": "Second factory iteration",
+            "gate1": {"status": "pass", "label": "PASS", "popover": ""},
+            "gate2": {"status": "pass", "label": "PASS", "popover": ""},
+            "gate3": {"status": "pass", "label": "5/5", "popover": "All scenarios passed"},
+            "action": "Converged",
+        },
     ],
 }
 
@@ -334,7 +494,12 @@ def _render_variant(data: dict, diff: dict, output_path: str) -> None:
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         json.dump(diff, f)
         diff_path = f.name
-    render(data_path=data_path, output_path=output_path, diff_data_path=diff_path, template_version="v2")
+    render(
+        data_path=data_path,
+        output_path=output_path,
+        diff_data_path=diff_path,
+        template_version="v2",
+    )
     print(f"  Generated: {output_path}")
 
 
@@ -351,7 +516,11 @@ def main() -> None:
 
     # ── GAP (needs-review) ──
     gap = copy.deepcopy(BASE_DATA)
-    gap["status"] = {"value": "needs-review", "text": "NEEDS REVIEW", "reasons": ["3 commit(s) since review"]}
+    gap["status"] = {
+        "value": "needs-review",
+        "text": "NEEDS REVIEW",
+        "reasons": ["3 commit(s) since review"],
+    }
     gap["reviewedCommitSHA"] = "abc1234"
     gap["headCommitSHA"] = "def5678"
     gap["commitGap"] = 3
@@ -361,7 +530,11 @@ def main() -> None:
 
     # ── BLOCKED ──
     blocked = copy.deepcopy(BASE_DATA)
-    blocked["status"] = {"value": "blocked", "text": "BLOCKED", "reasons": ["1 critical finding", "CI not passing"]}
+    blocked["status"] = {
+        "value": "blocked",
+        "text": "BLOCKED",
+        "reasons": ["1 critical finding", "CI not passing"],
+    }
     blocked["reviewedCommitSHA"] = "abc1234"
     blocked["headCommitSHA"] = "abc1234"
     blocked["commitGap"] = 0

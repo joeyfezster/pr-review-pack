@@ -25,7 +25,7 @@ import json
 import subprocess
 import sys
 import time
-from datetime import UTC
+from datetime import UTC, datetime
 from fnmatch import fnmatch
 from pathlib import Path
 
@@ -104,7 +104,6 @@ def format_time(seconds: float) -> str:
 
 def parse_ci_time(started: str, completed: str) -> float:
     """Parse ISO timestamps and return duration in seconds."""
-    from datetime import datetime
     fmt = "%Y-%m-%dT%H:%M:%SZ"
     try:
         start = datetime.strptime(started, fmt).replace(tzinfo=UTC)
@@ -290,6 +289,15 @@ def build_category_zone_map(zones_registry: dict) -> dict[str, str]:
 
     This replaces the previous hardcoded MiniPong-specific mapping,
     making the scaffold project-agnostic.
+
+    Known limitation: scenario categories in practice may not match zone
+    IDs or labels. E.g., a scenario with category="integration" won't
+    match any zone unless a zone happens to be named "integration". The
+    mapping works when scenario categories are intentionally aligned with
+    zone IDs (e.g., category="environment" matches zone ID "environment").
+    For projects where categories don't align, scenarios will have empty
+    zone assignments, which is acceptable — zone filtering simply won't
+    filter them.
     """
     mapping: dict[str, str] = {}
     for zone_id, zone_def in zones_registry.items():
@@ -359,7 +367,7 @@ def compute_status(
     findings = agentic_review.get("findings", [])
     has_f_grade = any(f.get("grade") == "F" for f in findings)
     has_c_grade = any(f.get("grade") == "C" for f in findings)
-    c_count = sum(1 for f in findings if f.get("grade") == "C")
+    c_count = len(set(f.get("file", "") for f in findings if f.get("grade") == "C"))
 
     # Blocked conditions
     if any_failing:
@@ -372,7 +380,7 @@ def compute_status(
     if overall_failing:
         reasons.append("Overall convergence failing")
     if has_f_grade:
-        f_count = sum(1 for f in findings if f.get("grade") == "F")
+        f_count = len(set(f.get("file", "") for f in findings if f.get("grade") == "F"))
         reasons.append(f"{f_count} critical finding(s) (F grade)")
 
     if reasons:
@@ -501,9 +509,18 @@ def build_convergence(scenario_data: dict | None, ci_checks: list,
             "Run: python scripts/run_gate0.py (from dark-factory package)"
         )
 
-    # Gate 1 — we can only say pass/fail based on CI validate job
+    # Gate 1 — pass/fail based on CI validate job.
+    # Looks for a job named "validate" by default. Falls back to checking
+    # all CI jobs if no "validate" job is found, since Gate 1 represents
+    # deterministic quality checks (lint + typecheck + test).
     validate_jobs = [c for c in ci_checks if c.get("name") == "validate"]
-    gate1_pass = all(c.get("state") == "SUCCESS" for c in validate_jobs) if validate_jobs else False
+    if validate_jobs:
+        gate1_pass = all(c.get("state") == "SUCCESS" for c in validate_jobs)
+    elif ci_checks:
+        # Fallback: no job named "validate" — use all CI jobs as proxy
+        gate1_pass = all(c.get("state") == "SUCCESS" for c in ci_checks)
+    else:
+        gate1_pass = False
 
     # Gate 3 — from scenarios (only if scenarios exist)
     if scenario_data:
@@ -531,6 +548,10 @@ def build_convergence(scenario_data: dict | None, ci_checks: list,
             "summary": "",
             "detail": "",
         },
+        # TODO: Gate 2 is hardcoded as always-passing because the scaffold
+        # does not yet integrate NFR check results (code quality, complexity,
+        # dead code, security scans). To fix: consume nfr_results.json from
+        # the dark-factory package and derive pass/fail status from its data.
         {
             "name": "Gate 2 \u2014 NFR",
             "status": "passing",
@@ -611,6 +632,9 @@ def scaffold(pr_number: int, diff_data_path: str, zone_registry_path: str,
     ci_checks = json.loads(ci_raw) if ci_raw else []
 
     # Fetch comment counts
+    # Trust assumption: owner/name come from git remote or --repo CLI flag,
+    # both constrained by GitHub's repo naming rules ([a-zA-Z0-9._-]).
+    # No user-supplied free text reaches this interpolation.
     owner, name = repo_slug.split("/") if "/" in repo_slug else ("", "")
     comment_query = f'''{{
       repository(owner: "{owner}", name: "{name}") {{
@@ -694,6 +718,21 @@ def scaffold(pr_number: int, diff_data_path: str, zone_registry_path: str,
 
     now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
+    # Derive HEAD commit date from the PR commit list if available,
+    # rather than using wall-clock time (which can differ from the actual
+    # commit timestamp if scaffold runs later than the push).
+    head_commit_date = now_iso  # fallback to wall clock
+    commits_list_for_date = pr_meta.get("commits", [])
+    if isinstance(commits_list_for_date, list) and commits_list_for_date:
+        last_commit = commits_list_for_date[-1]
+        # gh pr view --json commits returns nodes with committedDate
+        if isinstance(last_commit, dict):
+            head_commit_date = (
+                last_commit.get("committedDate")
+                or last_commit.get("authoredDate")
+                or now_iso
+            )
+
     result: dict = {
         "header": header,
         "architecture": architecture,
@@ -706,7 +745,7 @@ def scaffold(pr_number: int, diff_data_path: str, zone_registry_path: str,
             existing.get("reviewedCommitDate", now_iso) if existing else now_iso
         ),
         "headCommitSHA": head_sha,
-        "headCommitDate": now_iso,
+        "headCommitDate": head_commit_date,
         "commitGap": commit_gap,
         "lastRefreshed": now_iso,
         "packMode": existing.get("packMode", "live") if existing else "live",

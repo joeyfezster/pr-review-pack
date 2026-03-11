@@ -193,6 +193,10 @@ def cmd_refresh(args: argparse.Namespace) -> None:
 
     # Step 3: Re-render HTML
     print("  [3/3] Re-rendering HTML...")
+    # TODO: Template detection is fragile — it reads the file a second time
+    # and matches on a CSS class name that could appear in embedded diff
+    # content. A more robust approach would embed a schema version marker
+    # (e.g., <meta name="review-pack-version" content="v2">) in the template.
     template_version = "v2"  # detect from HTML
     if 'class="mc-layout"' not in Path(html_path).read_text():
         template_version = "v1"
@@ -277,6 +281,10 @@ def cmd_merge(args: argparse.Namespace) -> None:
     print("  Validation passed.")
 
     # Step 3: Set pack to merged mode + remove banner
+    # NOTE: These string replacements target specific attribute/JSON patterns
+    # that are unlikely to appear in embedded diff content. The risk of false
+    # matches is low but non-zero — a more robust approach would parse the
+    # HTML/JSON boundary, but the current specificity is sufficient.
     print("\n[Step 3/5] Snapshotting to merged mode...")
     html_content = Path(html_path).read_text()
     html_content = html_content.replace(

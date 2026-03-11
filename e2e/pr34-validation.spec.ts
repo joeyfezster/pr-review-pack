@@ -82,7 +82,7 @@ test.describe('PR #34 — Agentic Review', () => {
 
   test('code review list has file rows', async ({ page }) => {
     await page.goto(PACK_URL);
-    const rows = page.locator('#cr-file-list .cd-file-item');
+    const rows = page.locator('#cr-file-list .cr-file-row');
     const count = await rows.count();
     expect(count).toBeGreaterThan(0);
   });
@@ -118,12 +118,12 @@ test.describe('PR #34 — Key Decisions', () => {
 });
 
 test.describe('PR #34 — Code Review', () => {
-  test('code review section has 38 file items', async ({ page }) => {
+  test('code review section has file items', async ({ page }) => {
     await page.goto(PACK_URL);
-    const items = page.locator('#cr-file-list .cd-file-item');
+    const items = page.locator('#cr-file-list .cr-file-row');
     const count = await items.count();
-    // 38 diff files + any files with findings only = 39
-    expect(count).toBeGreaterThanOrEqual(38);
+    // diff files + any files with findings only
+    expect(count).toBeGreaterThanOrEqual(39);
   });
 
   test('diff data is embedded inline', async ({ page }) => {
@@ -165,6 +165,10 @@ test.describe('PR #34 — All Sections Present', () => {
 
 // ═══════════════════════════════════════════════════════════════════
 // Banner Removal — runs after ALL tests pass
+// INTENTIONAL SIDE-EFFECT: This test writes to the actual review pack
+// HTML file on disk. This is by design — the Playwright suite removes
+// the visual inspection banner as its final step, marking the pack as
+// reviewed. The mutation is the desired outcome, not a testing flaw.
 // ═══════════════════════════════════════════════════════════════════
 
 test.describe('Banner Removal', () => {
