@@ -103,15 +103,15 @@ test.describe('Banner Removal', () => {
       'data-inspected="true"'
     );
 
-    // Remove the banner div
+    // Remove the banner div (handles with or without extra attributes)
     html = html.replace(
-      /<div id="visual-inspection-banner">[\s\S]*?<\/div>/,
+      /<div id="visual-inspection-banner"[^>]*>[\s\S]*?<\/div>/,
       ''
     );
 
     // Remove the spacer div
     html = html.replace(
-      /<div id="visual-inspection-spacer"><\/div>/,
+      /<div id="visual-inspection-spacer"[^>]*><\/div>/,
       ''
     );
 

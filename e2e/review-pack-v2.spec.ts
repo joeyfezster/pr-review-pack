@@ -88,28 +88,56 @@ test.describe('Status Badge', () => {
     expect(count).toBeLessThanOrEqual(1);
   });
 
-  test('NEEDS REVIEW pack shows yellow status with reasons', async ({ page }) => {
+  test('NEEDS REVIEW pack shows yellow status with reasons on hover', async ({ page }) => {
     await page.goto(GAP_PACK);
     const verdict = page.locator('#mc-sidebar .sb-verdict');
     await expect(verdict).toHaveClass(/needs-review/);
     await expect(verdict).toContainText('NEEDS REVIEW');
 
-    const reasons = page.locator('#mc-sidebar .sb-status-reasons li');
-    await expect(reasons).toHaveCount(1);
-    await expect(reasons.first()).toContainText('commit(s)');
+    // Reasons are hidden by default (tooltip)
+    const reasons = page.locator('#mc-sidebar .sb-status-reasons');
+    await expect(reasons).toBeHidden();
+
+    // Hover over the verdict wrapper to reveal reasons
+    const wrapper = page.locator('#mc-sidebar .sb-verdict-wrapper');
+    await wrapper.hover();
+    await expect(reasons).toBeVisible();
+
+    const items = reasons.locator('li');
+    await expect(items).toHaveCount(1);
+    await expect(items.first()).toContainText('commit(s)');
   });
 
-  test('BLOCKED pack shows red status with reasons', async ({ page }) => {
+  test('BLOCKED pack shows red status with reasons on hover', async ({ page }) => {
     await page.goto(BLOCKED_PACK);
     const verdict = page.locator('#mc-sidebar .sb-verdict');
     await expect(verdict).toHaveClass(/blocked/);
     await expect(verdict).toContainText('BLOCKED');
 
-    const reasons = page.locator('#mc-sidebar .sb-status-reasons li');
-    const count = await reasons.count();
+    // Reasons hidden by default
+    const reasons = page.locator('#mc-sidebar .sb-status-reasons');
+    await expect(reasons).toBeHidden();
+
+    // Hover reveals reasons
+    const wrapper = page.locator('#mc-sidebar .sb-verdict-wrapper');
+    await wrapper.hover();
+    await expect(reasons).toBeVisible();
+
+    const items = reasons.locator('li');
+    const count = await items.count();
     expect(count).toBeGreaterThan(0);
-    const text = await reasons.first().textContent();
+    const text = await items.first().textContent();
     expect(text).toContain('critical finding');
+  });
+
+  test('READY pack status does not show reasons on hover (no reasons to show)', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const wrapper = page.locator('#mc-sidebar .sb-verdict-wrapper');
+    await wrapper.hover();
+    // No reasons ul should exist for ready status
+    const reasons = page.locator('#mc-sidebar .sb-status-reasons');
+    const count = await reasons.count();
+    expect(count).toBe(0);
   });
 });
 

@@ -145,11 +145,12 @@
   .sb-pr-meta .sb-pr-title { font-size: 14px; font-weight: 700; margin: 4px 0; line-height: 1.3; }
   .sb-pr-meta .sb-pr-stats { font-size: 11px; color: var(--text-secondary); }
 
-  .sb-verdict { padding: 10px 12px; border-radius: 8px; text-align: center; font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+  .sb-verdict-wrapper { position: relative; margin-bottom: 8px; }
+  .sb-verdict { padding: 10px 12px; border-radius: 8px; text-align: center; font-weight: 700; font-size: 14px; cursor: default; }
   .sb-verdict.ready { background: var(--green-bg); color: #166534; }
-  .sb-verdict.needs-review { background: var(--yellow-bg); color: #854d0e; }
-  .sb-verdict.review { background: var(--yellow-bg); color: #854d0e; }
-  .sb-verdict.blocked { background: var(--red-bg); color: #991b1b; }
+  .sb-verdict.needs-review { background: var(--yellow-bg); color: #854d0e; cursor: help; }
+  .sb-verdict.review { background: var(--yellow-bg); color: #854d0e; cursor: help; }
+  .sb-verdict.blocked { background: var(--red-bg); color: #991b1b; cursor: help; }
   [data-theme="dark"] .sb-verdict.ready { background: #064e3b; color: #34d399; }
   [data-theme="dark"] .sb-verdict.needs-review { background: #713f12; color: #fde047; }
   [data-theme="dark"] .sb-verdict.review { background: #713f12; color: #fde047; }
@@ -170,9 +171,10 @@
   .sb-commit-list .commit-covered { color: var(--green-text, #166534); }
   .sb-commit-list .commit-new { color: var(--orange-text, #b45309); }
 
-  /* Status reasons */
-  .sb-status-reasons { font-size: 10px; color: var(--text-secondary); margin-bottom: 8px; padding: 0 4px; }
-  .sb-status-reasons li { margin: 2px 0; list-style: disc; margin-left: 14px; }
+  /* Status reasons — tooltip on hover (non-ready only) */
+  .sb-status-reasons { display: none; position: absolute; left: 0; right: 0; top: 100%; z-index: 100; margin-top: 4px; padding: 8px 10px; font-size: 11px; color: var(--text-primary); background: var(--card-bg, white); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); list-style: disc; }
+  .sb-status-reasons li { margin: 3px 0 3px 14px; }
+  .sb-verdict-wrapper:hover .sb-status-reasons { display: block; }
 
   /* Merge button */
   .sb-merge-btn { width: 100%; padding: 8px 12px; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer; border: none; margin-bottom: 12px; transition: opacity 0.2s; }

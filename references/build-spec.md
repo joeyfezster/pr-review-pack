@@ -1008,27 +1008,31 @@ Every review pack produces multiple artifacts. All artifacts for a single PR sha
 
 ## 20. Visual Validation
 
-**Mandatory. Never deliver a review pack without visual validation.**
+**Mandatory. Never deliver a review pack without Playwright validation.**
 
-The template includes a red self-review banner visible until the generating agent removes it after visual inspection. The banner references `references/validation-checklist.md` for the full checklist.
+The template includes a red self-review banner visible until the Playwright test suite removes it after all tests pass. The banner references `references/validation-checklist.md` for the full checklist.
 
-### Programmatic Check (Always Run)
+### Playwright Validation (Replaces Manual Browser Checks)
 
-Verify structural correctness: no unreplaced INJECT markers, PR title present, all sections have content, diff data embedded, no external fetch, script escaping correct.
+All visual validation is automated via the Playwright test suite. No manual Chrome screenshots, no `osascript`, no `screencapture`. The two-tier test structure:
 
-### Browser Visual Check (Mandatory)
+1. **Baseline suite** (`e2e/review-pack-v2.spec.ts`) — structural tests that apply to ALL review packs: layout, sidebar, theme toggle, expandable sections, self-contained checks, architecture diagram, code diffs. Never modified per-PR.
+2. **Per-PR expansion** (`e2e/pr{N}-validation.spec.ts`) — PR-specific assertions: correct file counts, zone names, decision content, finding counts, architecture assessment data. Copied from `e2e/pr-validation.template.ts`.
 
-Open the pack in a browser. Scroll through all sections. Verify:
-- All sections render with content (not empty)
-- Architecture diagram renders correctly (not clipped, zoom controls present)
-- Theme toggle works (light/dark/system)
-- Expandable sections toggle on click
-- File modal opens for file path links
-- Stats show labeled additions (green) and deletions (red)
-- Factory History section (if present) renders timeline and gate table
-- Bottom of page: clean footer, no raw JSON leaking
+```bash
+# Generate fixtures (if needed after template changes)
+cd packages/pr-review-pack && python3 e2e/generate_fixtures.py
 
-After visual review passes, remove the inspection banner from the HTML.
+# Run full suite (baseline + PR-specific)
+npx playwright test e2e/
+```
+
+On all-pass, the per-PR expansion's final test block automatically:
+- Sets `data-inspected="true"` on `<body>`
+- Removes the `#visual-inspection-banner` div
+- Removes the `#visual-inspection-spacer` div
+
+The banner is never removed manually. It is removed by passing tests or not at all.
 
 ---
 

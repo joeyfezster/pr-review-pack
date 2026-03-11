@@ -906,12 +906,14 @@ def render_sidebar_verdict(data: dict) -> str:
         "blocked": "&#x2717;",
     }.get(value, "?")
 
-    html = f'<div class="sb-verdict {value}">{icon} {esc(text)}</div>'
+    html = f'<div class="sb-verdict-wrapper">'
+    html += f'\n  <div class="sb-verdict {value}">{icon} {esc(text)}</div>'
     if reasons:
-        html += '\n<ul class="sb-status-reasons">'
+        html += '\n  <ul class="sb-status-reasons">'
         for r in reasons:
-            html += f"\n  <li>{esc(r)}</li>"
-        html += "\n</ul>"
+            html += f"\n    <li>{esc(r)}</li>"
+        html += "\n  </ul>"
+    html += "\n</div>"
     return html
 
 
@@ -1513,8 +1515,17 @@ def render(
         )
 
     # ── Inject DATA JSON for JS interactivity ──
+    # Use rfind to replace the LAST occurrence (inside the <script> block),
+    # not an earlier occurrence that may appear inside rendered finding text.
     data_json = json.dumps(data, indent=2)
-    template = template.replace("const DATA = {};", f"const DATA = {data_json};")
+    data_placeholder = "const DATA = {};"
+    last_idx = template.rfind(data_placeholder)
+    if last_idx >= 0:
+        template = (
+            template[:last_idx]
+            + f"const DATA = {data_json};"
+            + template[last_idx + len(data_placeholder) :]
+        )
 
     # ── Fix PR URL href ──
     pr_url = header.get("prUrl", "#")

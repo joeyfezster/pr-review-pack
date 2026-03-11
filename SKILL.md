@@ -3,7 +3,7 @@ name: pr-review-pack
 description: This skill should be used when the user asks to "generate a review pack", "create a PR review pack", "build a review pack for this PR", "make a review report", or when a PR is ready for review and needs a review pack artifact. Generates a self-contained interactive HTML review pack following the three-pass pipeline.
 user-invocable: true
 argument-hint: "[PR-url-or-number]"
-allowed-tools: Bash(python3 *), Bash(gh *), Bash(git diff *), Bash(git log *), Bash(git show *), Bash(git status *), Bash(screencapture *), Bash(osascript *), Bash(open *), Bash(sleep *), Bash(which *), Read, Edit, Write, Glob, Grep
+allowed-tools: Bash(python3 *), Bash(npx playwright *), Bash(gh *), Bash(git diff *), Bash(git log *), Bash(git show *), Bash(git status *), Bash(sleep *), Bash(which *), Read, Edit, Write, Glob, Grep
 ---
 
 # PR Review Pack — Mission Control
