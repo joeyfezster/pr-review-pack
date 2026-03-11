@@ -58,20 +58,30 @@ def get_auth_token() -> str:
 
 
 def extract_data_from_html(html_path: str) -> dict | None:
-    """Extract the embedded DATA JSON from a rendered review pack HTML."""
+    """Extract the embedded DATA JSON from a rendered review pack HTML.
+
+    The HTML contains many text references to ``const DATA`` inside
+    embedded diff content.  The real one lives inside a ``<script>``
+    block and is followed by valid JSON starting with ``{  "header"``.
+    We scan all occurrences and try ``json.JSONDecoder`` on each until
+    one succeeds with a dict containing "header".
+    """
     html = Path(html_path).read_text()
-    # Look for: const DATA = {...};
-    match = re.search(
-        r"const\s+DATA\s*=\s*(\{.*?\});\s*$",
-        html,
-        re.MULTILINE | re.DOTALL,
-    )
-    if not match:
-        return None
-    try:
-        return json.loads(match.group(1))
-    except json.JSONDecodeError:
-        return None
+    marker = "const DATA = "
+    decoder = json.JSONDecoder()
+    idx = 0
+    while True:
+        idx = html.find(marker, idx)
+        if idx < 0:
+            return None
+        json_start = idx + len(marker)
+        try:
+            obj, _ = decoder.raw_decode(html, json_start)
+            if isinstance(obj, dict) and "header" in obj:
+                return obj
+        except (json.JSONDecodeError, ValueError):
+            pass
+        idx = json_start
 
 
 def cmd_status(args: argparse.Namespace) -> None:
@@ -192,7 +202,7 @@ def cmd_refresh(args: argparse.Namespace) -> None:
         str(Path(__file__).parent / "render_review_pack.py"),
         "--data", scaffold_output,
         "--output", html_path,
-        "--diff-data-filename", diff_data_path,
+        "--diff-data", diff_data_path,
         "--template", template_version,
     ]
     subprocess.run(render_cmd, check=True)

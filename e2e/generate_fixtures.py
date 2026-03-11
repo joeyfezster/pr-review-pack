@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Generate E2E fixture HTML files for Playwright tests.
 
-Renders three variants of a review pack (READY, GAP, BLOCKED) using the v2
-template and abstract fixture data.
+Renders four variants of a review pack (READY, GAP, BLOCKED, NO_FACTORY)
+using the v2 template and abstract fixture data.
 
 Usage:
     cd packages/pr-review-pack && python3 e2e/generate_fixtures.py
@@ -116,6 +116,7 @@ BASE_DATA: dict = {
         "overallGrade": "B",
         "reviewMethod": "agent-teams",
         "findings": [
+            # ── src/alpha/core.py ──
             {
                 "file": "src/alpha/core.py",
                 "agent": "code-health",
@@ -133,6 +134,79 @@ BASE_DATA: dict = {
                 "zones": "zone-alpha",
                 "notable": "Unsanitized input in handler.",
                 "detail": "Input validation missing on line 45.",
+            },
+            {
+                "file": "src/alpha/core.py",
+                "agent": "test-integrity",
+                "grade": "B",
+                "gradeSortOrder": 3,
+                "zones": "zone-alpha",
+                "notable": "Test coverage adequate but edge cases missing.",
+                "detail": "Missing edge case test for null input on line 52.",
+            },
+            {
+                "file": "src/alpha/core.py",
+                "agent": "adversarial",
+                "grade": "A",
+                "gradeSortOrder": 4,
+                "zones": "zone-alpha",
+                "notable": "No adversarial concerns.",
+                "detail": "Code is clean.",
+            },
+            {
+                "file": "src/alpha/core.py",
+                "agent": "architecture",
+                "grade": "A",
+                "gradeSortOrder": 4,
+                "zones": "zone-alpha",
+                "notable": "Properly scoped within zone-alpha.",
+                "detail": "No architectural issues.",
+            },
+            # ── infra/deploy.sh ──
+            {
+                "file": "infra/deploy.sh",
+                "agent": "code-health",
+                "grade": "A",
+                "gradeSortOrder": 4,
+                "zones": "zone-gamma",
+                "notable": "Script follows conventions.",
+                "detail": "Clean bash script.",
+            },
+            {
+                "file": "infra/deploy.sh",
+                "agent": "security",
+                "grade": "B",
+                "gradeSortOrder": 3,
+                "zones": "zone-gamma",
+                "notable": "Credentials handled safely.",
+                "detail": "Uses env vars for secrets, which is acceptable.",
+            },
+            {
+                "file": "infra/deploy.sh",
+                "agent": "test-integrity",
+                "grade": "A",
+                "gradeSortOrder": 4,
+                "zones": "zone-gamma",
+                "notable": "Infrastructure scripts excluded from coverage.",
+                "detail": "N/A for infrastructure.",
+            },
+            {
+                "file": "infra/deploy.sh",
+                "agent": "adversarial",
+                "grade": "C",
+                "gradeSortOrder": 1,
+                "zones": "zone-gamma",
+                "notable": "Deployment script lacks rollback.",
+                "detail": "No rollback mechanism if deployment fails. Add `set -e` and trap.",
+            },
+            {
+                "file": "infra/deploy.sh",
+                "agent": "architecture",
+                "grade": "A",
+                "gradeSortOrder": 4,
+                "zones": "zone-gamma",
+                "notable": "Properly placed in infra zone.",
+                "detail": "No zone issues.",
             },
         ],
     },
@@ -210,10 +284,10 @@ BASE_DATA: dict = {
         "updateDiagram": None,
         "diagramNarrative": "<p>No architectural changes in this PR.</p>",
         "unzonedFiles": [{"path": "README.md", "suggestedZone": None, "reason": "Documentation file, no zone match"}],
-        "zoneChanges": [],
+        "zoneChanges": [{"type": "new_zone_recommended", "zone": "zone-delta", "reason": "New utility module at src/utils/ has no zone assignment", "suggestedPaths": ["src/utils/**"]}],
         "registryWarnings": [{"zone": "zone-beta", "warning": "Missing specs reference", "severity": "WARNING"}],
-        "couplingWarnings": [],
-        "docRecommendations": [],
+        "couplingWarnings": [{"fromZone": "zone-alpha", "toZone": "zone-beta", "files": ["src/alpha/core.py"], "evidence": "Direct import of beta internals in alpha module"}],
+        "docRecommendations": [{"type": "update_needed", "path": "docs/architecture.md", "reason": "Zone registry does not reflect new API endpoints in zone-alpha"}],
         "decisionZoneVerification": [{"decisionNumber": 1, "claimedZones": ["zone-alpha"], "verified": True, "reason": "3 files in diff touch zone-alpha paths"}],
         "overallHealth": "needs-attention",
         "summary": "<p>1 unzoned file and 1 registry warning.</p>",
@@ -295,7 +369,18 @@ def main() -> None:
     blocked["factoryHistory"] = FACTORY_HISTORY
     _render_variant(blocked, DIFF_DATA, "/tmp/pr26_review_pack_v2_blocked.html")
 
-    print("All 3 E2E fixtures generated.")
+    # ── NO_FACTORY ──
+    no_factory = copy.deepcopy(BASE_DATA)
+    no_factory["status"] = {"value": "ready", "text": "READY", "reasons": []}
+    no_factory["reviewedCommitSHA"] = "abc1234"
+    no_factory["headCommitSHA"] = "abc1234"
+    no_factory["commitGap"] = 0
+    no_factory["packMode"] = "live"
+    no_factory["factoryHistory"] = None
+    no_factory["scenarios"] = []
+    _render_variant(no_factory, DIFF_DATA, "/tmp/pr26_review_pack_v2_nofactory.html")
+
+    print("All 4 E2E fixtures generated.")
 
 
 if __name__ == "__main__":

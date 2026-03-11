@@ -447,7 +447,7 @@ class TestRenderSidebarMetrics:
         assert "scrollToSection('section-ci-performance')" in result
         assert "scrollToSection('section-specs-scenarios')" in result
         assert "scrollToSection('section-convergence')" in result
-        assert "scrollToSection('section-agentic-review')" in result
+        assert "scrollToSection('section-code-review')" in result
 
     def test_zero_findings_is_green(self):
         data = {
@@ -602,12 +602,11 @@ class TestRenderSidebarSectionNav:
         assert "Architecture" in result
         assert "What Changed" in result
         assert "Specs &amp; Scenarios" in result
-        assert "Agent Reviews" in result
+        assert "Code Review" in result
         assert "Key Decisions" in result
         assert "Convergence" in result
         assert "CI Performance" in result
         assert "Post-Merge Items" in result
-        assert "Code Diffs" in result
 
     def test_no_factory_history_when_none(self, sample_review_pack_data):
         result = render_sidebar_section_nav(sample_review_pack_data)
@@ -624,12 +623,11 @@ class TestRenderSidebarSectionNav:
         assert 'data-section="section-architecture"' in result
         assert 'data-section="section-what-changed"' in result
         assert 'data-section="section-specs-scenarios"' in result
-        assert 'data-section="section-agentic-review"' in result
+        assert 'data-section="section-code-review"' in result
         assert 'data-section="section-key-decisions"' in result
         assert 'data-section="section-convergence"' in result
         assert 'data-section="section-ci-performance"' in result
         assert 'data-section="section-post-merge"' in result
-        assert 'data-section="section-code-diffs"' in result
 
     def test_onclick_scroll(self, sample_review_pack_data):
         result = render_sidebar_section_nav(sample_review_pack_data)
@@ -639,9 +637,10 @@ class TestRenderSidebarSectionNav:
     def test_group_labels(self, sample_review_pack_data):
         result = render_sidebar_section_nav(sample_review_pack_data)
         assert 'class="sb-nav-group-label"' in result
-        assert "Architecture &amp; Context" in result
-        assert "Safety &amp; Reasoning" in result
-        assert "Follow-ups &amp; Evidence" in result
+        assert "Architecture &amp; Changes" in result
+        assert "Factory" in result
+        assert "Review &amp; Evidence" in result
+        assert "Follow-ups" in result
 
     def test_content_dot_for_architecture(self, sample_review_pack_data):
         result = render_sidebar_section_nav(sample_review_pack_data)
@@ -675,10 +674,10 @@ class TestRenderSidebarSectionNav:
         # 1 post-merge item in sample data
         assert "(1)" in result
 
-    def test_code_diffs_count_badge(self, sample_review_pack_data):
+    def test_code_review_count_badge(self, sample_review_pack_data):
         result = render_sidebar_section_nav(sample_review_pack_data)
-        # 2 code diffs in sample data
-        assert "(2)" in result
+        # 1 non-A/non-N/A finding (security:C) in sample data
+        assert "(1)" in result
 
     def test_findings_dot_when_critical(self, sample_review_pack_data):
         result = render_sidebar_section_nav(sample_review_pack_data)

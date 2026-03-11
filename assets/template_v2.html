@@ -145,6 +145,9 @@
   .sb-pr-meta .sb-pr-title { font-size: 14px; font-weight: 700; margin: 4px 0; line-height: 1.3; }
   .sb-pr-meta .sb-pr-stats { font-size: 11px; color: var(--text-secondary); }
 
+  .sb-theme-toggle-wrapper { position: absolute; top: 8px; right: 8px; z-index: 10; }
+  .sb-theme-toggle-wrapper .theme-toggle button { padding: 2px 7px; font-size: 12px; }
+
   .sb-verdict-wrapper { position: relative; margin-bottom: 8px; }
   .sb-verdict { padding: 10px 12px; border-radius: 8px; text-align: center; font-weight: 700; font-size: 14px; cursor: default; }
   .sb-verdict.ready { background: var(--green-bg); color: #166534; }
@@ -195,6 +198,11 @@
   .sb-merge-panel .merge-steps { margin: 4px 0; padding-left: 16px; color: var(--text-secondary); }
   .sb-merge-panel .merge-steps li { margin: 2px 0; }
 
+  /* Refresh button */
+  .sb-refresh-btn { width: 100%; padding: 7px 12px; border-radius: 6px; font-weight: 600; font-size: 12px; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text-secondary); margin-bottom: 12px; transition: background 0.15s, color 0.15s; }
+  .sb-refresh-btn:hover { background: var(--gray-bg); color: var(--text); }
+  [data-theme="dark"] .sb-refresh-btn { border-color: #374151; color: #9ca3af; }
+  [data-theme="dark"] .sb-refresh-btn:hover { background: #374151; color: #e5e7eb; }
   .sb-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin: 12px 0 6px; }
 
   .sb-gates { margin-bottom: 12px; }
@@ -218,16 +226,39 @@
   .sb-clear-filter { font-size: 11px; color: var(--blue); cursor: pointer; text-decoration: underline; margin-top: 2px; display: none; }
   .sb-clear-filter.visible { display: block; }
 
-  .sb-arch-mini { max-height: 180px; overflow: hidden; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--gray-bg); flex-shrink: 0; }
-  .sb-arch-mini:hover { border-color: var(--blue); }
-  .sb-arch-mini svg { width: 100%; display: block; }
-  .sb-arch-mini svg .zone-box { cursor: pointer; }
-  .sb-arch-mini svg .zone-label { font-size: 16px !important; font-weight: 600 !important; }
-  .sb-arch-mini svg .zone-sublabel { font-size: 11px !important; }
-  .sb-arch-mini svg text:not(.zone-label):not(.zone-sublabel) { display: none; }
-  .sb-arch-mini svg .zone-box rect { stroke-width: 2.5px !important; }
-  .sb-arch-mini svg .zone-box.modified rect { stroke-width: 3.5px !important; }
+  .sb-arch-mini { margin-bottom: 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--gray-bg); flex-shrink: 0; overflow: hidden; }
   [data-theme="dark"] .sb-arch-mini { background: #1a2332; }
+
+  /* Mini arch: chip grid */
+  .sb-arch-grid { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; }
+  .sb-arch-chip { display: flex; align-items: center; gap: 3px; padding: 3px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; }
+  .sb-arch-chip.factory { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; }
+  .sb-arch-chip.product { background: #dcfce7; color: #166534; border-color: #86efac; }
+  .sb-arch-chip.infra { background: #f3e8ff; color: #6d28d9; border-color: #c4b5fd; }
+  [data-theme="dark"] .sb-arch-chip.factory { background: #1e3a5f; color: #93c5fd; border-color: #1e40af; }
+  [data-theme="dark"] .sb-arch-chip.product { background: #064e3b; color: #6ee7b7; border-color: #047857; }
+  [data-theme="dark"] .sb-arch-chip.infra { background: #2e1065; color: #c4b5fd; border-color: #5b21b6; }
+  .sb-arch-chip.unzoned { background: #fef2f2; color: #991b1b; border-color: #fca5a5; }
+  [data-theme="dark"] .sb-arch-chip.unzoned { background: #7f1d1d; color: #fca5a5; border-color: #991b1b; }
+  .sb-arch-chip:hover { filter: brightness(0.92); }
+  .sb-arch-chip.modified { font-weight: 700; }
+  .sb-arch-chip.dimmed { opacity: 0.3; }
+  .sb-arch-chip.highlighted { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+  .sb-arch-chip-count { background: rgba(0,0,0,0.12); border-radius: 3px; padding: 0 4px; font-size: 9px; min-width: 14px; text-align: center; }
+  .sb-arch-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80px; }
+
+  /* Mini arch: zoom view */
+  .sb-arch-zoom { padding: 10px 12px; border-radius: 6px; border: 2px solid; }
+  .sb-arch-zoom.factory { background: #dbeafe; border-color: #3b82f6; }
+  .sb-arch-zoom.product { background: #dcfce7; border-color: #22c55e; }
+  .sb-arch-zoom.infra { background: #f3e8ff; border-color: #8b5cf6; }
+  [data-theme="dark"] .sb-arch-zoom.factory { background: #1e3a5f; border-color: #3b82f6; }
+  [data-theme="dark"] .sb-arch-zoom.product { background: #064e3b; border-color: #22c55e; }
+  [data-theme="dark"] .sb-arch-zoom.infra { background: #2e1065; border-color: #8b5cf6; }
+  .sb-arch-zoom-header { display: flex; justify-content: space-between; align-items: center; }
+  .sb-arch-zoom-name { font-size: 14px; font-weight: 700; }
+  .sb-arch-zoom-sub { font-size: 11px; color: var(--text-secondary); margin: 4px 0; }
+  .sb-arch-zoom-stats { display: flex; gap: 12px; font-size: 11px; color: var(--text-muted); }
 
   .sb-nav { flex: 1; margin-bottom: 12px; }
   .sb-nav-item { display: flex; align-items: center; gap: 8px; padding: 4px 6px; font-size: 12px; cursor: pointer; border-radius: 4px; color: var(--text-secondary); }
@@ -276,6 +307,49 @@
   [data-theme="dark"] .arch-warning-section h4 { color: #fbbf24; }
   [data-theme="dark"] .arch-warning-section th { color: #fcd34d; border-color: #b45309; }
   [data-theme="dark"] .arch-warning-section td { border-color: #78350f; }
+
+  /* ── Architecture Assessment collapsible subsections ── */
+  .arch-section { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+  .arch-section-header { padding: 10px 14px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; transition: background 0.15s; }
+  .arch-section-header:hover { background: var(--gray-bg); }
+  .arch-section-header h4 { font-size: 13px; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 8px; }
+  .arch-section-header .chevron { font-size: 14px; color: var(--text-secondary); transition: transform 0.2s; }
+  .arch-section.collapsed .arch-section-body { display: none; }
+  .arch-section.collapsed .arch-section-header .chevron { transform: rotate(-90deg); }
+  .arch-section-body { padding: 0 14px 12px; }
+  .arch-subsection { margin-top: 10px; padding: 8px 12px; background: var(--gray-bg); border-radius: 6px; border-left: 3px solid var(--border); }
+  .arch-subsection h5 { font-size: 12px; font-weight: 700; margin: 0 0 6px; }
+  .arch-subsubsection { margin-top: 8px; }
+  .arch-subsubsection h6 { font-size: 11px; font-weight: 600; margin: 0 0 4px; color: var(--text-secondary); }
+  .arch-issue-pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; }
+  .arch-issue-pill.warning { background: #fef9c3; color: #854d0e; }
+  .arch-issue-pill.failing { background: #fee2e2; color: #991b1b; }
+  [data-theme="dark"] .arch-issue-pill.warning { background: #713f12; color: #fde047; }
+  [data-theme="dark"] .arch-issue-pill.failing { background: #7f1d1d; color: #fca5a5; }
+
+  /* ── Code Review table (per-agent columns) ── */
+  .cr-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .cr-table th { text-align: center; padding: 6px 8px; font-size: 10px; }
+  .cr-table th:first-child { text-align: left; }
+  .cr-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .cr-table .cr-agent-col { width: 36px; text-align: center; }
+  .cr-file-row { cursor: pointer; transition: background 0.15s; }
+  .cr-file-row:hover { background: var(--gray-bg); }
+  .cr-detail-row { display: none; }
+  .cr-detail-row.open { display: table-row; }
+  .cr-detail-row td { background: #fafbfc; padding: 12px 20px; }
+  [data-theme="dark"] .cr-detail-row td { background: #1a2332; }
+  .cr-no-comment { color: var(--text-muted); font-style: italic; }
+  .cr-grade-dash { color: var(--text-muted); font-size: 11px; }
+
+  /* ── Code Review (merged agentic + diffs) ── */
+  .cr-grades { display: inline-flex; gap: 2px; margin: 0 8px; }
+  .cr-finding-details { display: none; padding: 8px 12px; border-top: 1px solid var(--border); font-size: 12px; }
+  .cd-file-item.open .cr-finding-details { display: block; }
+  .cr-finding-item { display: flex; align-items: flex-start; gap: 6px; padding: 4px 0; border-bottom: 1px solid var(--border); }
+  .cr-finding-item:last-child { border-bottom: none; }
+  .cr-finding-agent { font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--text-secondary); min-width: 24px; }
+  .cr-finding-text { flex: 1; color: var(--text-secondary); }
 
   /* ── Code diffs (Tier 3 inline expansion) ── */
   .cd-file-list { list-style: none; padding: 0; }
@@ -359,7 +433,7 @@
   .zone-box { cursor: pointer; transition: opacity 0.3s, filter 0.3s; }
   .zone-box:hover { filter: brightness(0.95); }
   .zone-box.dimmed { opacity: 0.12; }
-  .zone-box.highlighted { stroke-width: 3; filter: brightness(0.92); }
+  .zone-box.highlighted { stroke-width: 3; filter: drop-shadow(0 0 6px var(--blue)); }
   .zone-label { font-size: 11px; font-weight: 600; pointer-events: none; }
   .zone-sublabel { font-size: 9px; fill: #6b7280; pointer-events: none; }
   .zone-file-count { font-size: 10px; font-weight: 700; fill: white; pointer-events: none; }
@@ -653,7 +727,7 @@
   ╚═══════════════════════════════════════════════════════════════════╝
 -->
 <div id="visual-inspection-banner">
-  &#x26A0; This review pack has NOT been validated by the Playwright test suite. Run the baseline + per-PR validation suite to remove this banner. See <span style="text-decoration:underline">packages/pr-review-pack/references/validation-checklist.md</span>.
+  &#x26A0; If you can see this banner, the agent creating this review pack has not completed its validations
 </div>
 <div id="visual-inspection-spacer"></div>
 
@@ -699,8 +773,7 @@
     </div>
 
     <div class="sb-footer">
-      <div>HEAD: <code><!-- INJECT: header.headSha --></code></div>
-      <div><!-- INJECT: header.generatedAt --></div>
+      <div>Generated: <!-- INJECT: header.generatedAt --></div>
     </div>
   </aside>
 </div>
@@ -709,6 +782,13 @@
 
   <!-- ══ SIDEBAR ══ -->
   <aside class="mc-sidebar" id="mc-sidebar">
+    <div class="sb-theme-toggle-wrapper">
+      <div class="theme-toggle">
+        <button onclick="setTheme('light')" title="Light" data-theme-btn="light">&#x2600;</button>
+        <button onclick="setTheme('dark')" title="Dark" data-theme-btn="dark">&#x1F319;</button>
+        <button onclick="setTheme('system')" title="Auto" data-theme-btn="system">&#x2699;</button>
+      </div>
+    </div>
     <div class="sb-pr-meta">
       <!-- INJECT: sidebar.prMeta -->
     </div>
@@ -718,6 +798,8 @@
     <!-- INJECT: sidebar.mergeButton -->
 
     <!-- INJECT: sidebar.statusBadges -->
+
+    <!-- INJECT: sidebar.refreshButton -->
 
     <div class="sb-arch-mini" id="sb-arch-mini" title="Click zones to filter"></div>
 
@@ -742,13 +824,7 @@
     </div>
 
     <div class="sb-footer">
-      <div>HEAD: <code><!-- INJECT: header.headSha --></code></div>
-      <div><!-- INJECT: header.generatedAt --></div>
-      <div class="theme-toggle" style="margin-top:6px">
-        <button onclick="setTheme('light')" title="Light theme" data-theme-btn="light">&#x2600;</button>
-        <button onclick="setTheme('dark')" title="Dark theme" data-theme-btn="dark">&#x1F319;</button>
-        <button onclick="setTheme('system')" title="System theme" data-theme-btn="system">&#x2699;</button>
-      </div>
+      <div>Generated: <!-- INJECT: header.generatedAt --></div>
     </div>
   </aside>
 
@@ -756,11 +832,11 @@
   <main class="mc-main">
 
     <!-- ══════════════════════════════════════ -->
-    <!-- TIER 1: Architecture & Context        -->
+    <!-- TIER 1: Architecture & Changes        -->
     <!-- ══════════════════════════════════════ -->
     <div class="tier-divider" onclick="toggleTier(1)">
       <span class="tier-chevron">&#x25BC;</span>
-      <span>Architecture &amp; Context</span>
+      <span>Architecture &amp; Changes</span>
     </div>
     <div class="tier-content" id="tier-1-content">
 
@@ -801,17 +877,6 @@
         </div>
       </div>
 
-      <!-- Section: Architecture Assessment -->
-      <div class="section" id="section-arch-assessment">
-        <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
-          <h2>Architecture Assessment</h2>
-          <span class="chevron">&#x25BC;</span>
-        </div>
-        <div class="section-body">
-          <!-- INJECT: architecture assessment section -->
-        </div>
-      </div>
-
       <!-- Section: What Changed -->
       <div class="section" id="section-what-changed">
         <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
@@ -827,58 +892,6 @@
         </div>
       </div>
 
-      <!-- Section: Spec & Scenarios -->
-      <div class="section" id="section-specs-scenarios">
-        <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
-          <h2>Spec &amp; Scenarios</h2>
-          <span class="chevron">&#x25BC;</span>
-        </div>
-        <div class="section-body">
-          <h3 style="font-size:13px;margin-bottom:8px">Specifications</h3>
-          <ul class="spec-list" id="spec-list">
-            <!-- INJECT: specification items from DATA.specs -->
-          </ul>
-          <h3 style="font-size:13px;margin:14px 0 8px">Scenarios</h3>
-          <div class="scenario-legend" id="scenario-legend">
-            <!-- INJECT: scenario category legend items -->
-          </div>
-          <div class="scenario-grid" id="scenario-grid">
-            <!-- INJECT: scenario cards from DATA.scenarios -->
-          </div>
-        </div>
-      </div>
-
-    </div><!-- end tier-1-content -->
-
-    <!-- ══════════════════════════════════════ -->
-    <!-- TIER 2: Safety & Reasoning            -->
-    <!-- ══════════════════════════════════════ -->
-    <div class="tier-divider" onclick="toggleTier(2)">
-      <span class="tier-chevron">&#x25BC;</span>
-      <span>Safety &amp; Reasoning</span>
-    </div>
-    <div class="tier-content" id="tier-2-content">
-
-      <!-- Section: Agentic Review -->
-      <div class="section" id="section-agentic-review">
-        <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
-          <h2 id="adv-header">Agentic Review <!-- INJECT: adversarial review method badge --></h2>
-          <span class="chevron">&#x25BC;</span>
-        </div>
-        <div class="section-body">
-          <div class="adv-scroll">
-          <div id="adv-no-match" class="adv-no-match">No review findings in this zone.</div>
-          <table id="adv-table">
-            <thead><tr><th>File</th><th>Agents</th><th>Zone</th><th>Notable</th></tr></thead>
-            <tbody>
-              <!-- INJECT: adversarial finding rows from DATA.agenticReview.findings -->
-              <!-- Each row: tr.adv-row (file-level, grouped) + tr.adv-detail-row (per-agent breakdown) -->
-            </tbody>
-          </table>
-          </div>
-        </div>
-      </div>
-
       <!-- Section: Key Decisions -->
       <div class="section" id="section-key-decisions">
         <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
@@ -890,8 +903,34 @@
         </div>
       </div>
 
-      <!-- Section: Convergence Result -->
-      <div class="section" id="section-convergence">
+    </div><!-- end tier-1-content -->
+
+    <!-- ══════════════════════════════════════ -->
+    <!-- TIER 2: Factory                       -->
+    <!-- ══════════════════════════════════════ -->
+    <div class="tier-divider" onclick="toggleTier(2)" id="tier-2-divider" <!-- INJECT: factoryTier.displayAttr -->>
+      <span class="tier-chevron">&#x25BC;</span>
+      <span>Factory</span>
+    </div>
+    <div class="tier-content" id="tier-2-content" <!-- INJECT: factoryTier.displayAttr -->>
+
+      <!-- Section: Spec & Scenarios (conditional) -->
+      <div class="section" id="section-specs-scenarios">
+        <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+          <h2><!-- INJECT: specsScenarios.title --></h2>
+          <span class="chevron">&#x25BC;</span>
+        </div>
+        <div class="section-body">
+          <h3 style="font-size:13px;margin-bottom:8px">Specifications</h3>
+          <ul class="spec-list" id="spec-list">
+            <!-- INJECT: specification items from DATA.specs -->
+          </ul>
+          <!-- INJECT: specsScenarios.scenariosBlock -->
+        </div>
+      </div>
+
+      <!-- Section: Convergence Result (hidden when no scenarios) -->
+      <div class="section" id="section-convergence" <!-- INJECT: convergence.displayAttr -->>
         <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
           <h2>Convergence Result</h2>
           <span class="chevron">&#x25BC;</span>
@@ -903,16 +942,46 @@
         </div>
       </div>
 
+      <!-- Section: Factory History (conditional — hidden when no scenarios) -->
+      <div id="section-factory-history" <!-- INJECT: factoryHistory.displayAttr -->>
+        <!-- INJECT: factory history section -->
+      </div>
+
     </div><!-- end tier-2-content -->
 
     <!-- ══════════════════════════════════════ -->
-    <!-- TIER 3: Follow-ups & Evidence         -->
+    <!-- TIER 3: Review & Evidence             -->
     <!-- ══════════════════════════════════════ -->
     <div class="tier-divider" onclick="toggleTier(3)">
       <span class="tier-chevron">&#x25BC;</span>
-      <span>Follow-ups &amp; Evidence</span>
+      <span>Review &amp; Evidence</span>
     </div>
     <div class="tier-content" id="tier-3-content">
+
+      <!-- Section: Architecture Assessment -->
+      <div class="section" id="section-arch-assessment">
+        <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+          <h2>Architecture Assessment</h2>
+          <span class="chevron">&#x25BC;</span>
+        </div>
+        <div class="section-body">
+          <!-- INJECT: architecture assessment section -->
+        </div>
+      </div>
+
+      <!-- Section: Code Review -->
+      <div class="section" id="section-code-review">
+        <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+          <h2>Code Review <!-- INJECT: adversarial review method badge --></h2>
+          <span class="chevron">&#x25BC;</span>
+        </div>
+        <div class="section-body">
+          <div id="cr-no-match" class="adv-no-match">No review findings in this zone.</div>
+          <div id="cr-file-list">
+            <!-- INJECT: code review file list -->
+          </div>
+        </div>
+      </div>
 
       <!-- Section: CI Performance -->
       <div class="section" id="section-ci-performance">
@@ -934,6 +1003,17 @@
         </div>
       </div>
 
+    </div><!-- end tier-3-content -->
+
+    <!-- ══════════════════════════════════════ -->
+    <!-- TIER 4: Follow-ups                    -->
+    <!-- ══════════════════════════════════════ -->
+    <div class="tier-divider" onclick="toggleTier(4)">
+      <span class="tier-chevron">&#x25BC;</span>
+      <span>Follow-ups</span>
+    </div>
+    <div class="tier-content" id="tier-4-content">
+
       <!-- Section: Post-Merge Items -->
       <div class="section" id="section-post-merge">
         <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
@@ -945,25 +1025,7 @@
         </div>
       </div>
 
-      <!-- Section: Code Diffs -->
-      <div class="section" id="section-code-diffs">
-        <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
-          <h2>Code Diffs</h2>
-          <span class="chevron">&#x25BC;</span>
-        </div>
-        <div class="section-body">
-          <ul class="cd-file-list" id="cd-file-list">
-            <!-- INJECT: code diff file list -->
-          </ul>
-        </div>
-      </div>
-
-      <!-- Section: Factory History (conditional) -->
-      <div class="section" id="section-factory-history">
-        <!-- INJECT: factory history section -->
-      </div>
-
-    </div><!-- end tier-3-content -->
+    </div><!-- end tier-4-content -->
 
     <!-- ══ FOOTER ══ -->
     <div class="footer">
@@ -1061,6 +1123,7 @@ function toggleCIDetail(row) {
 function toggleDecision(card) {
   const wasOpen = card.classList.contains('open');
   document.querySelectorAll('.decision-card').forEach(c => c.classList.remove('open'));
+  const savedY = window.scrollY;
   if (!wasOpen) {
     card.classList.add('open');
     const zones = card.dataset.zones.split(' ');
@@ -1068,15 +1131,53 @@ function toggleDecision(card) {
   } else {
     resetZones();
   }
+  // Restore scroll position — zone filtering hides/shows cards causing layout shift
+  window.scrollTo(0, savedY);
 }
 
 // ===============================================
-// Adversarial review row toggle
+// Adversarial review row toggle (legacy, kept for backward compat)
 // ===============================================
 function toggleAdvDetail(row) {
   const detail = row.nextElementSibling;
   if (detail && detail.classList.contains('adv-detail-row')) {
     detail.classList.toggle('open');
+  }
+}
+
+// ===============================================
+// Code Review table row toggle (per-agent detail expansion)
+// ===============================================
+function toggleCRDetail(row) {
+  const detail = row.nextElementSibling;
+  if (detail && detail.classList.contains('cr-detail-row')) {
+    detail.classList.toggle('open');
+    // Handle zone filtering visibility
+    if (detail.classList.contains('open') && detail.style.display === 'none') {
+      detail.style.display = '';
+    }
+  }
+}
+
+// Legacy code review file toggle (kept for backward compat)
+function toggleCodeReviewFile(item, filePath) {
+  const wasOpen = item.classList.contains('open');
+  document.querySelectorAll('#cr-file-list .cd-file-item').forEach(i => i.classList.remove('open'));
+  if (!wasOpen) {
+    item.classList.add('open');
+    const body = item.querySelector('.cd-file-body');
+    if (body && !body.dataset.loaded) {
+      body.dataset.loaded = 'true';
+      const diffContent = body.querySelector('.cd-file-diff-content');
+      if (diffContent) {
+        loadDiffData((data, err) => {
+          if (err || !data) { diffContent.innerHTML = '<div class="diff-error">Failed to load.</div>'; return; }
+          const fileData = data.files[filePath];
+          if (!fileData) { diffContent.innerHTML = '<div class="diff-error">File not in diff data.</div>'; return; }
+          renderInlineDiff(item, fileData, 'side-by-side');
+        });
+      }
+    }
   }
 }
 
@@ -1104,24 +1205,22 @@ function highlightZones(activeZones) {
   info.textContent = 'Showing zones: ' + activeZones.join(', ');
   info.style.display = 'block';
 
-  // 2. Filter adversarial review rows
+  // 2. Filter code review file list (supports both table rows and list items)
   let anyMatch = false;
-  document.querySelectorAll('.adv-row').forEach(row => {
-    const rowZones = row.dataset.zones.split(' ');
-    const match = rowZones.some(z => activeZones.includes(z));
-    row.classList.toggle('collapsed-row', !match);
-    if (match) anyMatch = true;
-    const detailRow = row.nextElementSibling;
-    if (detailRow && detailRow.classList.contains('adv-detail-row')) {
-      if (!match) {
-        detailRow.style.display = 'none';
-        detailRow.classList.remove('open');
-      } else {
-        detailRow.style.display = '';
+  document.querySelectorAll('#cr-file-list .cr-file-row, #cr-file-list .cd-file-item').forEach(item => {
+    const itemZones = (item.dataset.zones || '').split(' ');
+    const match = itemZones.some(z => activeZones.includes(z));
+    item.style.display = match ? '' : 'none';
+    // Also hide corresponding detail row if table
+    if (item.classList.contains('cr-file-row')) {
+      const detail = item.nextElementSibling;
+      if (detail && detail.classList.contains('cr-detail-row')) {
+        detail.style.display = match && detail.classList.contains('open') ? '' : 'none';
       }
     }
+    if (match) anyMatch = true;
   });
-  const noMatch = document.getElementById('adv-no-match');
+  const noMatch = document.getElementById('cr-no-match');
   if (noMatch) noMatch.classList.toggle('visible', !anyMatch);
 
   // 3. Filter scenario cards
@@ -1148,24 +1247,16 @@ function highlightZones(activeZones) {
   });
   const activeLabel = document.getElementById('sb-zone-active');
   if (activeLabel) activeLabel.textContent = 'Active: ' + activeZones.join(', ');
-  const clearBtn = document.getElementById('sb-clear-filter');
-  if (clearBtn) clearBtn.classList.add('visible');
+  document.querySelectorAll('.sb-clear-filter').forEach(function(btn) { btn.classList.add('visible'); });
 
-  // 6. Filter code diff files
-  document.querySelectorAll('.cd-file-item').forEach(item => {
-    const itemZones = (item.dataset.zones || '').split(' ');
-    const match = itemZones.some(z => activeZones.includes(z));
-    item.style.display = match ? '' : 'none';
-  });
-
-  // 7. Filter decisions
+  // 6. Filter decisions
   document.querySelectorAll('.decision-card').forEach(card => {
     const cardZones = (card.dataset.zones || '').split(' ');
     const match = cardZones.some(z => activeZones.includes(z));
     card.style.display = match ? '' : 'none';
   });
 
-  // 8. Sync mini architecture diagram
+  // 7. Sync mini architecture diagram
   syncMiniDiagram();
 }
 
@@ -1173,9 +1264,12 @@ function resetZones() {
   currentActiveZones = null;
   document.querySelectorAll('.zone-box').forEach(box => box.classList.remove('dimmed', 'highlighted'));
   document.getElementById('zone-filter-info').style.display = 'none';
-  document.querySelectorAll('.adv-row').forEach(row => row.classList.remove('collapsed-row'));
-  document.querySelectorAll('.adv-detail-row').forEach(row => row.style.display = '');
-  const noMatch = document.getElementById('adv-no-match');
+  // Reset code review file list (supports both table rows and list items)
+  document.querySelectorAll('#cr-file-list .cr-file-row, #cr-file-list .cd-file-item').forEach(item => item.style.display = '');
+  document.querySelectorAll('#cr-file-list .cr-detail-row').forEach(item => {
+    item.style.display = item.classList.contains('open') ? '' : 'none';
+  });
+  const noMatch = document.getElementById('cr-no-match');
   if (noMatch) noMatch.classList.remove('visible');
   document.querySelectorAll('.scenario-card[data-zone]').forEach(card => card.classList.remove('zone-dimmed', 'zone-glow'));
   const wcDefault = document.getElementById('wc-default');
@@ -1186,12 +1280,11 @@ function resetZones() {
   document.querySelectorAll('.sb-zone-item').forEach(item => item.classList.remove('active'));
   const activeLabel = document.getElementById('sb-zone-active');
   if (activeLabel) activeLabel.textContent = '';
-  const clearBtn = document.getElementById('sb-clear-filter');
-  if (clearBtn) clearBtn.classList.remove('visible');
-  // Reset code diff files
-  document.querySelectorAll('.cd-file-item').forEach(item => item.style.display = '');
+  document.querySelectorAll('.sb-clear-filter').forEach(function(btn) { btn.classList.remove('visible'); });
   // Reset decision cards
   document.querySelectorAll('.decision-card').forEach(card => card.style.display = '');
+  // Sync mini diagram
+  syncMiniDiagram();
 }
 
 // ===============================================
@@ -1268,6 +1361,18 @@ function archZoom(direction) {
     (cx - newW/2).toFixed(0) + ' ' + (cy - newH/2).toFixed(0) + ' ' +
     newW.toFixed(0) + ' ' + newH.toFixed(0));
 }
+
+// Trackpad pinch-to-zoom (fires as wheel + ctrlKey)
+(function() {
+  const svg = document.getElementById('arch-diagram');
+  if (!svg) return;
+  svg.addEventListener('wheel', function(e) {
+    if (!e.ctrlKey && !e.metaKey) return; // only pinch gestures
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -1 : 1;
+    archZoom(delta * 0.5);
+  }, { passive: false });
+})();
 
 // ===============================================
 // Architecture pan (click-to-drag)
@@ -1724,6 +1829,18 @@ function toggleCommitList() {
   const el = document.getElementById('sb-commit-list');
   if (el) el.classList.toggle('expanded');
 }
+function copyRefreshCmd() {
+  const cmd = document.getElementById('refresh-cmd-value');
+  const btn = document.getElementById('sb-refresh-btn');
+  if (!cmd || !btn) return;
+  navigator.clipboard.writeText(cmd.value).then(() => {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '&#x2713; Copied!';
+    btn.style.color = 'var(--green)';
+    btn.style.borderColor = 'var(--green)';
+    setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
+  });
+}
 
 // ===============================================
 // Sidebar zone click (synced with main diagram)
@@ -1807,58 +1924,90 @@ function toggleHamburger() {
 // v2 initialization
 // ===============================================
 function initSidebarMiniDiagram() {
-  const main = document.getElementById('arch-diagram');
+  renderMiniArchGrid(); // Default: show all zones as chips
+}
+
+function renderMiniArchGrid() {
   const container = document.getElementById('sb-arch-mini');
-  if (!main || !container) return;
-  const clone = main.cloneNode(true);
-  clone.removeAttribute('id');
-  clone.removeAttribute('style');
-  clone.setAttribute('id', 'sb-arch-svg');
-  // Remove old inline onclick attrs — we'll attach event listeners instead
-  clone.querySelectorAll('[onclick]').forEach(el => el.removeAttribute('onclick'));
-  // Preserve viewBox for aspect ratio
-  const vb = main.getAttribute('viewBox');
-  if (vb) {
-    clone.setAttribute('viewBox', vb);
-    const parts = vb.split(/\s+/);
-    const w = parseFloat(parts[2]), h = parseFloat(parts[3]);
-    if (w > 0 && h > 0) {
-      clone.setAttribute('width', '100%');
-      clone.setAttribute('height', Math.round(228 * h / w));
-      clone.style.width = '100%';
-      clone.style.height = 'auto';
-    }
+  if (!container || !DATA || !DATA.architecture || !DATA.architecture.zones) return;
+
+  let html = '<div class="sb-arch-grid">';
+  DATA.architecture.zones.forEach(function(zone) {
+    const catClass = zone.category || 'product';
+    const modClass = zone.isModified ? 'modified' : '';
+    const fc = zone.fileCount || 0;
+    html += '<div class="sb-arch-chip ' + catClass + ' ' + modClass + '" ' +
+            'data-zone="' + zone.id + '" ' +
+            'onclick="sidebarZoneClick(\'' + zone.id + '\')" ' +
+            'ondblclick="event.stopPropagation();resetZones()" ' +
+            'title="' + (zone.sublabel || zone.label) + ' (double-click to clear filter)">' +
+            '<span class="sb-arch-chip-label">' + zone.label + '</span>' +
+            (fc > 0 ? '<span class="sb-arch-chip-count">' + fc + '</span>' : '') +
+            '</div>';
+  });
+  // Add unzoned chip if there are unzoned files
+  var assessment = DATA.architectureAssessment;
+  var unzonedFiles = assessment && assessment.unzonedFiles ? assessment.unzonedFiles : [];
+  if (unzonedFiles.length > 0) {
+    html += '<div class="sb-arch-chip unzoned" ' +
+            'onclick="scrollToSection(\'section-arch-assessment\')" ' +
+            'title="' + unzonedFiles.length + ' file(s) not in any zone">' +
+            '<span class="sb-arch-chip-label">&#x26A0; Unzoned</span>' +
+            '<span class="sb-arch-chip-count">' + unzonedFiles.length + '</span>' +
+            '</div>';
   }
-  // Hide non-label text elements (sublabels, file counts, arrows)
-  clone.querySelectorAll('.zone-sublabel').forEach(el => el.style.display = 'none');
-  // Make zone labels larger for readability in mini view
-  clone.querySelectorAll('.zone-label').forEach(el => {
-    const current = parseFloat(el.getAttribute('font-size') || '13');
-    el.setAttribute('font-size', Math.max(current, 13));
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function renderMiniArchZoom(zoneId) {
+  const container = document.getElementById('sb-arch-mini');
+  if (!container || !DATA || !DATA.architecture || !DATA.architecture.zones) return;
+
+  const zone = DATA.architecture.zones.find(function(z) { return z.id === zoneId; });
+  if (!zone) return;
+
+  const catClass = zone.category || 'product';
+  const fc = zone.fileCount || 0;
+
+  // Find findings for this zone
+  const findings = (DATA.agenticReview && DATA.agenticReview.findings || []).filter(function(f) {
+    const fZones = (f.zones || '').split(' ');
+    return fZones.includes(zoneId);
   });
-  container.appendChild(clone);
-  // Attach click handlers to mini zone boxes
-  attachZoneClickHandlers(clone);
-  // Click on mini background resets
-  clone.addEventListener('click', (e) => {
-    if (e.target === clone || e.target.tagName === 'rect' && !e.target.classList.contains('zone-box')) {
-      resetZones();
-    }
-  });
+  const gs = {'F':0,'C':1,'B':2,'B+':3,'A':4,'N/A':5};
+  const worstGrade = findings.reduce(function(worst, f) {
+    return (gs[f.grade] || 5) < (gs[worst] || 5) ? f.grade : worst;
+  }, 'A');
+  const gradeClassMap = {'A':'a','B+':'b','B':'b','C':'c','F':'f','N/A':'na'};
+  const gradeClass = gradeClassMap[worstGrade] || 'na';
+
+  container.innerHTML =
+    '<div class="sb-arch-zoom ' + catClass + '">' +
+    '  <div class="sb-arch-zoom-header">' +
+    '    <span class="sb-arch-zoom-name">' + zone.label + '</span>' +
+    '    <span class="grade ' + gradeClass + '" style="width:24px;height:24px;line-height:24px;font-size:11px">' + worstGrade + '</span>' +
+    '  </div>' +
+    '  <div class="sb-arch-zoom-sub">' + (zone.sublabel || '') + '</div>' +
+    '  <div class="sb-arch-zoom-stats">' +
+    '    <span>' + fc + ' file' + (fc !== 1 ? 's' : '') + ' changed</span>' +
+    '    <span>' + findings.length + ' finding' + (findings.length !== 1 ? 's' : '') + '</span>' +
+    '  </div>' +
+    '</div>';
 }
 
 function syncMiniDiagram() {
-  // Sync mini diagram zone-box classes with main diagram
-  const miniSvg = document.getElementById('sb-arch-svg');
-  if (!miniSvg) return;
-  miniSvg.querySelectorAll('.zone-box').forEach(box => {
-    const zone = box.dataset.zone;
-    const mainBox = document.querySelector('#arch-diagram .zone-box[data-zone="' + zone + '"]');
-    if (mainBox) {
-      box.classList.toggle('dimmed', mainBox.classList.contains('dimmed'));
-      box.classList.toggle('highlighted', mainBox.classList.contains('highlighted'));
-    }
-  });
+  // Always stay in grid mode so chips remain clickable/double-clickable
+  renderMiniArchGrid();
+  if (currentActiveZones) {
+    document.querySelectorAll('.sb-arch-chip').forEach(function(chip) {
+      if (currentActiveZones.includes(chip.dataset.zone)) {
+        chip.classList.add('highlighted');
+      } else {
+        chip.classList.add('dimmed');
+      }
+    });
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

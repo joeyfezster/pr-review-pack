@@ -109,7 +109,7 @@ class TestUnzonedFiles:
                 },
             }
         )
-        assert "arch-warning-section" in html
+        assert "arch-subsubsection" in html
         assert "README.md" in html
         assert "1 Unzoned File(s)" in html
 
@@ -129,7 +129,7 @@ class TestUnzonedFiles:
         html = render_architecture_assessment(
             {"architectureAssessment": {"unzonedFiles": []}}
         )
-        assert "arch-warning-section" not in html
+        assert "arch-subsubsection" not in html
 
     def test_html_escaping_in_path(self):
         html = render_architecture_assessment(
@@ -160,7 +160,7 @@ class TestZoneChanges:
                 },
             }
         )
-        assert "arch-changes-section" in html
+        assert "arch-change-item" in html
         assert "new-mod" in html
         assert "New Zone Recommended" in html
 
@@ -168,7 +168,7 @@ class TestZoneChanges:
         html = render_architecture_assessment(
             {"architectureAssessment": {"zoneChanges": []}}
         )
-        assert "arch-changes-section" not in html
+        assert "arch-change-item" not in html
 
 
 # ── Coupling warnings ───────────────────────────────────────────────
@@ -191,7 +191,7 @@ class TestCouplingWarnings:
                 },
             }
         )
-        assert "arch-coupling-section" in html
+        assert "arch-coupling-item" in html
         assert "zone-alpha" in html
         assert "zone-beta" in html
         assert "Direct import" in html
@@ -200,7 +200,7 @@ class TestCouplingWarnings:
         html = render_architecture_assessment(
             {"architectureAssessment": {"couplingWarnings": []}}
         )
-        assert "arch-coupling-section" not in html
+        assert "arch-coupling-item" not in html
 
 
 # ── Registry warnings ───────────────────────────────────────────────
@@ -218,7 +218,7 @@ class TestRegistryWarnings:
                 },
             }
         )
-        assert "arch-registry-section" in html
+        assert "arch-registry-item" in html
         assert "zone-beta" in html
         assert "Missing specs" in html
         assert "WARNING" in html
@@ -227,7 +227,7 @@ class TestRegistryWarnings:
         html = render_architecture_assessment(
             {"architectureAssessment": {"registryWarnings": []}}
         )
-        assert "arch-registry-section" not in html
+        assert "arch-registry-item" not in html
 
 
 # ── Doc recommendations ─────────────────────────────────────────────
@@ -245,7 +245,7 @@ class TestDocRecommendations:
                 },
             }
         )
-        assert "arch-docs-section" in html
+        assert "arch-doc-item" in html
         assert "docs/arch.md" in html
         assert "Stale" in html
 
@@ -253,7 +253,7 @@ class TestDocRecommendations:
         html = render_architecture_assessment(
             {"architectureAssessment": {"docRecommendations": []}}
         )
-        assert "arch-docs-section" not in html
+        assert "arch-doc-item" not in html
 
 
 # ── Decision verification ───────────────────────────────────────────
@@ -276,7 +276,8 @@ class TestDecisionVerification:
                 },
             }
         )
-        assert "arch-verification-section" in html
+        assert "Unverified Decision-Zone Claims" in html
+        assert "arch-verification-item" in html
         assert "Decision #2" in html
         assert "zone-gamma" in html
 
@@ -295,13 +296,13 @@ class TestDecisionVerification:
                 },
             }
         )
-        assert "arch-verification-section" not in html
+        assert "arch-verification-item" not in html
 
     def test_no_verifications_no_section(self):
         html = render_architecture_assessment(
             {"architectureAssessment": {"decisionZoneVerification": []}}
         )
-        assert "arch-verification-section" not in html
+        assert "arch-verification-item" not in html
 
 
 # ── Full fixture integration ────────────────────────────────────────
@@ -324,4 +325,4 @@ class TestFullFixtureRender:
         assert "zone-beta" in html
         assert "Missing specs" in html
         # Decision verification — all verified, so no section
-        assert "arch-verification-section" not in html
+        assert "arch-verification-item" not in html

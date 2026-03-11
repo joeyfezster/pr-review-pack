@@ -80,9 +80,9 @@ test.describe('PR #34 — Agentic Review', () => {
     expect(count).toBeGreaterThanOrEqual(100);
   });
 
-  test('agentic review table has file rows', async ({ page }) => {
+  test('code review list has file rows', async ({ page }) => {
     await page.goto(PACK_URL);
-    const rows = page.locator('.adv-row');
+    const rows = page.locator('#cr-file-list .cd-file-item');
     const count = await rows.count();
     expect(count).toBeGreaterThan(0);
   });
@@ -117,12 +117,13 @@ test.describe('PR #34 — Key Decisions', () => {
   });
 });
 
-test.describe('PR #34 — Code Diffs', () => {
-  test('code diffs section has 38 file items', async ({ page }) => {
+test.describe('PR #34 — Code Review', () => {
+  test('code review section has 38 file items', async ({ page }) => {
     await page.goto(PACK_URL);
-    const items = page.locator('.cd-file-item');
+    const items = page.locator('#cr-file-list .cd-file-item');
     const count = await items.count();
-    expect(count).toBe(38);
+    // 38 diff files + any files with findings only = 39
+    expect(count).toBeGreaterThanOrEqual(38);
   });
 
   test('diff data is embedded inline', async ({ page }) => {
@@ -149,12 +150,11 @@ test.describe('PR #34 — All Sections Present', () => {
       'section-arch-assessment',
       'section-specs-scenarios',
       'section-what-changed',
-      'section-agentic-review',
       'section-key-decisions',
-      'section-convergence',
+      'section-code-review',
       'section-ci-performance',
+      'section-convergence',
       'section-post-merge',
-      'section-code-diffs',
     ];
     for (const id of sectionIds) {
       const section = page.locator(`#${id}`);

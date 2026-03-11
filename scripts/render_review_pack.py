@@ -121,6 +121,27 @@ def render_factory_history_tab_button(data: dict) -> str:
     return ""
 
 
+def _wrap_svg_text(text: str, max_chars: int = 18) -> list[str]:
+    """Split text into lines of at most max_chars characters, breaking on word boundaries."""
+    words = text.split()
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        test = f"{current} {word}".strip()
+        if len(test) <= max_chars:
+            current = test
+        else:
+            if current:
+                lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
+    # Limit to 2 lines, truncate 2nd line if too long
+    if len(lines) > 2:
+        lines = [lines[0], lines[1] + "\u2026"]
+    return lines if lines else [text]
+
+
 def render_architecture_svg(arch: dict) -> str:
     parts: list[str] = []
 
@@ -146,9 +167,19 @@ def render_architecture_svg(arch: dict) -> str:
         colors = LAYER_COLORS.get(cat, LAYER_COLORS["product"])
         x, y, w, h = pos["x"], pos["y"], pos["width"], pos["height"]
         cx = x + w / 2
-        label_y = y + h / 2 - 4
-        sublabel_y = y + h / 2 + 10
         opacity = "1" if zone.get("isModified") else "0.6"
+
+        # Calculate positions based on sublabel line count
+        sublabel = zone.get("sublabel", "")
+        sublabel_lines = _wrap_svg_text(sublabel, max_chars=18)
+        n_sub_lines = len(sublabel_lines)
+
+        if n_sub_lines <= 1:
+            label_y = y + h / 2 - 4
+            sublabel_y = y + h / 2 + 10
+        else:
+            label_y = y + h / 2 - 10
+            sublabel_y = y + h / 2 + 4
 
         parts.append(
             f'<rect class="zone-box" data-zone="{esc(zone["id"])}" '
@@ -161,11 +192,26 @@ def render_architecture_svg(arch: dict) -> str:
             f'class="zone-label" fill="{colors["text"]}" '
             f'style="pointer-events:none">{esc(zone["label"])}</text>'
         )
-        parts.append(
-            f'<text x="{cx}" y="{sublabel_y}" text-anchor="middle" '
-            f'class="zone-sublabel" style="pointer-events:none">'
-            f'{esc(zone["sublabel"])}</text>'
-        )
+        # Sublabel with word wrapping
+        if n_sub_lines <= 1:
+            parts.append(
+                f'<text x="{cx}" y="{sublabel_y}" text-anchor="middle" '
+                f'class="zone-sublabel" '
+                f'style="pointer-events:none">'
+                f'{esc(sublabel)}</text>'
+            )
+        else:
+            tspans = "".join(
+                f'<tspan x="{cx}" dy="{0 if i == 0 else 11}">'
+                f'{esc(line)}</tspan>'
+                for i, line in enumerate(sublabel_lines)
+            )
+            parts.append(
+                f'<text x="{cx}" y="{sublabel_y}" text-anchor="middle" '
+                f'class="zone-sublabel" '
+                f'style="pointer-events:none">'
+                f'{tspans}</text>'
+            )
         fc = zone.get("fileCount", 0)
         if fc > 0:
             bcx, bcy = x + w - 8, y + 8
@@ -209,7 +255,19 @@ def render_architecture_svg(arch: dict) -> str:
 
 
 def render_architecture_assessment(data: dict) -> str:
-    """Render the Architecture Assessment section from architect agent output."""
+    """Render the Architecture Assessment section from architect agent output.
+
+    Structure:
+      - Health badge + summary (always visible)
+      - Core Issues (collapsible, with health pill)
+      - Architectural Changes Detected (collapsible)
+      - Architect's Recommendations (collapsible)
+        - Coupling / unintended consequences
+        - Zone Registry (subsection, with Unzoned Files sub-subsection)
+        - Documentation Recommendations (subsection)
+
+    Each section is collapsed by default and hidden when empty.
+    """
     assessment = data.get("architectureAssessment")
     if not assessment:
         return ""
@@ -233,107 +291,145 @@ def render_architecture_assessment(data: dict) -> str:
     if summary:
         parts.append(f"<div>{summary}</div>")
 
-    # Diagram narrative (what changed architecturally)
+    # ── Section 1: Core Issues ──
     narrative = assessment.get("diagramNarrative", "")
-    if narrative:
-        parts.append(f'<div class="arch-narrative">{narrative}</div>')
-
-    # Unzoned files — THE BIG ONE
-    unzoned = assessment.get("unzonedFiles", [])
-    if unzoned:
-        parts.append('<div class="arch-warning-section">')
-        parts.append(
-            f"<h4>&#x26A0; {len(unzoned)} Unzoned File(s)</h4>"
-        )
-        parts.append(
-            "<table><thead><tr>"
-            "<th>File</th><th>Suggested Zone</th><th>Reason</th>"
-            "</tr></thead><tbody>"
-        )
-        for uf in unzoned:
-            suggested = esc(uf.get("suggestedZone") or "\u2014")
-            parts.append(
-                f"<tr>"
-                f'<td><code>{esc(uf["path"])}</code></td>'
-                f"<td>{suggested}</td>"
-                f'<td>{esc(uf["reason"])}</td>'
-                f"</tr>"
-            )
-        parts.append("</tbody></table></div>")
-
-    # Zone changes
-    changes = assessment.get("zoneChanges", [])
-    if changes:
-        parts.append('<div class="arch-changes-section">')
-        parts.append("<h4>Architectural Changes Detected</h4>")
-        for ch in changes:
-            ch_type = esc(ch.get("type", "").replace("_", " ").title())
-            parts.append(
-                f'<div class="arch-change-item">'
-                f"<strong>{ch_type}</strong>: "
-                f'{esc(ch.get("zone", ""))} &mdash; '
-                f'{esc(ch.get("reason", ""))}</div>'
-            )
-        parts.append("</div>")
-
-    # Coupling warnings
-    coupling = assessment.get("couplingWarnings", [])
-    if coupling:
-        parts.append('<div class="arch-coupling-section">')
-        parts.append("<h4>Cross-Zone Coupling</h4>")
-        for cw in coupling:
-            parts.append(
-                f'<div class="arch-coupling-item">'
-                f'{esc(cw.get("fromZone", ""))} &rarr; '
-                f'{esc(cw.get("toZone", ""))}: '
-                f'{esc(cw.get("evidence", ""))}</div>'
-            )
-        parts.append("</div>")
-
-    # Registry warnings
-    reg_warnings = assessment.get("registryWarnings", [])
-    if reg_warnings:
-        parts.append('<div class="arch-registry-section">')
-        parts.append("<h4>Zone Registry Health</h4>")
-        for rw in reg_warnings:
-            sev = rw.get("severity", "WARNING").lower()
-            parts.append(
-                f'<div class="arch-registry-item">'
-                f'<span class="badge {sev}">'
-                f'{esc(rw.get("severity", ""))}</span> '
-                f'{esc(rw.get("zone", ""))}: '
-                f'{esc(rw.get("warning", ""))}</div>'
-            )
-        parts.append("</div>")
-
-    # Doc recommendations
-    doc_recs = assessment.get("docRecommendations", [])
-    if doc_recs:
-        parts.append('<div class="arch-docs-section">')
-        parts.append("<h4>Documentation Recommendations</h4>")
-        for dr in doc_recs:
-            parts.append(
-                f'<div class="arch-doc-item">'
-                f'<code>{esc(dr.get("path", ""))}</code>: '
-                f'{esc(dr.get("reason", ""))}</div>'
-            )
-        parts.append("</div>")
-
-    # Decision zone verification
     verifications = assessment.get("decisionZoneVerification", [])
-    if verifications:
-        unverified = [v for v in verifications if not v.get("verified")]
+    unverified = [v for v in verifications if not v.get("verified")]
+    has_core = bool(narrative or unverified)
+
+    if has_core:
+        pill_css = "failing" if health == "action-required" else "warning"
+        pill_label = "Action Required" if health == "action-required" else "Needs Attention"
+        core_body: list[str] = []
+        if narrative:
+            core_body.append(f'<div class="arch-narrative">{narrative}</div>')
         if unverified:
-            parts.append('<div class="arch-verification-section">')
-            parts.append("<h4>Unverified Decision-Zone Claims</h4>")
+            core_body.append("<h5>Unverified Decision-Zone Claims</h5>")
             for v in unverified:
-                parts.append(
+                core_body.append(
                     f'<div class="arch-verification-item">'
                     f'Decision #{v.get("decisionNumber", "?")}: '
                     f'zones {esc(", ".join(v.get("claimedZones", [])))} '
                     f'&mdash; {esc(v.get("reason", ""))}</div>'
                 )
-            parts.append("</div>")
+        parts.append(
+            '<div class="arch-section collapsed">'
+            '<div class="arch-section-header" '
+            "onclick=\"this.parentElement.classList.toggle('collapsed')\">"
+            f'<h4>Core Issues <span class="arch-issue-pill {pill_css}">'
+            f"{esc(pill_label)}</span></h4>"
+            '<span class="chevron">&#x25BC;</span>'
+            "</div>"
+            '<div class="arch-section-body">'
+            + "\n".join(core_body)
+            + "</div></div>"
+        )
+
+    # ── Section 2: Architectural Changes Detected ──
+    changes = assessment.get("zoneChanges", [])
+    if changes:
+        change_items: list[str] = []
+        for ch in changes:
+            ch_type = esc(ch.get("type", "").replace("_", " ").title())
+            change_items.append(
+                f'<div class="arch-change-item">'
+                f"<strong>{ch_type}</strong>: "
+                f'{esc(ch.get("zone", ""))} &mdash; '
+                f'{esc(ch.get("reason", ""))}</div>'
+            )
+        parts.append(
+            '<div class="arch-section collapsed">'
+            '<div class="arch-section-header" '
+            "onclick=\"this.parentElement.classList.toggle('collapsed')\">"
+            "<h4>Architectural Changes Detected</h4>"
+            '<span class="chevron">&#x25BC;</span>'
+            "</div>"
+            '<div class="arch-section-body">'
+            + "\n".join(change_items)
+            + "</div></div>"
+        )
+
+    # ── Section 3: Architect's Recommendations ──
+    coupling = assessment.get("couplingWarnings", [])
+    reg_warnings = assessment.get("registryWarnings", [])
+    unzoned = assessment.get("unzonedFiles", [])
+    doc_recs = assessment.get("docRecommendations", [])
+    has_recommendations = bool(coupling or reg_warnings or unzoned or doc_recs)
+
+    if has_recommendations:
+        rec_body: list[str] = []
+
+        # Coupling / unintended consequences
+        if coupling:
+            rec_body.append("<h5>Cross-Zone Coupling</h5>")
+            for cw in coupling:
+                rec_body.append(
+                    f'<div class="arch-coupling-item">'
+                    f'{esc(cw.get("fromZone", ""))} &rarr; '
+                    f'{esc(cw.get("toZone", ""))}: '
+                    f'{esc(cw.get("evidence", ""))}</div>'
+                )
+
+        # Zone Registry subsection
+        if reg_warnings or unzoned:
+            rec_body.append('<div class="arch-subsection">')
+            rec_body.append("<h5>Zone Registry</h5>")
+            if reg_warnings:
+                for rw in reg_warnings:
+                    sev = rw.get("severity", "WARNING").lower()
+                    rec_body.append(
+                        f'<div class="arch-registry-item">'
+                        f'<span class="badge {sev}">'
+                        f'{esc(rw.get("severity", ""))}</span> '
+                        f'{esc(rw.get("zone", ""))}: '
+                        f'{esc(rw.get("warning", ""))}</div>'
+                    )
+            # Unzoned files sub-subsection
+            if unzoned:
+                rec_body.append('<div class="arch-subsubsection">')
+                rec_body.append(
+                    f"<h6>&#x26A0; {len(unzoned)} Unzoned File(s)</h6>"
+                )
+                rec_body.append(
+                    "<table><thead><tr>"
+                    "<th>File</th><th>Suggested Zone</th><th>Reason</th>"
+                    "</tr></thead><tbody>"
+                )
+                for uf in unzoned:
+                    suggested = esc(uf.get("suggestedZone") or "\u2014")
+                    rec_body.append(
+                        f"<tr>"
+                        f'<td><code>{esc(uf["path"])}</code></td>'
+                        f"<td>{suggested}</td>"
+                        f'<td>{esc(uf["reason"])}</td>'
+                        f"</tr>"
+                    )
+                rec_body.append("</tbody></table></div>")
+            rec_body.append("</div>")
+
+        # Documentation Recommendations subsection
+        if doc_recs:
+            rec_body.append('<div class="arch-subsection">')
+            rec_body.append("<h5>Documentation Recommendations</h5>")
+            for dr in doc_recs:
+                rec_body.append(
+                    f'<div class="arch-doc-item">'
+                    f'<code>{esc(dr.get("path", ""))}</code>: '
+                    f'{esc(dr.get("reason", ""))}</div>'
+                )
+            rec_body.append("</div>")
+
+        parts.append(
+            '<div class="arch-section collapsed">'
+            '<div class="arch-section-header" '
+            "onclick=\"this.parentElement.classList.toggle('collapsed')\">"
+            "<h4>Architect&rsquo;s Recommendations</h4>"
+            '<span class="chevron">&#x25BC;</span>'
+            "</div>"
+            '<div class="arch-section-body">'
+            + "\n".join(rec_body)
+            + "</div></div>"
+        )
 
     return "\n".join(parts)
 
@@ -862,16 +958,23 @@ def render_sidebar_pr_meta(header: dict) -> str:
     )
 
 
-def render_sidebar_status_badges(header: dict) -> str:
-    """Render status badges (CI, Scenarios, Comments, Gate 0) in sidebar."""
+def render_sidebar_status_badges(header: dict, has_scenarios: bool = True) -> str:
+    """Render status badges (CI, Scenarios, Comments, Gate 0) in sidebar.
+
+    When *has_scenarios* is False, the scenario pill is omitted.
+    """
     badges = []
     for b in header.get("statusBadges", []):
+        label = b.get("label", "")
+        # Skip scenario badge when there are no scenarios
+        if not has_scenarios and "scenario" in label.lower():
+            continue
         icon = b.get("icon", "")
         badge_type = b.get("type", "info")
         badges.append(
             f'<span class="status-badge {badge_type}" '
             f'style="font-size:10px;padding:2px 8px">'
-            f'{icon} {esc(b.get("label", ""))}</span>'
+            f'{icon} {esc(label)}</span>'
         )
     if not badges:
         return ""
@@ -990,11 +1093,41 @@ def render_sidebar_merge_button(data: dict) -> str:
     return html
 
 
-def render_sidebar_gates(convergence: dict) -> str:
-    """Render gate status rows for the sidebar."""
+def render_sidebar_refresh_button(data: dict) -> str:
+    """Render the refresh button — copies the full refresh command on click."""
+    pr_number = data.get("header", {}).get("prNumber", "?")
+    # Derive repo path from git remote or current working directory
+    repo_root = Path.cwd()
+    try:
+        home = Path.home()
+        rel_path = repo_root.relative_to(home)
+        cd_path = f"~/{rel_path}"
+    except ValueError:
+        cd_path = str(repo_root)
+    cmd = (
+        f"cd {cd_path} && python3 packages/pr-review-pack/scripts/"
+        f"review_pack_cli.py refresh docs/pr{pr_number}_review_pack.html"
+    )
+    return (
+        f'<button class="sb-refresh-btn" id="sb-refresh-btn" '
+        f'onclick="copyRefreshCmd()" '
+        f'title="Copy refresh command to clipboard">'
+        f'&#x21BB; Copy Refresh Command</button>'
+        f'<input type="hidden" id="refresh-cmd-value" value="{esc(cmd)}"/>'
+    )
+
+
+def render_sidebar_gates(convergence: dict, has_scenarios: bool = True) -> str:
+    """Render gate status rows for the sidebar.
+
+    When *has_scenarios* is False, the scenario gate row is omitted.
+    """
     rows = []
     for gate in convergence.get("gates", []):
         name = gate.get("name", "")
+        # Skip scenario gate when there are no scenarios
+        if not has_scenarios and "scenario" in name.lower():
+            continue
         st = gate.get("status", "failing")
         icon = "&#x2713;" if st == "passing" else "&#x2717;"
         color = "var(--green)" if st == "passing" else "var(--red)"
@@ -1007,8 +1140,11 @@ def render_sidebar_gates(convergence: dict) -> str:
     return "\n".join(rows)
 
 
-def render_sidebar_metrics(data: dict) -> str:
-    """Render metric counts: CI, Scenarios, Comments, Findings."""
+def render_sidebar_metrics(data: dict, has_scenarios: bool = True) -> str:
+    """Render metric counts: CI, Scenarios, Comments, Findings.
+
+    When *has_scenarios* is False, the Scenarios metric row is omitted.
+    """
     ci = data.get("ciPerformance", [])
     ci_pass = sum(1 for c in ci if c.get("status") == "pass")
     ci_total = len(ci)
@@ -1029,17 +1165,22 @@ def render_sidebar_metrics(data: dict) -> str:
         1 for f in findings if f.get("grade") in ("C", "F")
     )
 
-    metrics = [
+    metrics: list[tuple[str, str, str, bool]] = [
         ("CI", f"{ci_pass}/{ci_total}",
          "section-ci-performance", ci_pass == ci_total),
-        ("Scenarios", f"{sc_pass}/{sc_total}" if sc_total > 0 else "N/A",
-         "section-specs-scenarios", sc_pass == sc_total and sc_total > 0),
+    ]
+    if has_scenarios:
+        metrics.append(
+            ("Scenarios", f"{sc_pass}/{sc_total}" if sc_total > 0 else "N/A",
+             "section-specs-scenarios", sc_pass == sc_total and sc_total > 0),
+        )
+    metrics.extend([
         ("Comments", comment_label.split(" ")[0] if comment_badge else "0/0",
          "section-convergence",
          "0" not in comment_label.split("/")[0:1]),
         ("Findings", str(finding_count),
-         "section-agentic-review", finding_count == 0),
-    ]
+         "section-code-review", finding_count == 0),
+    ])
 
     rows = []
     for label, value, section_id, is_ok in metrics:
@@ -1084,8 +1225,12 @@ def render_sidebar_zone_minimap(arch: dict) -> str:
     )
 
 
-def render_sidebar_section_nav(data: dict) -> str:
-    """Render section navigation list with activity dots and count badges."""
+def render_sidebar_section_nav(data: dict, has_scenarios: bool = True) -> str:
+    """Render section navigation list with activity dots and count badges.
+
+    When *has_scenarios* is False, the Convergence and Factory History
+    entries are omitted, and "Specs & Scenarios" becomes "Specifications".
+    """
     # Each entry: (section_id, label, dot_type)
     # Group headers use ("__group__", "Group Label", None)
     # Determine arch assessment nav dot
@@ -1096,52 +1241,58 @@ def render_sidebar_section_nav(data: dict) -> str:
     else:
         aa_dot = "empty"
 
-    sections: list[tuple[str, str | None, str | None]] = [
-        ("__group__", "Architecture & Context", None),
-        ("section-architecture", "Architecture", _nav_dot_for_arch(data)),
-        ("section-arch-assessment", "Arch Assessment", aa_dot),
-        ("section-what-changed", "What Changed",
-         _nav_dot_for_content(data, "whatChanged")),
-        ("section-specs-scenarios", "Specs & Scenarios",
-         _nav_dot_for_content(data, "scenarios")),
-    ]
-    # Safety & Reasoning
     review = data.get("agenticReview", {})
     findings = review.get("findings", [])
     has_critical = any(f.get("grade") in ("C", "F") for f in findings)
-    sections.append(("__group__", "Safety & Reasoning", None))
-    sections.append(
-        ("section-agentic-review", "Agent Reviews",
-         "findings" if has_critical else ("content" if findings else "empty"))
-    )
     decisions = data.get("decisions", [])
-    sections.append(
-        ("section-key-decisions", "Key Decisions",
-         "content" if decisions else "empty")
-    )
-    sections.append(("section-convergence", "Convergence", "content"))
-    # Follow-ups & Evidence
     ci = data.get("ciPerformance", [])
     pm = data.get("postMergeItems", [])
-    code_diffs = data.get("codeDiffs", [])
-    sections.append(("__group__", "Follow-ups & Evidence", None))
+    specs_label = "Specs & Scenarios" if has_scenarios else "Specifications"
+
+    # Tier 1: Architecture & Changes
+    sections: list[tuple[str, str | None, str | None]] = [
+        ("__group__", "Architecture & Changes", None),
+        ("section-architecture", "Architecture", _nav_dot_for_arch(data)),
+        ("section-what-changed", "What Changed",
+         _nav_dot_for_content(data, "whatChanged")),
+        ("section-key-decisions", "Key Decisions",
+         "content" if decisions else "empty"),
+    ]
+
+    # Tier 2: Factory (only shown when factory artifacts present)
+    fh = data.get("factoryHistory")
+    if has_scenarios or fh:
+        sections.append(("__group__", "Factory", None))
+        sections.append(
+            ("section-specs-scenarios", specs_label,
+             _nav_dot_for_content(data, "scenarios") if has_scenarios
+             else _nav_dot_for_content(data, "specs"))
+        )
+        if has_scenarios:
+            sections.append(("section-convergence", "Convergence", "content"))
+        if fh:
+            sections.append(
+                ("section-factory-history", "Factory History", "content")
+            )
+
+    # Tier 3: Review & Evidence
+    sections.append(("__group__", "Review & Evidence", None))
+    sections.append(("section-arch-assessment", "Arch Assessment", aa_dot))
+    sections.append(
+        ("section-code-review", "Code Review",
+         "findings" if has_critical else ("content" if findings else "empty"))
+    )
     sections.append(
         ("section-ci-performance", "CI Performance",
          "content" if ci else "empty")
     )
+
+    # Tier 4: Follow-ups
+    sections.append(("__group__", "Follow-ups", None))
     sections.append(
         ("section-post-merge", "Post-Merge Items",
          "content" if pm else "empty")
     )
-    sections.append(
-        ("section-code-diffs", "Code Diffs",
-         "content" if code_diffs else "empty")
-    )
-    fh = data.get("factoryHistory")
-    if fh:
-        sections.append(
-            ("section-factory-history", "Factory History", "content")
-        )
 
     items = []
     for section_id, label, dot_type in sections:
@@ -1160,8 +1311,13 @@ def render_sidebar_section_nav(data: dict) -> str:
             count = f'<span class="sb-nav-count">({len(decisions)})</span>'
         elif label == "Post-Merge Items" and pm:
             count = f'<span class="sb-nav-count">({len(pm)})</span>'
-        elif label == "Code Diffs" and code_diffs:
-            count = f'<span class="sb-nav-count">({len(code_diffs)})</span>'
+        elif label == "Code Review":
+            # Count findings with non-A grades (i.e. issues worth attention)
+            notable_count = sum(
+                1 for f in findings if f.get("grade") not in ("A", "N/A")
+            )
+            if notable_count > 0:
+                count = f'<span class="sb-nav-count">({notable_count})</span>'
         items.append(
             f'<div class="sb-nav-item" data-section="{section_id}" '
             f'onclick="scrollToSection(\'{section_id}\')">\n'
@@ -1234,6 +1390,182 @@ def render_code_diffs_list(data: dict) -> str:
     return "\n".join(items)
 
 
+def render_code_review_list(data: dict) -> str:
+    """Render code review as a table with one column per agent paradigm.
+
+    - Each file gets a row with agent grade columns (CH, SE, TI, AD, AR).
+    - Agents without findings for a file show a dash ("—").
+    - Click on row expands to show per-agent detail.
+    - Click on file path opens the diff modal.
+    """
+    findings = data.get("agenticReview", {}).get("findings", [])
+    code_diffs = data.get("codeDiffs", [])
+
+    # All agent paradigms in display order
+    agent_paradigms = [
+        ("CH", "code-health", "Code Health"),
+        ("SE", "security", "Security"),
+        ("TI", "test-integrity", "Test Integrity"),
+        ("AD", "adversarial", "Adversarial"),
+        ("AR", "architecture", "Architecture"),
+    ]
+    abbrev_order = [a[0] for a in agent_paradigms]
+
+    # Build findings lookup by file path
+    findings_by_file: dict[str, list[dict]] = {}
+    for f in findings:
+        path = f.get("file", "")
+        findings_by_file.setdefault(path, []).append(f)
+
+    # Union of code diffs and findings
+    all_files: dict[str, dict] = {}
+    for cd in code_diffs:
+        path = cd.get("path", "")
+        all_files[path] = cd
+    for path in findings_by_file:
+        if path not in all_files:
+            all_files[path] = {
+                "path": path,
+                "additions": 0,
+                "deletions": 0,
+                "status": "reviewed",
+                "zones": [],
+            }
+
+    if not all_files:
+        return '<p style="color:var(--text-muted);font-size:13px">No files changed.</p>'
+
+    # Table header
+    header_cols = "".join(
+        f'<th class="cr-agent-col" title="{name}">{abbrev}</th>'
+        for abbrev, _, name in agent_paradigms
+    )
+    html = (
+        '<table class="cr-table">'
+        "<thead><tr>"
+        "<th>File</th>"
+        f"{header_cols}"
+        "<th>+/&minus;</th>"
+        "<th>Zone</th>"
+        "</tr></thead><tbody>"
+    )
+
+    for path, cd in all_files.items():
+        file_findings = findings_by_file.get(path, [])
+        zones = cd.get("zones", [])
+        zones_str = " ".join(zones) if isinstance(zones, list) else zones
+        additions = cd.get("additions", 0)
+        deletions = cd.get("deletions", 0)
+
+        # Build agent → grade + detail maps
+        agent_grades: dict[str, str] = {}
+        agent_details: dict[str, list[dict]] = {}
+        for ff in file_findings:
+            agent_name = ff.get("agent", "")
+            abbrev = AGENT_ABBREV.get(
+                agent_name, agent_name[:2].upper() if agent_name else "?"
+            )
+            grade = ff.get("grade", "N/A")
+            # Keep worst grade
+            if abbrev not in agent_grades or GRADE_SORT.get(
+                grade, 5
+            ) < GRADE_SORT.get(agent_grades[abbrev], 5):
+                agent_grades[abbrev] = grade
+            agent_details.setdefault(abbrev, []).append(ff)
+
+        # Grade cells
+        grade_cells = ""
+        for abbrev, _, _ in agent_paradigms:
+            if abbrev in agent_grades:
+                grade = agent_grades[abbrev]
+                gc = GRADE_CLASS.get(grade, "na")
+                grade_cells += (
+                    f'<td class="cr-agent-col">'
+                    f'<span class="grade {gc}" '
+                    f'style="width:24px;height:24px;line-height:24px;'
+                    f'font-size:11px">{esc(grade)}</span></td>'
+                )
+            else:
+                grade_cells += (
+                    '<td class="cr-agent-col">'
+                    '<span class="cr-grade-dash">&mdash;</span></td>'
+                )
+
+        # Zone tags
+        zone_html = ""
+        if zones:
+            zone_list = zones if isinstance(zones, list) else zones.split()
+            zone_html = " ".join(
+                f'<span class="zone-tag {layer_tag_class(z)}">{esc(z)}</span>'
+                for z in zone_list
+            )
+
+        # File row
+        html += (
+            f'<tr class="cr-file-row" data-zones="{esc(zones_str)}" '
+            f'onclick="toggleCRDetail(this)">'
+            f"<td>"
+            f'<code class="file-path-link" '
+            f"onclick=\"event.stopPropagation();"
+            f"openFileModal('{esc(path)}')\">"
+            f"{esc(path)}</code></td>"
+            f"{grade_cells}"
+            f'<td><span class="cd-file-stats">'
+            f'<span class="cd-add">+{additions}</span> '
+            f'<span class="cd-del">&minus;{deletions}</span>'
+            f"</span></td>"
+            f"<td>{zone_html}</td>"
+            f"</tr>\n"
+        )
+
+        # Detail row: per-agent breakdown (all paradigms, including "no comments")
+        detail_parts: list[str] = []
+        for abbrev, agent_key, agent_name in agent_paradigms:
+            agent_findings = agent_details.get(abbrev, [])
+            if agent_findings:
+                grade = agent_grades.get(abbrev, "N/A")
+                gc = GRADE_CLASS.get(grade, "na")
+                detail_text = " ".join(
+                    ff.get("detail", "") or ff.get("notable", "")
+                    for ff in agent_findings
+                )
+                detail_parts.append(
+                    f'<div class="agent-detail-entry">'
+                    f'<span class="agent-detail-header">'
+                    f'<span class="agent-abbrev">{esc(abbrev)}</span>'
+                    f'<span class="grade {gc}">{esc(grade)}</span>'
+                    f'<span class="agent-detail-name">'
+                    f"{esc(agent_name)}</span>"
+                    f"</span>"
+                    f'<div class="agent-detail-body">{detail_text}</div>'
+                    f"</div>"
+                )
+            else:
+                detail_parts.append(
+                    f'<div class="agent-detail-entry cr-no-comment">'
+                    f'<span class="agent-detail-header">'
+                    f'<span class="agent-abbrev">{esc(abbrev)}</span>'
+                    f'<span class="grade na">&mdash;</span>'
+                    f'<span class="agent-detail-name">'
+                    f"{esc(agent_name)}</span>"
+                    f"</span>"
+                    f'<div class="agent-detail-body">'
+                    f"<em>No comments on this file.</em></div>"
+                    f"</div>"
+                )
+
+        ncols = len(agent_paradigms) + 3  # file + agents + stats + zone
+        html += (
+            f'<tr class="cr-detail-row" data-zones="{esc(zones_str)}">'
+            f'<td colspan="{ncols}">'
+            + "".join(detail_parts)
+            + "</td></tr>\n"
+        )
+
+    html += "</tbody></table>"
+    return html
+
+
 def render_factory_history_section(data: dict) -> str:
     """Render Factory History as a full section (Tier 3) or empty string if null."""
     history = data.get("factoryHistory")
@@ -1243,7 +1575,7 @@ def render_factory_history_section(data: dict) -> str:
     timeline = render_history_timeline(history.get("timeline", []))
     gate_rows = render_gate_findings_rows(history.get("gateFindings", []))
     return (
-        f'<div class="section" id="section-factory-history">\n'
+        f'<div class="section">\n'
         f'  <div class="section-header"'
         f' onclick="this.parentElement.classList.toggle(\'collapsed\')">\n'
         f'    <h2>Factory History</h2>\n'
@@ -1427,29 +1759,67 @@ def render(
 
     # Factory history (conditional) — v1 uses individual markers, v2 uses a full section
     history = data.get("factoryHistory")
+    has_scenarios = bool(data.get("scenarios"))
     if template_version == "v2":
         # v2: sidebar + section markers
         replacements["<!-- INJECT: sidebar.prMeta -->"] = render_sidebar_pr_meta(header)
         replacements["<!-- INJECT: sidebar.verdictBadge -->"] = render_sidebar_verdict(data)
         replacements["<!-- INJECT: sidebar.commitScope -->"] = render_sidebar_commit_scope(data)
         replacements["<!-- INJECT: sidebar.mergeButton -->"] = render_sidebar_merge_button(data)
+        replacements["<!-- INJECT: sidebar.refreshButton -->"] = (
+            render_sidebar_refresh_button(data)
+        )
         replacements["<!-- INJECT: sidebar.statusBadges -->"] = (
-            render_sidebar_status_badges(header)
+            render_sidebar_status_badges(header, has_scenarios=has_scenarios)
         )
         replacements["<!-- INJECT: sidebar.gatesStatus -->"] = render_sidebar_gates(
-            data.get("convergence", {})
+            data.get("convergence", {}), has_scenarios=has_scenarios
         )
-        replacements["<!-- INJECT: sidebar.metrics -->"] = render_sidebar_metrics(data)
+        replacements["<!-- INJECT: sidebar.metrics -->"] = render_sidebar_metrics(
+            data, has_scenarios=has_scenarios
+        )
         replacements["<!-- INJECT: sidebar.zoneMiniMap -->"] = render_sidebar_zone_minimap(
             data.get("architecture", {})
         )
-        replacements["<!-- INJECT: sidebar.sectionNav -->"] = render_sidebar_section_nav(data)
+        replacements["<!-- INJECT: sidebar.sectionNav -->"] = render_sidebar_section_nav(
+            data, has_scenarios=has_scenarios
+        )
         replacements["<!-- INJECT: architecture assessment section -->"] = (
             render_architecture_assessment(data)
         )
         replacements["<!-- INJECT: code diff file list -->"] = render_code_diffs_list(data)
+        replacements["<!-- INJECT: code review file list -->"] = render_code_review_list(data)
         replacements["<!-- INJECT: factory history section -->"] = (
             render_factory_history_section(data)
+        )
+        # Conditional specs/scenarios section title and scenarios block
+        replacements["<!-- INJECT: specsScenarios.title -->"] = (
+            "Spec &amp; Scenarios" if has_scenarios else "Specifications"
+        )
+        if has_scenarios:
+            scenario_legend = render_scenario_legend(data.get("scenarios", []))
+            scenario_cards = render_scenario_cards(data.get("scenarios", []))
+            replacements["<!-- INJECT: specsScenarios.scenariosBlock -->"] = (
+                '<h3 style="font-size:13px;margin:14px 0 8px">Scenarios</h3>\n'
+                f'          <div class="scenario-legend" id="scenario-legend">\n'
+                f'            {scenario_legend}\n'
+                f'          </div>\n'
+                f'          <div class="scenario-grid" id="scenario-grid">\n'
+                f'            {scenario_cards}\n'
+                f'          </div>'
+            )
+        else:
+            replacements["<!-- INJECT: specsScenarios.scenariosBlock -->"] = ""
+        # Conditional display for factory tier, convergence, and factory history
+        has_factory = has_scenarios or bool(history)
+        replacements["<!-- INJECT: factoryTier.displayAttr -->"] = (
+            "" if has_factory else 'style="display:none"'
+        )
+        replacements["<!-- INJECT: convergence.displayAttr -->"] = (
+            "" if has_scenarios else 'style="display:none"'
+        )
+        replacements["<!-- INJECT: factoryHistory.displayAttr -->"] = (
+            "" if has_scenarios else 'style="display:none"'
         )
     else:
         # v1: individual factory history markers
