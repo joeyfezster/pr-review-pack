@@ -23,6 +23,8 @@ from scaffold_review_pack_data import (
     match_file_to_zones,
 )
 
+_HEALTHY_AA = {"overallHealth": "healthy"}
+
 # ── compute_verdict ───────────────────────────────────────────────────
 
 
@@ -43,7 +45,10 @@ class TestComputeVerdict:
                 {"grade": "B+"},
             ],
         }
-        result = compute_verdict(convergence, agentic_review)
+        result = compute_verdict(
+            convergence, agentic_review,
+            architecture_assessment=_HEALTHY_AA,
+        )
         assert result["status"] == "ready"
         assert "READY" in result["text"]
 
@@ -105,7 +110,10 @@ class TestComputeVerdict:
             "overall": {"status": "passing"},
         }
         agentic_review = {"findings": []}
-        result = compute_verdict(convergence, agentic_review)
+        result = compute_verdict(
+            convergence, agentic_review,
+            architecture_assessment=_HEALTHY_AA,
+        )
         assert result["status"] == "ready"
 
     def test_f_grade_overrides_c_grade(self):
@@ -138,6 +146,7 @@ class TestComputeStatus:
         result = compute_status(
             self._passing_convergence(),
             {"findings": [{"grade": "A"}, {"grade": "B"}]},
+            architecture_assessment=_HEALTHY_AA,
         )
         assert result["value"] == "ready"
         assert result["text"] == "READY"
@@ -214,6 +223,7 @@ class TestComputeStatus:
             self._passing_convergence(),
             {"findings": [{"file": "src/a.py", "grade": "C"}]},
             commit_gap=2,
+            architecture_assessment=_HEALTHY_AA,
         )
         assert result["value"] == "needs-review"
         assert len(result["reasons"]) == 2
@@ -231,6 +241,7 @@ class TestComputeStatus:
         result = compute_status(
             self._passing_convergence(),
             {"findings": []},
+            architecture_assessment=_HEALTHY_AA,
         )
         assert result["value"] == "ready"
 
@@ -260,13 +271,15 @@ class TestComputeStatus:
         )
         assert result["value"] == "ready"
 
-    def test_ready_architecture_none(self):
+    def test_needs_review_architecture_none(self):
+        """Missing architecture assessment triggers needs-review."""
         result = compute_status(
             self._passing_convergence(),
             {"findings": [{"grade": "A"}]},
             architecture_assessment=None,
         )
-        assert result["value"] == "ready"
+        assert result["value"] == "needs-review"
+        assert any("missing" in r.lower() for r in result["reasons"])
 
 
 # ── build_code_diffs ──────────────────────────────────────────────────
@@ -568,7 +581,10 @@ class TestComputeVerdictNoScenarios:
             "overall": {"status": "passing"},
         }
         agentic_review = {"findings": [{"grade": "A"}]}
-        result = compute_verdict(convergence, agentic_review)
+        result = compute_verdict(
+            convergence, agentic_review,
+            architecture_assessment=_HEALTHY_AA,
+        )
         assert result["status"] == "ready"
 
     def test_blocked_with_three_gates_one_failing(self):
@@ -597,7 +613,10 @@ class TestComputeVerdictNoScenarios:
             "overall": {"status": "passing"},
         }
         agentic_review = {"findings": [{"grade": "A"}, {"grade": "B"}]}
-        result = compute_verdict(convergence, agentic_review)
+        result = compute_verdict(
+            convergence, agentic_review,
+            architecture_assessment=_HEALTHY_AA,
+        )
         assert result["status"] == "ready"
 
     def test_blocked_with_four_gates_scenarios_failing(self):

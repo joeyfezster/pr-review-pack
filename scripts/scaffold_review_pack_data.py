@@ -397,11 +397,15 @@ def compute_status(
         reasons.append(
             f"{commit_gap} commit(s) not covered by agent analysis"
         )
-    if (
-        architecture_assessment
-        and architecture_assessment.get("overallHealth") == "action-required"
-    ):
+    aa_health = (
+        architecture_assessment.get("overallHealth", "missing")
+        if architecture_assessment
+        else "missing"
+    )
+    if aa_health == "action-required":
         reasons.append("Architecture assessment requires attention")
+    elif aa_health == "missing":
+        reasons.append("Architecture assessment missing")
 
     if reasons:
         return {
@@ -418,12 +422,21 @@ def compute_status(
 
 
 # Backward-compatible alias
-def compute_verdict(convergence: dict, agentic_review: dict) -> dict:
+def compute_verdict(
+    convergence: dict,
+    agentic_review: dict,
+    *,
+    architecture_assessment: dict | None = None,
+) -> dict:
     """Legacy wrapper — delegates to compute_status.
 
     Returns the old-style dict with "status" key for backward compat.
     """
-    result = compute_status(convergence, agentic_review)
+    result = compute_status(
+        convergence,
+        agentic_review,
+        architecture_assessment=architecture_assessment,
+    )
     return {
         "status": _status_value_to_legacy(result["value"]),
         "text": result["text"]

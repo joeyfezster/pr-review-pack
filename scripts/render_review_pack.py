@@ -284,7 +284,7 @@ def render_architecture_assessment(data: dict) -> str:
     if not assessment:
         return ""
 
-    health = assessment.get("overallHealth", "healthy")
+    health = assessment.get("overallHealth", "missing")
     summary = assessment.get("summary", "")
 
     parts: list[str] = []
@@ -294,6 +294,7 @@ def render_architecture_assessment(data: dict) -> str:
         "healthy": "passing",
         "needs-attention": "warning",
         "action-required": "failing",
+        "missing": "warning",
     }
     health_label = health.replace("-", " ").title()
     parts.append(
@@ -1273,7 +1274,7 @@ def render_sidebar_section_nav(data: dict, has_scenarios: bool = True) -> str:
     iteration_count = fh.get("iterationCount", 0) if fh else 0
 
     aa = data.get("architectureAssessment")
-    aa_health = aa.get("overallHealth", "healthy") if aa else "healthy"
+    aa_health = aa.get("overallHealth", "missing") if aa else "missing"
 
     review = data.get("agenticReview", {})
     findings = review.get("findings", [])
@@ -1343,10 +1344,11 @@ def render_sidebar_section_nav(data: dict, has_scenarios: bool = True) -> str:
         "healthy": _nav_icon("pass"),
         "needs-attention": _nav_icon("warn"),
         "action-required": _nav_icon("fail"),
+        "missing": _nav_icon("warn"),
     }
     sections.append((
         "section-arch-assessment", "Arch Assessment",
-        aa_icon_map.get(aa_health, _nav_icon("empty")),
+        aa_icon_map.get(aa_health, _nav_icon("warn")),
     ))
     sections.append((
         "section-code-review", "Code Review",
