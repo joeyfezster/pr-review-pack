@@ -175,7 +175,10 @@ def sample_review_pack_data() -> dict:
         ],
         "whatChanged": {
             "defaultSummary": {
-                "infrastructure": "<p>Updated deployment scripts for <strong>zone-gamma</strong>.</p>",
+                "infrastructure": (
+                    "<p>Updated deployment scripts for"
+                    " <strong>zone-gamma</strong>.</p>"
+                ),
                 "product": "<p>Added feature X to zone-alpha with new API endpoints.</p>",
             },
             "zoneDetails": [

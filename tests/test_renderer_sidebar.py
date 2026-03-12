@@ -473,7 +473,10 @@ class TestRenderSidebarSectionNav:
             "scenarios": [{"status": "pass"}],
             "agenticReview": {"findings": []},
             "decisions": [],
-            "convergence": {"gates": [{"name": "G1", "status": "failing"}], "overall": {"status": "failing"}},
+            "convergence": {
+                "gates": [{"name": "G1", "status": "failing"}],
+                "overall": {"status": "failing"},
+            },
             "ciPerformance": [],
             "postMergeItems": [],
             "factoryHistory": None,
@@ -488,13 +491,15 @@ class TestRenderSidebarSectionNav:
 
     def test_arch_assessment_icon_pass_for_healthy(self, sample_review_pack_data):
         data = {**sample_review_pack_data}
-        data["architectureAssessment"] = {**data["architectureAssessment"], "overallHealth": "healthy"}
+        aa = {**data["architectureAssessment"], "overallHealth": "healthy"}
+        data["architectureAssessment"] = aa
         result = render_sidebar_section_nav(data)
         assert 'class="sb-nav-icon pass"' in result
 
     def test_arch_assessment_icon_fail_for_action_required(self, sample_review_pack_data):
         data = {**sample_review_pack_data}
-        data["architectureAssessment"] = {**data["architectureAssessment"], "overallHealth": "action-required"}
+        aa = {**data["architectureAssessment"], "overallHealth": "action-required"}
+        data["architectureAssessment"] = aa
         result = render_sidebar_section_nav(data)
         assert 'class="sb-nav-icon fail"' in result
 
@@ -583,7 +588,9 @@ class TestRenderSidebarSectionNav:
         result = render_sidebar_section_nav(data, has_scenarios=False)
         assert 'class="sb-nav-icon empty"' in result
 
-    def test_factory_history_icon_shows_iteration_count(self, sample_review_pack_data, sample_factory_history):
+    def test_factory_history_icon_shows_iteration_count(
+        self, sample_review_pack_data, sample_factory_history,
+    ):
         data = {**sample_review_pack_data, "factoryHistory": sample_factory_history}
         result = render_sidebar_section_nav(data)
         # 3 iterations → count badge with "3"
