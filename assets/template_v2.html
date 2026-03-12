@@ -264,11 +264,20 @@
   .sb-nav-item { display: flex; align-items: center; gap: 8px; padding: 4px 6px; font-size: 12px; cursor: pointer; border-radius: 4px; color: var(--text-secondary); }
   .sb-nav-item:hover { background: var(--gray-bg); color: var(--text); }
   .sb-nav-item.active { color: var(--blue); font-weight: 600; }
-  .sb-nav-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-  .sb-nav-dot.content { background: var(--blue); }
-  .sb-nav-dot.findings { background: var(--red); }
-  .sb-nav-dot.empty { background: transparent; }
-  .sb-nav-count { font-size: 10px; color: var(--text-muted); margin-left: auto; }
+  /* Status icons — replace dots and parenthetical counts */
+  .sb-nav-icon { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; font-size: 9px; font-weight: 700; border-radius: 50%; flex-shrink: 0; }
+  .sb-nav-icon.pass { color: var(--green); }
+  .sb-nav-icon.fail { color: var(--red); }
+  .sb-nav-icon.warn { color: var(--yellow); }
+  /* Count badges — small numbered chip */
+  .sb-nav-icon.count { background: var(--blue-bg); color: var(--blue); font-size: 9px; }
+  .sb-nav-icon.count-warn { background: #fef3c7; color: #92400e; font-size: 9px; }
+  .sb-nav-icon.count-fail { background: #fee2e2; color: #991b1b; font-size: 9px; }
+  /* Presence dots */
+  .sb-nav-icon.present { width: 6px; height: 6px; background: var(--blue); }
+  .sb-nav-icon.empty { width: 6px; height: 6px; background: transparent; }
+  [data-theme="dark"] .sb-nav-icon.count-warn { background: #451a03; color: #fcd34d; }
+  [data-theme="dark"] .sb-nav-icon.count-fail { background: #450a0a; color: #fca5a5; }
   .sb-nav-separator { border-top: 1px solid var(--border); margin: 4px 6px; }
   .sb-nav-group-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); padding: 8px 6px 2px; }
 
@@ -395,9 +404,14 @@
     .mc-hamburger-overlay .mc-sidebar { display: flex; position: fixed; top: 0; left: 0; bottom: 0; z-index: 201; }
   }
 
-  @media (max-width: 899px) {
-    .mc-topbar .sb-gates, .mc-topbar .sb-metrics { display: none; }
-  }
+  /* ── Gate pills (compact gate status indicators) ── */
+  .sb-gate-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
+  .sb-gate-pill { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+  .sb-gate-pill:hover { opacity: 0.8; }
+  .sb-gate-pill.pass { background: var(--green-bg); color: #166534; }
+  .sb-gate-pill.fail { background: var(--red-bg); color: #991b1b; }
+  [data-theme="dark"] .sb-gate-pill.pass { background: #064e3b; color: #6ee7b7; }
+  [data-theme="dark"] .sb-gate-pill.fail { background: #7f1d1d; color: #fca5a5; }
 
   /* ── Gate (removed -- readiness info lives in status badges) ── */
   .gate .check-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
@@ -513,6 +527,19 @@
   .conv-card.open .conv-card-detail { display: block; }
   .conv-card-detail ul { margin: 4px 0 0 16px; list-style: disc; }
   .conv-card-detail li { margin-bottom: 2px; }
+
+  /* ── Review gates ── */
+  .review-gates-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .gate-review-card { border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: box-shadow 0.2s; }
+  .gate-review-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .gate-review-card .gate-name { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .gate-review-card .gate-status { font-size: 18px; font-weight: 700; }
+  .gate-review-card .gate-status.passing { color: #166534; }
+  .gate-review-card .gate-status.failing { color: #991b1b; }
+  .gate-review-card .gate-summary { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+  .gate-review-card .gate-detail { display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-secondary); }
+  .gate-review-card.open .gate-detail { display: block; }
+  [data-theme="dark"] .gate-review-card { border-color: #374151; }
 
   /* ── Post-merge ── */
   .pm-item { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
@@ -750,22 +777,7 @@
     <!-- INJECT: sidebar.prMeta -->
     <!-- INJECT: sidebar.verdictBadge -->
 
-    <div class="sb-section-label">Gates</div>
-    <div class="sb-gates">
-      <!-- INJECT: sidebar.gatesStatus -->
-    </div>
-
-    <div class="sb-section-label">Metrics</div>
-    <div class="sb-metrics">
-      <!-- INJECT: sidebar.metrics -->
-    </div>
-
-    <div class="sb-section-label">Zones</div>
-    <div class="sb-zones">
-      <!-- INJECT: sidebar.zoneMiniMap -->
-      <div id="sb-zone-active-mobile" class="sb-zone-active"></div>
-      <div class="sb-clear-filter" onclick="resetZones()">Clear filter</div>
-    </div>
+    <!-- INJECT: sidebar.gatePills -->
 
     <div class="sb-section-label">Sections</div>
     <div class="sb-nav">
@@ -799,24 +811,11 @@
 
     <!-- INJECT: sidebar.statusBadges -->
 
+    <!-- INJECT: sidebar.gatePills -->
+
     <!-- INJECT: sidebar.refreshButton -->
 
     <div class="sb-arch-mini" id="sb-arch-mini" title="Click zones to filter"></div>
-
-    <div class="sb-section-label">Gates</div>
-    <div class="sb-gates">
-      <!-- INJECT: sidebar.gatesStatus -->
-    </div>
-
-    <div class="sb-section-label">Metrics</div>
-    <div class="sb-metrics">
-      <!-- INJECT: sidebar.metrics -->
-    </div>
-
-    <div class="sb-section-label">Zones</div>
-    <div class="sb-zones">
-      <!-- INJECT: sidebar.zoneMiniMap -->
-    </div>
 
     <div class="sb-section-label">Sections</div>
     <div class="sb-nav">
@@ -957,6 +956,19 @@
       <span>Review &amp; Evidence</span>
     </div>
     <div class="tier-content" id="tier-3-content">
+
+      <!-- Section: Review Gates -->
+      <div class="section" id="section-review-gates">
+        <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+          <h2>Review Gates</h2>
+          <span class="chevron">&#x25BC;</span>
+        </div>
+        <div class="section-body">
+          <div class="review-gates-grid">
+            <!-- INJECT: review gates cards -->
+          </div>
+        </div>
+      </div>
 
       <!-- Section: Architecture Assessment -->
       <div class="section" id="section-arch-assessment">
@@ -1807,6 +1819,18 @@ function scrollToSection(id) {
     el.classList.remove('collapsed');
   }
   el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function scrollToGate(gateName) {
+  scrollToSection('section-review-gates');
+  // Find and auto-expand the matching gate card
+  const cards = document.querySelectorAll('.gate-review-card');
+  cards.forEach(card => {
+    if (card.getAttribute('data-gate-name') === gateName) {
+      card.classList.add('open');
+      setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+    }
+  });
 }
 
 // ===============================================

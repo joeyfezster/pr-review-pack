@@ -25,6 +25,7 @@ from render_review_pack import (
     render_history_summary_cards,
     render_history_timeline,
     render_post_merge_items,
+    render_review_gates_cards,
     render_scenario_cards,
     render_scenario_legend,
     render_spec_list,
@@ -289,17 +290,24 @@ class TestRenderScenarioCards:
 
 class TestRenderWhatChangedDefault:
 
-    def test_infrastructure_paragraph(self, sample_review_pack_data):
+    def test_infrastructure_rendered_as_div(self, sample_review_pack_data):
         wc = sample_review_pack_data["whatChanged"]
         result = render_what_changed_default(wc)
-        assert "<strong>Infrastructure:</strong>" in result
+        assert '<div class="wc-summary"><strong>Infrastructure:</strong>' in result
         assert "Updated deployment scripts" in result
 
-    def test_product_paragraph(self, sample_review_pack_data):
+    def test_product_rendered_as_div(self, sample_review_pack_data):
         wc = sample_review_pack_data["whatChanged"]
         result = render_what_changed_default(wc)
-        assert "<strong>Product:</strong>" in result
+        assert '<div class="wc-summary"><strong>Product:</strong>' in result
         assert "Added feature X to zone-alpha" in result
+
+    def test_html_content_not_escaped(self, sample_review_pack_data):
+        wc = sample_review_pack_data["whatChanged"]
+        result = render_what_changed_default(wc)
+        # HTML tags should render as-is, not escaped
+        assert "<strong>zone-gamma</strong>" in result
+        assert "&lt;strong&gt;" not in result
 
     def test_empty_infrastructure(self):
         wc = {"defaultSummary": {"infrastructure": "", "product": "Some product change."}}
@@ -331,11 +339,19 @@ class TestRenderWhatChangedZones:
         assert "Zone Alpha Changes" in result
         assert "Zone Beta Changes" in result
 
-    def test_zone_descriptions(self, sample_review_pack_data):
+    def test_zone_descriptions_html_not_escaped(self, sample_review_pack_data):
         wc = sample_review_pack_data["whatChanged"]
         result = render_what_changed_zones(wc)
-        assert "New API endpoints for feature X." in result
-        assert "Updated integration tests." in result
+        # HTML tags in descriptions should render as-is
+        assert "<strong>feature X</strong>" in result
+        assert "&lt;strong&gt;" not in result
+
+    def test_zone_descriptions_wrapped_in_div(self, sample_review_pack_data):
+        wc = sample_review_pack_data["whatChanged"]
+        result = render_what_changed_zones(wc)
+        # Descriptions should be in <div>, not <p>, to avoid nesting issues
+        assert "<div><p>" in result
+        assert "</p></div>" in result
 
     def test_empty_zone_details(self):
         wc = {"zoneDetails": []}
@@ -786,3 +802,59 @@ class TestRenderGateFindingsRows:
         result = render_gate_findings_rows(findings)
         # With empty popovers, no gate-clickable class should appear
         assert "gate-clickable" not in result
+
+
+# ── render_review_gates_cards ────────────────────────────────────────
+
+
+class TestRenderReviewGatesCards:
+
+    def test_gate_cards_rendered(self, sample_review_pack_data):
+        convergence = sample_review_pack_data["convergence"]
+        result = render_review_gates_cards(convergence)
+        assert result.count('class="gate-review-card"') == 4
+
+    def test_gate_names(self, sample_review_pack_data):
+        convergence = sample_review_pack_data["convergence"]
+        result = render_review_gates_cards(convergence)
+        assert "Gate 0" in result
+        assert "Gate 1" in result
+
+    def test_data_gate_name_attribute(self, sample_review_pack_data):
+        convergence = sample_review_pack_data["convergence"]
+        result = render_review_gates_cards(convergence)
+        assert 'data-gate-name="Gate 0' in result
+
+    def test_status_class(self, sample_review_pack_data):
+        convergence = sample_review_pack_data["convergence"]
+        result = render_review_gates_cards(convergence)
+        assert 'class="gate-status passing"' in result
+
+    def test_failing_status_class(self):
+        convergence = {
+            "gates": [
+                {"name": "Gate 1", "status": "failing", "statusText": "FAILING",
+                 "summary": "Errors.", "detail": ""},
+            ],
+        }
+        result = render_review_gates_cards(convergence)
+        assert 'class="gate-status failing"' in result
+
+    def test_summary_escaped(self):
+        convergence = {
+            "gates": [
+                {"name": "G", "status": "passing", "statusText": "OK",
+                 "summary": "<script>alert(1)</script>", "detail": ""},
+            ],
+        }
+        result = render_review_gates_cards(convergence)
+        assert "&lt;script&gt;" in result
+
+    def test_onclick_toggles_open(self, sample_review_pack_data):
+        convergence = sample_review_pack_data["convergence"]
+        result = render_review_gates_cards(convergence)
+        assert "this.classList.toggle('open')" in result
+
+    def test_empty_gates(self):
+        result = render_review_gates_cards({"gates": []})
+        assert result == ""

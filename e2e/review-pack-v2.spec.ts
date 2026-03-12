@@ -225,29 +225,6 @@ test.describe('Merge Button', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════
-// Sidebar Gates
-// ═══════════════════════════════════════════════════════════════════
-
-test.describe('Sidebar Gates', () => {
-  test('gate rows rendered with correct count', async ({ page }) => {
-    await page.goto(READY_PACK);
-    const gates = page.locator('#mc-sidebar .sb-gate-row');
-    const count = await gates.count();
-    expect(count).toBeGreaterThanOrEqual(3);
-  });
-
-  test('gate click scrolls to convergence section', async ({ page }) => {
-    await page.goto(READY_PACK);
-    const convergence = page.locator('#section-convergence');
-    const initialY = await convergence.evaluate(el => el.getBoundingClientRect().top);
-    await page.locator('#mc-sidebar .sb-gate-row').first().click();
-    await page.waitForTimeout(500);
-    const afterY = await convergence.evaluate(el => el.getBoundingClientRect().top);
-    expect(afterY).toBeLessThan(initialY);
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════
 // Sidebar Navigation
 // ═══════════════════════════════════════════════════════════════════
 
@@ -442,36 +419,93 @@ test.describe('Expandable Sections', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════
-// Sidebar Metrics
+// Gate Pills
 // ═══════════════════════════════════════════════════════════════════
 
-test.describe('Sidebar Metrics', () => {
-  test('metrics section is visible with rows', async ({ page }) => {
+test.describe('Gate Pills', () => {
+  test('gate pills are visible in sidebar', async ({ page }) => {
     await page.goto(READY_PACK);
-    const metrics = page.locator('#mc-sidebar .sb-metrics');
-    await expect(metrics).toBeVisible();
-    const rows = metrics.locator('.sb-metric-row');
-    const count = await rows.count();
+    const pills = page.locator('#mc-sidebar .sb-gate-pills');
+    await expect(pills).toBeVisible();
+  });
+
+  test('passing gates have green pill class', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const passPills = page.locator('#mc-sidebar .sb-gate-pill.pass');
+    const count = await passPills.count();
     expect(count).toBeGreaterThan(0);
+  });
+
+  test('failing gate has red pill class in BLOCKED variant', async ({ page }) => {
+    await page.goto(BLOCKED_PACK);
+    const failPills = page.locator('#mc-sidebar .sb-gate-pill.fail');
+    const count = await failPills.count();
+    expect(count).toBeGreaterThan(0);
+  });
+
+  test('clicking a gate pill navigates to review gates section', async ({ page }) => {
+    await page.goto(READY_PACK);
+    await dismissBanner(page);
+    const pill = page.locator('#mc-sidebar .sb-gate-pill').first();
+    await pill.click();
+    const section = page.locator('#section-review-gates');
+    await expect(section).toBeVisible();
   });
 });
 
 // ═══════════════════════════════════════════════════════════════════
-// Sidebar Zones
+// Review Gates Section
 // ═══════════════════════════════════════════════════════════════════
 
-test.describe('Sidebar Zones', () => {
-  test('zone section is visible in sidebar', async ({ page }) => {
+test.describe('Review Gates Section', () => {
+  test('section exists in DOM', async ({ page }) => {
     await page.goto(READY_PACK);
-    const zones = page.locator('#mc-sidebar .sb-zones');
-    await expect(zones).toBeVisible();
+    const section = page.locator('#section-review-gates');
+    await expect(section).toBeAttached();
   });
 
-  test('clear filter link exists but is initially hidden', async ({ page }) => {
+  test('gate cards are rendered', async ({ page }) => {
     await page.goto(READY_PACK);
-    const clearFilter = page.locator('#mc-sidebar #sb-clear-filter');
-    await expect(clearFilter).toBeAttached();
-    await expect(clearFilter).toBeHidden();
+    const cards = page.locator('.gate-review-card');
+    const count = await cards.count();
+    expect(count).toBeGreaterThan(0);
+  });
+
+  test('gate cards are expandable', async ({ page }) => {
+    await page.goto(READY_PACK);
+    await dismissBanner(page);
+    const card = page.locator('.gate-review-card').first();
+    await card.click();
+    await expect(card).toHaveClass(/open/);
+  });
+
+  test('clicking gate pill auto-expands matching card', async ({ page }) => {
+    await page.goto(READY_PACK);
+    await dismissBanner(page);
+    const pill = page.locator('#mc-sidebar .sb-gate-pill').first();
+    const gateName = await pill.getAttribute('title');
+    await pill.click();
+    // Wait for scroll and expansion
+    await page.waitForTimeout(200);
+    const card = page.locator(`.gate-review-card[data-gate-name="${gateName}"]`);
+    await expect(card).toHaveClass(/open/);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// What Changed HTML Rendering
+// ═══════════════════════════════════════════════════════════════════
+
+test.describe('What Changed HTML Rendering', () => {
+  test('wc-summary renders styled HTML not raw tags', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const summaries = page.locator('.wc-summary');
+    const count = await summaries.count();
+    expect(count).toBeGreaterThan(0);
+    // Should contain rendered strong tags, not escaped text
+    const html = await summaries.first().innerHTML();
+    expect(html).toContain('<strong>');
+    expect(html).not.toContain('&lt;strong&gt;');
   });
 });
 
@@ -714,8 +748,9 @@ test.describe('Zone Chip Double-Click Deselect', () => {
     const chip = page.locator('.sb-arch-chip:not(.unzoned)').first();
     await chip.click();
 
-    const clearFilter = page.locator('#mc-sidebar #sb-clear-filter');
-    await expect(clearFilter).toBeVisible();
+    // Some zones should be dimmed when filter is active
+    const dimmed = page.locator('#arch-diagram .zone-box.dimmed');
+    await expect(dimmed.first()).toBeVisible();
   });
 
   test('double-clicking zone chip deselects active filter', async ({ page }) => {
@@ -728,13 +763,14 @@ test.describe('Zone Chip Double-Click Deselect', () => {
     // Single-click to activate filter
     await chip.click();
 
-    const clearFilter = page.locator('#mc-sidebar #sb-clear-filter');
-    await expect(clearFilter).toBeVisible();
+    const dimmed = page.locator('#arch-diagram .zone-box.dimmed');
+    await expect(dimmed.first()).toBeVisible();
 
-    // Double-click to deselect (chips stay in grid mode now)
+    // Double-click to deselect
     await chip.dblclick();
 
-    await expect(clearFilter).toBeHidden();
+    // No zones should be dimmed after deselect
+    await expect(dimmed).toHaveCount(0);
   });
 
   test('double-click resets zone highlighting in diagram', async ({ page }) => {
@@ -1244,44 +1280,8 @@ test.describe('Commit Gap — Programmatic', () => {
   });
 });
 
-// ═══════════════════════════════════════════════════════════════════
-// Item 9: Code Review Nav Count (non-A, non-N/A only)
-// ═══════════════════════════════════════════════════════════════════
-
-test.describe('Code Review Nav Count', () => {
-  test('code review nav shows count of non-A findings only', async ({ page }) => {
-    await page.goto(READY_PACK);
-    const data: any = await page.evaluate('DATA');
-    const findings = data.agenticReview.findings;
-
-    // Count non-A, non-N/A findings
-    const notableCount = findings.filter(
-      (f: any) => f.grade !== 'A' && f.grade !== 'N/A'
-    ).length;
-
-    // Find the Code Review nav item
-    const navItem = page.locator('#mc-sidebar .sb-nav-item[data-section="section-code-review"]');
-    const navText = await navItem.textContent();
-
-    if (notableCount > 0) {
-      // Should show the count in parentheses
-      expect(navText).toContain(`(${notableCount})`);
-    } else {
-      // Should not show a count
-      expect(navText).not.toMatch(/\(\d+\)/);
-    }
-  });
-
-  test('code review nav count matches expected value from fixture data', async ({ page }) => {
-    await page.goto(READY_PACK);
-    // Fixture: src/alpha/core.py has SE:C + TI:B = 2 non-A findings
-    //          infra/deploy.sh has SE:B + AD:C = 2 non-A findings
-    // Total: 4 non-A findings
-    const navItem = page.locator('#mc-sidebar .sb-nav-item[data-section="section-code-review"]');
-    const countBadge = navItem.locator('.sb-nav-count');
-    await expect(countBadge).toContainText('(4)');
-  });
-});
+// Code Review nav count is now covered by Nav Icon Relationships tests
+// (Code Review nav icon shows count-fail for C/F findings)
 
 // ═══════════════════════════════════════════════════════════════════
 // Item 10: Decision Click — No Scroll Jump
@@ -1392,5 +1392,96 @@ test.describe('Unzoned Zone Chip', () => {
     const chip = page.locator('.sb-arch-chip.unzoned');
     const text = await chip.textContent();
     expect(text).toContain('\u26A0');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Nav Icon Relationship Tests
+// ═══════════════════════════════════════════════════════════════════
+
+test.describe('Nav Icon Relationships', () => {
+  // All locators scoped to #mc-sidebar to avoid matching the hamburger overlay duplicate
+
+  test('Review Gates nav icon reflects gate data — all passing shows pass', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const navItem = page.locator('#mc-sidebar .sb-nav-item[data-section="section-review-gates"]');
+    const icon = navItem.locator('.sb-nav-icon.pass');
+    await expect(icon).toBeAttached();
+  });
+
+  test('Review Gates nav icon shows fail when gate failing (BLOCKED)', async ({ page }) => {
+    await page.goto(BLOCKED_PACK);
+    const navItem = page.locator('#mc-sidebar .sb-nav-item[data-section="section-review-gates"]');
+    const icon = navItem.locator('.sb-nav-icon.fail');
+    await expect(icon).toBeAttached();
+  });
+
+  test('Arch Assessment nav icon shows warn for needs-attention', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const navItem = page.locator('#mc-sidebar .sb-nav-item[data-section="section-arch-assessment"]');
+    const icon = navItem.locator('.sb-nav-icon.warn');
+    await expect(icon).toBeAttached();
+  });
+
+  test('Code Review nav icon shows count-fail for C/F findings', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const navItem = page.locator('#mc-sidebar .sb-nav-item[data-section="section-code-review"]');
+    const icon = navItem.locator('.sb-nav-icon.count-fail');
+    await expect(icon).toBeAttached();
+  });
+
+  test('CI Performance nav icon shows pass when all green', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const navItem = page.locator('#mc-sidebar .sb-nav-item[data-section="section-ci-performance"]');
+    const icon = navItem.locator('.sb-nav-icon.pass');
+    await expect(icon).toBeAttached();
+  });
+
+  test('Specs & Scenarios nav icon shows fail when scenario failing', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const navItem = page.locator('#mc-sidebar .sb-nav-item[data-section="section-specs-scenarios"]');
+    const icon = navItem.locator('.sb-nav-icon.fail');
+    await expect(icon).toBeAttached();
+  });
+
+  test('Specs nav item absent when no scenarios and no factory history (NOFACTORY)', async ({ page }) => {
+    await page.goto(NOFACTORY_PACK);
+    // NOFACTORY has scenarios=[] and factoryHistory=None — entire Factory tier is omitted
+    const navItem = page.locator('#mc-sidebar .sb-nav-item[data-section="section-specs-scenarios"]');
+    await expect(navItem).toHaveCount(0);
+  });
+
+  test('Post-Merge Items nav icon shows count-warn when items exist', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const navItem = page.locator('#mc-sidebar .sb-nav-item[data-section="section-post-merge"]');
+    const icon = navItem.locator('.sb-nav-icon.count-warn');
+    await expect(icon).toBeAttached();
+  });
+
+  test('Architecture nav icon shows modified zone count', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const navItem = page.locator('#mc-sidebar .sb-nav-item[data-section="section-architecture"]');
+    const icon = navItem.locator('.sb-nav-icon.count');
+    await expect(icon).toBeAttached();
+    const text = await icon.textContent();
+    expect(text).toBe('2');
+  });
+
+  test('Key Decisions nav icon shows decision count', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const navItem = page.locator('#mc-sidebar .sb-nav-item[data-section="section-key-decisions"]');
+    const icon = navItem.locator('.sb-nav-icon.count');
+    await expect(icon).toBeAttached();
+    const text = await icon.textContent();
+    expect(text).toBe('1');
+  });
+
+  test('Factory History nav icon shows iteration count', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const navItem = page.locator('#mc-sidebar .sb-nav-item[data-section="section-factory-history"]');
+    const icon = navItem.locator('.sb-nav-icon.count');
+    await expect(icon).toBeAttached();
+    const text = await icon.textContent();
+    expect(text).toBe('3');
   });
 });

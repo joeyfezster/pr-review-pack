@@ -175,19 +175,19 @@ def sample_review_pack_data() -> dict:
         ],
         "whatChanged": {
             "defaultSummary": {
-                "infrastructure": "Updated deployment scripts for zone-gamma.",
-                "product": "Added feature X to zone-alpha with new API endpoints.",
+                "infrastructure": "<p>Updated deployment scripts for <strong>zone-gamma</strong>.</p>",
+                "product": "<p>Added feature X to zone-alpha with new API endpoints.</p>",
             },
             "zoneDetails": [
                 {
                     "zoneId": "zone-alpha",
                     "title": "Zone Alpha Changes",
-                    "description": "New API endpoints for feature X.",
+                    "description": "<p>New API endpoints for <strong>feature X</strong>.</p>",
                 },
                 {
                     "zoneId": "zone-beta",
                     "title": "Zone Beta Changes",
-                    "description": "Updated integration tests.",
+                    "description": "<p>Updated integration tests.</p>",
                 },
             ],
         },

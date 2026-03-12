@@ -507,28 +507,39 @@ def render_scenario_cards(scenarios: list[dict]) -> str:
 def render_what_changed_default(wc: dict) -> str:
     """Infrastructure + product summaries.
 
-    These fields are plain-text summaries produced by the Pass 2 LLM agent.
-    They should NOT contain HTML — escape for safety.
+    These fields may contain HTML produced by the Pass 2b LLM agent
+    (e.g. <p>, <strong> tags).  They are NOT escaped — the content is
+    wrapped in a <div class="wc-summary"> to avoid invalid <p>-in-<p>
+    nesting when the content already contains block-level elements.
     """
     default = wc.get("defaultSummary", {})
     parts = []
     infra = default.get("infrastructure", "")
     if infra:
-        parts.append(f'<p><strong>Infrastructure:</strong> {esc(infra)}</p>')
+        parts.append(
+            f'<div class="wc-summary"><strong>Infrastructure:</strong> {infra}</div>'
+        )
     product = default.get("product", "")
     if product:
-        parts.append(f'<p><strong>Product:</strong> {esc(product)}</p>')
+        parts.append(
+            f'<div class="wc-summary"><strong>Product:</strong> {product}</div>'
+        )
     return "\n          ".join(parts)
 
 
 def render_what_changed_zones(wc: dict) -> str:
+    """Zone-level change descriptions.
+
+    The ``description`` field may contain HTML produced by the Pass 2b
+    LLM agent.  It is NOT escaped — wrapped in a ``<div>`` to avoid
+    invalid ``<p>``-in-``<p>`` nesting.
+    """
     divs = []
     for z in wc.get("zoneDetails", []):
-        # description is a plain-text summary from the Pass 2 LLM agent — escape it.
         divs.append(
             f'<div class="wc-zone-detail" data-zone="{esc(z["zoneId"])}">\n'
             f'  <h4>{esc(z["title"])}</h4>\n'
-            f'  <p>{esc(z["description"])}</p>\n'
+            f'  <div>{z["description"]}</div>\n'
             f'</div>'
         )
     return "\n        ".join(divs)
@@ -1169,230 +1180,239 @@ def render_sidebar_refresh_button(data: dict) -> str:
     )
 
 
-def render_sidebar_gates(convergence: dict, has_scenarios: bool = True) -> str:
-    """Render gate status rows for the sidebar.
+def render_sidebar_gate_pills(convergence: dict, has_scenarios: bool = True) -> str:
+    """Render compact gate status pills for the sidebar.
 
-    When *has_scenarios* is False, the scenario gate row is omitted.
+    Each pill is colored green (passing) or red (failing) and clickable
+    to scroll to the Review Gates section and expand that gate's card.
+
+    When *has_scenarios* is False, the scenario gate pill is omitted.
     """
-    rows = []
+    pills = []
     for gate in convergence.get("gates", []):
         name = gate.get("name", "")
-        # Skip scenario gate when there are no scenarios
         if not has_scenarios and "scenario" in name.lower():
             continue
         st = gate.get("status", "failing")
+        pill_class = "pass" if st == "passing" else "fail"
         icon = "&#x2713;" if st == "passing" else "&#x2717;"
-        color = "var(--green)" if st == "passing" else "var(--red)"
-        rows.append(
-            f'<div class="sb-gate-row" onclick="scrollToSection(\'section-convergence\')">\n'
-            f'  <span>{esc(name)}</span>\n'
-            f'  <span class="sb-gate-icon" style="color:{color}">{icon}</span>\n'
-            f'</div>'
+        # Short label: extract gate number or use full name
+        short = name.split("\u2014")[0].strip() if "\u2014" in name else name
+        pills.append(
+            f'<span class="sb-gate-pill {pill_class}" '
+            f"onclick=\"scrollToGate('{esc(name)}')\" "
+            f'title="{esc(name)}">'
+            f'{icon} {esc(short)}</span>'
         )
-    return "\n".join(rows)
+    if not pills:
+        return ""
+    return f'<div class="sb-gate-pills">{"".join(pills)}</div>'
 
 
-def render_sidebar_metrics(data: dict, has_scenarios: bool = True) -> str:
-    """Render metric counts: CI, Scenarios, Comments, Findings.
 
-    When *has_scenarios* is False, the Scenarios metric row is omitted.
+
+
+
+def _nav_icon(icon_type: str, value: object = None) -> str:
+    """Generate a nav icon HTML span.
+
+    icon_type — one of:
+      "pass"       → green ✓
+      "fail"       → red ✗
+      "warn"       → yellow ⚠
+      "count"      → blue chip with number
+      "count-warn" → yellow chip with number
+      "count-fail" → red chip with number
+      "present"    → small blue dot
+      "empty"      → invisible dot (placeholder)
     """
-    ci = data.get("ciPerformance", [])
-    ci_pass = sum(1 for c in ci if c.get("status") == "pass")
-    ci_total = len(ci)
-
-    scenarios = data.get("scenarios", [])
-    sc_pass = sum(1 for s in scenarios if s.get("status") == "pass")
-    sc_total = len(scenarios)
-
-    # Comment counts from header badges
-    badges = data.get("header", {}).get("statusBadges", [])
-    comment_badge: dict = next(
-        (b for b in badges if "comment" in b.get("label", "").lower()), {}
-    )
-    comment_label = comment_badge.get("label", "0/0 comments")
-
-    findings = data.get("agenticReview", {}).get("findings", [])
-    finding_count = sum(
-        1 for f in findings if f.get("grade") in ("C", "F")
-    )
-
-    metrics: list[tuple[str, str, str, bool]] = [
-        ("CI", f"{ci_pass}/{ci_total}",
-         "section-ci-performance", ci_pass == ci_total),
-    ]
-    if has_scenarios:
-        metrics.append(
-            ("Scenarios", f"{sc_pass}/{sc_total}" if sc_total > 0 else "N/A",
-             "section-specs-scenarios", sc_pass == sc_total and sc_total > 0),
-        )
-    metrics.extend([
-        ("Comments", comment_label.split(" ")[0] if comment_badge else "0/0",
-         "section-convergence",
-         "0" not in comment_label.split("/")[0:1]),
-        ("Findings", str(finding_count),
-         "section-code-review", finding_count == 0),
-    ])
-
-    rows = []
-    for label, value, section_id, is_ok in metrics:
-        icon = "&#x2713;" if is_ok else "&#x26A0;"
-        color = "var(--green)" if is_ok else "var(--yellow)"
-        rows.append(
-            f'<div class="sb-metric-row" onclick="scrollToSection(\'{section_id}\')">\n'
-            f'  <span>{label}</span>\n'
-            f'  <span>{value} <span style="color:{color}">{icon}</span></span>\n'
-            f'</div>'
-        )
-    return "\n".join(rows)
-
-
-def render_sidebar_zone_minimap(arch: dict) -> str:
-    """Render zone mini-map with colored swatches and file counts."""
-    items = []
-    for zone in arch.get("zones", []):
-        zone_id = zone.get("id", "")
-        label = zone.get("label", zone_id)
-        cat = zone.get("category", "product")
-        colors = LAYER_COLORS.get(cat, LAYER_COLORS["product"])
-        is_modified = zone.get("isModified", False)
-        fc = zone.get("fileCount", 0)
-        mod_class = "modified" if is_modified else "unmodified"
-        count_html = f'<span class="sb-zone-count">({fc})</span>' if fc > 0 else ""
-        items.append(
-            f'<div class="sb-zone-item" data-zone="{esc(zone_id)}" '
-            f'onclick="sidebarZoneClick(\'{esc(zone_id)}\')">\n'
-            f'  <span class="sb-zone-swatch {mod_class}" '
-            f'style="background:{colors["fill"]};border-color:{colors["stroke"]};'
-            f'color:{colors["stroke"]}"></span>\n'
-            f'  <span>{esc(label)}</span>\n'
-            f'  {count_html}\n'
-            f'</div>'
-        )
-    return (
-        "\n".join(items)
-        + '\n<div id="sb-zone-active" class="sb-zone-active"></div>\n'
-        + '<div id="sb-clear-filter" class="sb-clear-filter"'
-        + ' onclick="resetZones()">Clear filter</div>'
-    )
+    if icon_type == "pass":
+        return '<span class="sb-nav-icon pass">&#x2713;</span>'
+    if icon_type == "fail":
+        return '<span class="sb-nav-icon fail">&#x2717;</span>'
+    if icon_type == "warn":
+        return '<span class="sb-nav-icon warn">&#x26A0;</span>'
+    if icon_type == "count":
+        return f'<span class="sb-nav-icon count">{value}</span>'
+    if icon_type == "count-warn":
+        return f'<span class="sb-nav-icon count-warn">{value}</span>'
+    if icon_type == "count-fail":
+        return f'<span class="sb-nav-icon count-fail">{value}</span>'
+    if icon_type == "present":
+        return '<span class="sb-nav-icon present"></span>'
+    # empty
+    return '<span class="sb-nav-icon empty"></span>'
 
 
 def render_sidebar_section_nav(data: dict, has_scenarios: bool = True) -> str:
-    """Render section navigation list with activity dots and count badges.
+    """Render section navigation list with status icons.
+
+    Each nav item gets a small icon that conveys the core insight of the
+    card at a glance.  The icon is derived from the card's data.
 
     When *has_scenarios* is False, the Convergence and Factory History
     entries are omitted, and "Specs & Scenarios" becomes "Specifications".
     """
-    # Each entry: (section_id, label, dot_type)
-    # Group headers use ("__group__", "Group Label", None)
-    # Determine arch assessment nav dot
-    arch_assessment = data.get("architectureAssessment")
-    if arch_assessment:
-        aa_health = arch_assessment.get("overallHealth", "healthy")
-        aa_dot = "findings" if aa_health == "action-required" else "content"
-    else:
-        aa_dot = "empty"
+    # Pre-compute data for icon derivation
+    arch_zones = data.get("architecture", {}).get("zones", [])
+    modified_zones = sum(1 for z in arch_zones if z.get("isModified"))
+    wc = data.get("whatChanged", {}).get("defaultSummary", {})
+    has_wc = bool(wc.get("infrastructure") or wc.get("product"))
+    decisions = data.get("decisions", [])
+
+    gates = data.get("convergence", {}).get("gates", [])
+    all_gates_pass = all(g.get("status") == "passing" for g in gates) if gates else True
+
+    scenarios = data.get("scenarios", [])
+    failing_scenarios = sum(1 for s in scenarios if s.get("status") != "pass")
+
+    convergence_overall = data.get("convergence", {}).get("overall", {})
+    conv_status = convergence_overall.get("status", "passing")
+
+    fh = data.get("factoryHistory")
+    iteration_count = fh.get("iterationCount", 0) if fh else 0
+
+    aa = data.get("architectureAssessment")
+    aa_health = aa.get("overallHealth", "healthy") if aa else "healthy"
 
     review = data.get("agenticReview", {})
     findings = review.get("findings", [])
-    has_critical = any(f.get("grade") in ("C", "F") for f in findings)
-    decisions = data.get("decisions", [])
+    cf_count = sum(1 for f in findings if f.get("grade") in ("C", "F"))
+
     ci = data.get("ciPerformance", [])
+    ci_all_pass = all(c.get("status") == "pass" for c in ci) if ci else True
+
     pm = data.get("postMergeItems", [])
-    specs_label = "Specs & Scenarios" if has_scenarios else "Specifications"
+
+    specs_label = "Specs &amp; Scenarios" if has_scenarios else "Specifications"
+
+    # Build sections: (section_id, label, icon_html)
+    sections: list[tuple[str, str | None, str]] = []
 
     # Tier 1: Architecture & Changes
-    sections: list[tuple[str, str | None, str | None]] = [
-        ("__group__", "Architecture & Changes", None),
-        ("section-architecture", "Architecture", _nav_dot_for_arch(data)),
-        ("section-what-changed", "What Changed",
-         _nav_dot_for_content(data, "whatChanged")),
-        ("section-key-decisions", "Key Decisions",
-         "content" if decisions else "empty"),
-    ]
+    sections.append(("__group__", "Architecture &amp; Changes", ""))
+    sections.append((
+        "section-architecture", "Architecture",
+        _nav_icon("count", modified_zones) if modified_zones > 0
+        else _nav_icon("empty"),
+    ))
+    sections.append((
+        "section-what-changed", "What Changed",
+        _nav_icon("present") if has_wc else _nav_icon("empty"),
+    ))
+    sections.append((
+        "section-key-decisions", "Key Decisions",
+        _nav_icon("count", len(decisions)) if decisions
+        else _nav_icon("empty"),
+    ))
 
-    # Tier 2: Factory (only shown when factory artifacts present)
-    fh = data.get("factoryHistory")
+    # Tier 2: Factory
     if has_scenarios or fh:
-        sections.append(("__group__", "Factory", None))
-        sections.append(
-            ("section-specs-scenarios", specs_label,
-             _nav_dot_for_content(data, "scenarios") if has_scenarios
-             else _nav_dot_for_content(data, "specs"))
-        )
+        sections.append(("__group__", "Factory", ""))
         if has_scenarios:
-            sections.append(("section-convergence", "Convergence", "content"))
+            if not scenarios:
+                sc_icon = _nav_icon("empty")
+            elif failing_scenarios > 0:
+                sc_icon = _nav_icon("fail")
+            else:
+                sc_icon = _nav_icon("pass")
+        else:
+            specs_list = data.get("specs", [])
+            sc_icon = _nav_icon("present") if specs_list else _nav_icon("empty")
+        sections.append(("section-specs-scenarios", specs_label, sc_icon))
+        if has_scenarios:
+            sections.append((
+                "section-convergence", "Convergence",
+                _nav_icon("pass") if conv_status == "passing"
+                else _nav_icon("fail"),
+            ))
         if fh:
-            sections.append(
-                ("section-factory-history", "Factory History", "content")
-            )
+            sections.append((
+                "section-factory-history", "Factory History",
+                _nav_icon("count", iteration_count) if iteration_count > 0
+                else _nav_icon("empty"),
+            ))
 
     # Tier 3: Review & Evidence
-    sections.append(("__group__", "Review & Evidence", None))
-    sections.append(("section-arch-assessment", "Arch Assessment", aa_dot))
-    sections.append(
-        ("section-code-review", "Code Review",
-         "findings" if has_critical else ("content" if findings else "empty"))
-    )
-    sections.append(
-        ("section-ci-performance", "CI Performance",
-         "content" if ci else "empty")
-    )
+    sections.append(("__group__", "Review &amp; Evidence", ""))
+    sections.append((
+        "section-review-gates", "Review Gates",
+        _nav_icon("pass") if all_gates_pass else _nav_icon("fail"),
+    ))
+    aa_icon_map = {
+        "healthy": _nav_icon("pass"),
+        "needs-attention": _nav_icon("warn"),
+        "action-required": _nav_icon("fail"),
+    }
+    sections.append((
+        "section-arch-assessment", "Arch Assessment",
+        aa_icon_map.get(aa_health, _nav_icon("empty")),
+    ))
+    sections.append((
+        "section-code-review", "Code Review",
+        _nav_icon("count-fail", cf_count) if cf_count > 0
+        else _nav_icon("pass") if findings else _nav_icon("empty"),
+    ))
+    sections.append((
+        "section-ci-performance", "CI Performance",
+        _nav_icon("pass") if ci and ci_all_pass
+        else _nav_icon("fail") if ci and not ci_all_pass
+        else _nav_icon("empty"),
+    ))
 
     # Tier 4: Follow-ups
-    sections.append(("__group__", "Follow-ups", None))
-    sections.append(
-        ("section-post-merge", "Post-Merge Items",
-         "content" if pm else "empty")
-    )
+    sections.append(("__group__", "Follow-ups", ""))
+    sections.append((
+        "section-post-merge", "Post-Merge Items",
+        _nav_icon("count-warn", len(pm)) if pm
+        else _nav_icon("empty"),
+    ))
 
     items = []
-    for section_id, label, dot_type in sections:
+    for section_id, label, icon_html in sections:
         if section_id == "__group__":
             items.append(
-                f'<div class="sb-nav-group-label">'
-                f'{esc(label or "")}</div>'
+                f'<div class="sb-nav-group-label">{label or ""}</div>'
             )
             continue
         if label is None:
             items.append('<div class="sb-nav-separator"></div>')
             continue
-        dot_css = dot_type if dot_type in ("content", "findings") else "empty"
-        count = ""
-        if label == "Key Decisions" and decisions:
-            count = f'<span class="sb-nav-count">({len(decisions)})</span>'
-        elif label == "Post-Merge Items" and pm:
-            count = f'<span class="sb-nav-count">({len(pm)})</span>'
-        elif label == "Code Review":
-            # Count findings with non-A grades (i.e. issues worth attention)
-            notable_count = sum(
-                1 for f in findings if f.get("grade") not in ("A", "N/A")
-            )
-            if notable_count > 0:
-                count = f'<span class="sb-nav-count">({notable_count})</span>'
         items.append(
             f'<div class="sb-nav-item" data-section="{section_id}" '
             f'onclick="scrollToSection(\'{section_id}\')">\n'
-            f'  <span class="sb-nav-dot {dot_css}"></span>\n'
-            f'  <span>{esc(label)}</span>\n'
-            f'  {count}\n'
+            f'  {icon_html}\n'
+            f'  <span>{label}</span>\n'
             f'</div>'
         )
     return "\n".join(items)
 
 
-def _nav_dot_for_arch(data: dict) -> str:
-    arch = data.get("architecture", {})
-    return "content" if arch.get("zones") else "empty"
+def render_review_gates_cards(convergence: dict, has_scenarios: bool = True) -> str:
+    """Render expandable review gate cards for the Review Gates section.
 
-
-def _nav_dot_for_content(data: dict, key: str) -> str:
-    val = data.get(key)
-    if isinstance(val, list):
-        return "content" if val else "empty"
-    if isinstance(val, dict):
-        return "content" if any(val.values()) else "empty"
-    return "empty"
+    Each gate gets an expandable card with name, status, statusText,
+    summary, and detail.  Cards carry ``data-gate-name`` for JS navigation.
+    """
+    cards = []
+    for gate in convergence.get("gates", []):
+        name = gate.get("name", "")
+        if not has_scenarios and "scenario" in name.lower():
+            continue
+        st = gate.get("status", "passing")
+        status_text = gate.get("statusText", "")
+        summary = esc(gate.get("summary", ""))
+        detail = gate.get("detail", "")
+        cards.append(
+            f'<div class="gate-review-card" data-gate-name="{esc(name)}" '
+            f"onclick=\"this.classList.toggle('open')\">\n"
+            f'  <div class="gate-name">{esc(name)}</div>\n'
+            f'  <div class="gate-status {st}">{esc(status_text)}</div>\n'
+            f'  <div class="gate-summary">{summary}</div>\n'
+            f'  <div class="gate-detail">{detail}</div>\n'
+            f"</div>"
+        )
+    return "\n          ".join(cards)
 
 
 # ── v2 Tier 3 section renderers ─────────────────────────────────────
@@ -1855,17 +1875,16 @@ def render(
         replacements["<!-- INJECT: sidebar.statusBadges -->"] = (
             render_sidebar_status_badges(header, has_scenarios=has_scenarios)
         )
-        replacements["<!-- INJECT: sidebar.gatesStatus -->"] = render_sidebar_gates(
+        replacements["<!-- INJECT: sidebar.gatePills -->"] = render_sidebar_gate_pills(
             data.get("convergence", {}), has_scenarios=has_scenarios
-        )
-        replacements["<!-- INJECT: sidebar.metrics -->"] = render_sidebar_metrics(
-            data, has_scenarios=has_scenarios
-        )
-        replacements["<!-- INJECT: sidebar.zoneMiniMap -->"] = render_sidebar_zone_minimap(
-            data.get("architecture", {})
         )
         replacements["<!-- INJECT: sidebar.sectionNav -->"] = render_sidebar_section_nav(
             data, has_scenarios=has_scenarios
+        )
+        replacements["<!-- INJECT: review gates cards -->"] = (
+            render_review_gates_cards(
+                data.get("convergence", {}), has_scenarios=has_scenarios
+            )
         )
         replacements["<!-- INJECT: architecture assessment section -->"] = (
             render_architecture_assessment(data)

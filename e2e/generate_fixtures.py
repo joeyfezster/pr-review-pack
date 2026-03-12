@@ -124,19 +124,19 @@ BASE_DATA: dict = {
     ],
     "whatChanged": {
         "defaultSummary": {
-            "infrastructure": "Updated deployment scripts for zone-gamma.",
-            "product": "Added feature X to zone-alpha with new API endpoints.",
+            "infrastructure": "<p>Updated deployment scripts for <strong>zone-gamma</strong>.</p>",
+            "product": "<p>Added feature X to zone-alpha with new API endpoints.</p>",
         },
         "zoneDetails": [
             {
                 "zoneId": "zone-alpha",
                 "title": "Zone Alpha Changes",
-                "description": "New API endpoints for feature X.",
+                "description": "<p>New API endpoints for <strong>feature X</strong>.</p>",
             },
             {
                 "zoneId": "zone-beta",
                 "title": "Zone Beta Changes",
-                "description": "Updated integration tests.",
+                "description": "<p>Updated integration tests.</p>",
             },
         ],
     },
@@ -540,6 +540,26 @@ def main() -> None:
     blocked["commitGap"] = 0
     blocked["packMode"] = "live"
     blocked["factoryHistory"] = FACTORY_HISTORY
+    # Make gate 1 failing for red pill testing
+    blocked["convergence"]["gates"][0]["status"] = "failing"
+    blocked["convergence"]["gates"][0]["statusText"] = "FAILING"
+    # Add a failing CI job
+    blocked["ciPerformance"].append({
+        "name": "security-scan",
+        "trigger": "(push)",
+        "status": "fail",
+        "time": "1m 30s",
+        "timeSeconds": 90,
+        "healthTag": "acceptable",
+        "detail": {
+            "coverage": "Dependency vulnerability scan",
+            "gates": "Gate 2",
+            "zones": ["zone-gamma"],
+            "specRefs": [],
+            "checks": [{"label": "safety check", "detail": "1 vulnerability found"}],
+            "notes": "Critical CVE detected.",
+        },
+    })
     _render_variant(blocked, DIFF_DATA, "/tmp/pr26_review_pack_v2_blocked.html")
 
     # ── NO_FACTORY ──

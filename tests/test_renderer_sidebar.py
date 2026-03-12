@@ -17,14 +17,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 from render_review_pack import (
     render_sidebar_commit_scope,
-    render_sidebar_gates,
+    render_sidebar_gate_pills,
     render_sidebar_merge_button,
-    render_sidebar_metrics,
     render_sidebar_pr_meta,
     render_sidebar_section_nav,
     render_sidebar_status_badges,
     render_sidebar_verdict,
-    render_sidebar_zone_minimap,
 )
 
 # ── render_sidebar_pr_meta ───────────────────────────────────────────
@@ -327,65 +325,55 @@ class TestRenderSidebarMergeButton:
         assert "Validate the snapshot" in result
 
 
-# ── render_sidebar_gates ─────────────────────────────────────────────
+# ── render_sidebar_gate_pills ────────────────────────────────────────
 
 
-class TestRenderSidebarGates:
+class TestRenderSidebarGatePills:
 
-    def test_gate_rows_rendered(self, sample_review_pack_data):
+    def test_pills_rendered(self, sample_review_pack_data):
         convergence = sample_review_pack_data["convergence"]
-        result = render_sidebar_gates(convergence)
-        assert result.count('class="sb-gate-row"') == 4
+        result = render_sidebar_gate_pills(convergence)
+        assert result.count('class="sb-gate-pill ') == 4
 
-    def test_passing_gate_icon(self, sample_review_pack_data):
+    def test_passing_pill_class(self, sample_review_pack_data):
         convergence = sample_review_pack_data["convergence"]
-        result = render_sidebar_gates(convergence)
+        result = render_sidebar_gate_pills(convergence)
+        assert "sb-gate-pill pass" in result
         assert "&#x2713;" in result
-        assert "var(--green)" in result
 
-    def test_failing_gate_icon(self):
+    def test_failing_pill_class(self):
         convergence = {
             "gates": [
-                {
-                    "name": "Gate 1",
-                    "status": "failing",
-                    "statusText": "FAILING",
-                    "summary": "Errors.",
-                },
+                {"name": "Gate 1", "status": "failing", "statusText": "FAILING",
+                 "summary": "Errors."},
             ],
         }
-        result = render_sidebar_gates(convergence)
+        result = render_sidebar_gate_pills(convergence)
+        assert "sb-gate-pill fail" in result
         assert "&#x2717;" in result
-        assert "var(--red)" in result
 
-    def test_gate_names_present(self, sample_review_pack_data):
+    def test_onclick_calls_scroll_to_gate(self, sample_review_pack_data):
         convergence = sample_review_pack_data["convergence"]
-        result = render_sidebar_gates(convergence)
-        assert "Gate 0" in result
-        assert "Gate 1" in result
-        assert "Gate 2" in result
-        assert "Gate 3" in result
+        result = render_sidebar_gate_pills(convergence)
+        assert "scrollToGate(" in result
 
-    def test_gate_name_html_escaped(self):
-        convergence = {
-            "gates": [
-                {"name": "Gate <0>", "status": "passing"},
-            ],
-        }
-        result = render_sidebar_gates(convergence)
-        assert "Gate &lt;0&gt;" in result
-
-    def test_onclick_scrolls_to_convergence(self, sample_review_pack_data):
+    def test_container_class(self, sample_review_pack_data):
         convergence = sample_review_pack_data["convergence"]
-        result = render_sidebar_gates(convergence)
-        assert "scrollToSection('section-convergence')" in result
+        result = render_sidebar_gate_pills(convergence)
+        assert 'class="sb-gate-pills"' in result
+
+    def test_short_label_from_em_dash(self, sample_review_pack_data):
+        convergence = sample_review_pack_data["convergence"]
+        result = render_sidebar_gate_pills(convergence)
+        # "Gate 0 — Two-Tier Review" should show "Gate 0" as short label
+        assert "Gate 0 " in result
 
     def test_empty_gates(self):
-        result = render_sidebar_gates({"gates": []})
+        result = render_sidebar_gate_pills({"gates": []})
         assert result == ""
 
     def test_missing_gates_key(self):
-        result = render_sidebar_gates({})
+        result = render_sidebar_gate_pills({})
         assert result == ""
 
     def test_mixed_passing_and_failing(self):
@@ -395,201 +383,9 @@ class TestRenderSidebarGates:
                 {"name": "Gate 2", "status": "failing"},
             ],
         }
-        result = render_sidebar_gates(convergence)
-        assert "var(--green)" in result
-        assert "var(--red)" in result
-        assert "&#x2713;" in result
-        assert "&#x2717;" in result
-
-
-# ── render_sidebar_metrics ───────────────────────────────────────────
-
-
-class TestRenderSidebarMetrics:
-
-    def test_four_metric_rows(self, sample_review_pack_data):
-        result = render_sidebar_metrics(sample_review_pack_data)
-        assert result.count('class="sb-metric-row"') == 4
-
-    def test_ci_metric(self, sample_review_pack_data):
-        result = render_sidebar_metrics(sample_review_pack_data)
-        # 2 CI jobs, both pass
-        assert "2/2" in result
-
-    def test_ci_all_pass_shows_green(self, sample_review_pack_data):
-        result = render_sidebar_metrics(sample_review_pack_data)
-        # CI is first row; both pass so should show green checkmark
-        assert "CI" in result
-        assert "var(--green)" in result
-
-    def test_scenario_metric(self, sample_review_pack_data):
-        result = render_sidebar_metrics(sample_review_pack_data)
-        # 1 pass, 1 fail out of 2 scenarios
-        assert "1/2" in result
-
-    def test_scenario_partial_shows_warning(self, sample_review_pack_data):
-        result = render_sidebar_metrics(sample_review_pack_data)
-        # Not all scenarios pass, so warning icon
-        assert "Scenarios" in result
-        assert "&#x26A0;" in result
-
-    def test_findings_metric(self, sample_review_pack_data):
-        result = render_sidebar_metrics(sample_review_pack_data)
-        # 1 finding with grade C
-        assert "Findings" in result
-
-    def test_comments_metric(self, sample_review_pack_data):
-        result = render_sidebar_metrics(sample_review_pack_data)
-        assert "Comments" in result
-
-    def test_onclick_sections(self, sample_review_pack_data):
-        result = render_sidebar_metrics(sample_review_pack_data)
-        assert "scrollToSection('section-ci-performance')" in result
-        assert "scrollToSection('section-specs-scenarios')" in result
-        assert "scrollToSection('section-convergence')" in result
-        assert "scrollToSection('section-code-review')" in result
-
-    def test_zero_findings_is_green(self):
-        data = {
-            "ciPerformance": [],
-            "scenarios": [],
-            "header": {"statusBadges": []},
-            "agenticReview": {"findings": []},
-        }
-        result = render_sidebar_metrics(data)
-        # Findings count is 0, which is_ok=True -> green
-        assert "Findings" in result
-
-    def test_scenario_na_when_empty(self):
-        data = {
-            "ciPerformance": [],
-            "scenarios": [],
-            "header": {"statusBadges": []},
-            "agenticReview": {"findings": []},
-        }
-        result = render_sidebar_metrics(data)
-        assert "N/A" in result
-
-    def test_ci_partial_failure_shows_warning(self):
-        data = {
-            "ciPerformance": [
-                {"name": "lint", "status": "pass"},
-                {"name": "test", "status": "fail"},
-            ],
-            "scenarios": [],
-            "header": {"statusBadges": []},
-            "agenticReview": {"findings": []},
-        }
-        result = render_sidebar_metrics(data)
-        assert "1/2" in result
-        assert "&#x26A0;" in result
-
-
-# ── render_sidebar_zone_minimap ──────────────────────────────────────
-
-
-class TestRenderSidebarZoneMinimap:
-
-    def test_zone_items_rendered(self, sample_review_pack_data):
-        arch = sample_review_pack_data["architecture"]
-        result = render_sidebar_zone_minimap(arch)
-        assert result.count('class="sb-zone-item"') == 3
-
-    def test_zone_labels(self, sample_review_pack_data):
-        arch = sample_review_pack_data["architecture"]
-        result = render_sidebar_zone_minimap(arch)
-        assert "Zone Alpha" in result
-        assert "Zone Beta" in result
-        assert "Zone Gamma" in result
-
-    def test_zone_data_attributes(self, sample_review_pack_data):
-        arch = sample_review_pack_data["architecture"]
-        result = render_sidebar_zone_minimap(arch)
-        assert 'data-zone="zone-alpha"' in result
-        assert 'data-zone="zone-beta"' in result
-        assert 'data-zone="zone-gamma"' in result
-
-    def test_modified_class(self, sample_review_pack_data):
-        arch = sample_review_pack_data["architecture"]
-        result = render_sidebar_zone_minimap(arch)
-        # zone-alpha and zone-beta are modified, zone-gamma is not
-        assert "modified" in result
-        assert "unmodified" in result
-
-    def test_file_count_badge_when_nonzero(self, sample_review_pack_data):
-        arch = sample_review_pack_data["architecture"]
-        result = render_sidebar_zone_minimap(arch)
-        assert 'class="sb-zone-count"' in result
-        assert "(4)" in result
-        assert "(2)" in result
-
-    def test_no_file_count_badge_for_zero(self, sample_review_pack_data):
-        arch = sample_review_pack_data["architecture"]
-        result = render_sidebar_zone_minimap(arch)
-        # zone-gamma has fileCount=0, should not show (0) badge
-        assert "(0)" not in result
-
-    def test_product_zone_colors(self, sample_review_pack_data):
-        arch = sample_review_pack_data["architecture"]
-        result = render_sidebar_zone_minimap(arch)
-        # product fill and stroke from LAYER_COLORS
-        assert "#dcfce7" in result  # product fill
-        assert "#22c55e" in result  # product stroke
-
-    def test_infra_zone_colors(self, sample_review_pack_data):
-        arch = sample_review_pack_data["architecture"]
-        result = render_sidebar_zone_minimap(arch)
-        # infra fill and stroke from LAYER_COLORS
-        assert "#f3e8ff" in result  # infra fill
-        assert "#8b5cf6" in result  # infra stroke
-
-    def test_onclick_calls_sidebar_zone_click(self, sample_review_pack_data):
-        arch = sample_review_pack_data["architecture"]
-        result = render_sidebar_zone_minimap(arch)
-        assert "sidebarZoneClick('zone-alpha')" in result
-        assert "sidebarZoneClick('zone-beta')" in result
-        assert "sidebarZoneClick('zone-gamma')" in result
-
-    def test_clear_filter_element(self, sample_review_pack_data):
-        arch = sample_review_pack_data["architecture"]
-        result = render_sidebar_zone_minimap(arch)
-        assert 'id="sb-clear-filter"' in result
-        assert 'class="sb-clear-filter"' in result
-        assert "resetZones()" in result
-
-    def test_active_zone_indicator(self, sample_review_pack_data):
-        arch = sample_review_pack_data["architecture"]
-        result = render_sidebar_zone_minimap(arch)
-        assert 'id="sb-zone-active"' in result
-        assert 'class="sb-zone-active"' in result
-
-    def test_empty_zones(self):
-        result = render_sidebar_zone_minimap({"zones": []})
-        # Still renders the clear filter and active indicator
-        assert 'id="sb-clear-filter"' in result
-        assert 'id="sb-zone-active"' in result
-
-    def test_swatch_css_class(self, sample_review_pack_data):
-        arch = sample_review_pack_data["architecture"]
-        result = render_sidebar_zone_minimap(arch)
-        assert 'class="sb-zone-swatch modified"' in result
-        assert 'class="sb-zone-swatch unmodified"' in result
-
-    def test_html_escaping_in_zone_label(self):
-        arch = {
-            "zones": [
-                {
-                    "id": "zone-x",
-                    "label": "Zone <X>",
-                    "category": "product",
-                    "fileCount": 0,
-                    "isModified": False,
-                },
-            ],
-        }
-        result = render_sidebar_zone_minimap(arch)
-        assert "Zone &lt;X&gt;" in result
-        assert "Zone <X>" not in result
+        result = render_sidebar_gate_pills(convergence)
+        assert "sb-gate-pill pass" in result
+        assert "sb-gate-pill fail" in result
 
 
 # ── render_sidebar_section_nav ───────────────────────────────────────
@@ -602,6 +398,7 @@ class TestRenderSidebarSectionNav:
         assert "Architecture" in result
         assert "What Changed" in result
         assert "Specs &amp; Scenarios" in result
+        assert "Review Gates" in result
         assert "Code Review" in result
         assert "Key Decisions" in result
         assert "Convergence" in result
@@ -623,6 +420,7 @@ class TestRenderSidebarSectionNav:
         assert 'data-section="section-architecture"' in result
         assert 'data-section="section-what-changed"' in result
         assert 'data-section="section-specs-scenarios"' in result
+        assert 'data-section="section-review-gates"' in result
         assert 'data-section="section-code-review"' in result
         assert 'data-section="section-key-decisions"' in result
         assert 'data-section="section-convergence"' in result
@@ -642,101 +440,151 @@ class TestRenderSidebarSectionNav:
         assert "Review &amp; Evidence" in result
         assert "Follow-ups" in result
 
-    def test_content_dot_for_architecture(self, sample_review_pack_data):
+    def test_nav_item_class(self, sample_review_pack_data):
         result = render_sidebar_section_nav(sample_review_pack_data)
-        # Architecture has zones, so dot_type should be "content"
-        assert 'class="sb-nav-dot content"' in result
+        assert 'class="sb-nav-item"' in result
 
-    def test_empty_dot_for_missing_content(self):
+    # ── Icon relationship tests ──
+
+    def test_architecture_icon_shows_modified_zone_count(self, sample_review_pack_data):
+        result = render_sidebar_section_nav(sample_review_pack_data)
+        # 2 modified zones (alpha, beta) → count badge with "2"
+        assert 'class="sb-nav-icon count"' in result
+        assert ">2<" in result
+
+    def test_what_changed_icon_present_when_content(self, sample_review_pack_data):
+        result = render_sidebar_section_nav(sample_review_pack_data)
+        assert 'class="sb-nav-icon present"' in result
+
+    def test_key_decisions_icon_shows_count(self, sample_review_pack_data):
+        result = render_sidebar_section_nav(sample_review_pack_data)
+        # 1 decision → count badge with "1"
+        assert ">1<" in result
+
+    def test_review_gates_icon_pass_when_all_passing(self, sample_review_pack_data):
+        result = render_sidebar_section_nav(sample_review_pack_data)
+        # All gates passing → green ✓
+        assert 'class="sb-nav-icon pass"' in result
+
+    def test_review_gates_icon_fail_when_gate_failing(self):
         data = {
-            "architecture": {},
-            "whatChanged": {"defaultSummary": {"infrastructure": "", "product": ""}},
-            "scenarios": [],
+            "architecture": {"zones": []},
+            "whatChanged": {"defaultSummary": {}},
+            "scenarios": [{"status": "pass"}],
             "agenticReview": {"findings": []},
             "decisions": [],
-            "convergence": {},
+            "convergence": {"gates": [{"name": "G1", "status": "failing"}], "overall": {"status": "failing"}},
             "ciPerformance": [],
             "postMergeItems": [],
-            "codeDiffs": [],
             "factoryHistory": None,
         }
         result = render_sidebar_section_nav(data)
-        assert 'class="sb-nav-dot empty"' in result
+        assert 'class="sb-nav-icon fail"' in result
 
-    def test_decisions_count_badge(self, sample_review_pack_data):
+    def test_arch_assessment_icon_warn_for_needs_attention(self, sample_review_pack_data):
         result = render_sidebar_section_nav(sample_review_pack_data)
-        # 1 decision in sample data
-        assert 'class="sb-nav-count"' in result
-        assert "(1)" in result
+        # overallHealth="needs-attention" → yellow ⚠
+        assert 'class="sb-nav-icon warn"' in result
 
-    def test_post_merge_count_badge(self, sample_review_pack_data):
+    def test_arch_assessment_icon_pass_for_healthy(self, sample_review_pack_data):
+        data = {**sample_review_pack_data}
+        data["architectureAssessment"] = {**data["architectureAssessment"], "overallHealth": "healthy"}
+        result = render_sidebar_section_nav(data)
+        assert 'class="sb-nav-icon pass"' in result
+
+    def test_arch_assessment_icon_fail_for_action_required(self, sample_review_pack_data):
+        data = {**sample_review_pack_data}
+        data["architectureAssessment"] = {**data["architectureAssessment"], "overallHealth": "action-required"}
+        result = render_sidebar_section_nav(data)
+        assert 'class="sb-nav-icon fail"' in result
+
+    def test_code_review_icon_count_fail_when_cf_findings(self, sample_review_pack_data):
         result = render_sidebar_section_nav(sample_review_pack_data)
-        # 1 post-merge item in sample data
-        assert "(1)" in result
+        # 1 C-grade finding → red count chip with "1"
+        assert 'class="sb-nav-icon count-fail"' in result
 
-    def test_code_review_count_badge(self, sample_review_pack_data):
-        result = render_sidebar_section_nav(sample_review_pack_data)
-        # 1 non-A/non-N/A finding (security:C) in sample data
-        assert "(1)" in result
-
-    def test_findings_dot_when_critical(self, sample_review_pack_data):
-        result = render_sidebar_section_nav(sample_review_pack_data)
-        # There's a grade C finding, so Agent Reviews should get "findings" dot
-        assert 'class="sb-nav-dot findings"' in result
-
-    def test_no_findings_dot_when_no_critical(self):
+    def test_code_review_icon_pass_when_no_cf_findings(self):
         data = {
-            "architecture": {"zones": [{"id": "z"}]},
-            "whatChanged": {"defaultSummary": {"infrastructure": "", "product": "stuff"}},
+            "architecture": {"zones": []},
+            "whatChanged": {"defaultSummary": {}},
             "scenarios": [{"status": "pass"}],
             "agenticReview": {"findings": [
                 {"grade": "A", "file": "f.py", "agent": "ch", "notable": "", "detail": ""},
             ]},
             "decisions": [],
-            "convergence": {},
+            "convergence": {"gates": [], "overall": {}},
             "ciPerformance": [],
             "postMergeItems": [],
-            "codeDiffs": [],
             "factoryHistory": None,
         }
         result = render_sidebar_section_nav(data)
-        assert 'class="sb-nav-dot findings"' not in result
+        assert 'class="sb-nav-icon pass"' in result
 
-    def test_nav_item_class(self, sample_review_pack_data):
+    def test_ci_icon_pass_when_all_green(self, sample_review_pack_data):
         result = render_sidebar_section_nav(sample_review_pack_data)
-        assert 'class="sb-nav-item"' in result
+        # All CI pass → ✓
+        assert 'class="sb-nav-icon pass"' in result
 
-    def test_empty_sections_get_empty_dot(self):
+    def test_ci_icon_fail_when_some_fail(self):
         data = {
-            "architecture": {"zones": [{"id": "z"}]},
-            "whatChanged": {"defaultSummary": {"infrastructure": "", "product": "stuff"}},
+            "architecture": {"zones": []},
+            "whatChanged": {"defaultSummary": {}},
+            "scenarios": [{"status": "pass"}],
+            "agenticReview": {"findings": []},
+            "decisions": [],
+            "convergence": {"gates": [], "overall": {}},
+            "ciPerformance": [
+                {"name": "lint", "status": "pass"},
+                {"name": "test", "status": "fail"},
+            ],
+            "postMergeItems": [],
+            "factoryHistory": None,
+        }
+        result = render_sidebar_section_nav(data)
+        assert 'class="sb-nav-icon fail"' in result
+
+    def test_post_merge_icon_count_warn_when_items(self, sample_review_pack_data):
+        result = render_sidebar_section_nav(sample_review_pack_data)
+        # 1 post-merge item → yellow count chip with "1"
+        assert 'class="sb-nav-icon count-warn"' in result
+
+    def test_post_merge_icon_empty_when_no_items(self):
+        data = {
+            "architecture": {"zones": []},
+            "whatChanged": {"defaultSummary": {}},
             "scenarios": [],
             "agenticReview": {"findings": []},
             "decisions": [],
             "convergence": {},
             "ciPerformance": [],
             "postMergeItems": [],
-            "codeDiffs": [],
             "factoryHistory": None,
         }
         result = render_sidebar_section_nav(data)
-        # Agent Reviews with no findings -> "empty" dot
-        # Decisions with no items -> "empty" dot
-        assert 'class="sb-nav-dot empty"' in result
+        assert 'class="sb-nav-icon empty"' in result
 
-    def test_no_count_badge_for_empty_decisions(self):
+    def test_specs_scenarios_icon_fail_when_failing(self, sample_review_pack_data):
+        result = render_sidebar_section_nav(sample_review_pack_data)
+        # 1 failing scenario → ✗
+        assert 'class="sb-nav-icon fail"' in result
+
+    def test_specs_scenarios_icon_empty_no_scenarios(self):
         data = {
-            "architecture": {},
-            "whatChanged": {},
+            "architecture": {"zones": []},
+            "whatChanged": {"defaultSummary": {}},
             "scenarios": [],
             "agenticReview": {"findings": []},
             "decisions": [],
             "convergence": {},
             "ciPerformance": [],
             "postMergeItems": [],
-            "codeDiffs": [],
             "factoryHistory": None,
         }
+        result = render_sidebar_section_nav(data, has_scenarios=False)
+        assert 'class="sb-nav-icon empty"' in result
+
+    def test_factory_history_icon_shows_iteration_count(self, sample_review_pack_data, sample_factory_history):
+        data = {**sample_review_pack_data, "factoryHistory": sample_factory_history}
         result = render_sidebar_section_nav(data)
-        # No count badge should appear since all lists are empty
-        assert 'class="sb-nav-count"' not in result
+        # 3 iterations → count badge with "3"
+        assert ">3<" in result
