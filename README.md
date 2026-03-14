@@ -61,37 +61,35 @@ zones:
 For PR number N:
 
 ```bash
-# Pass 1: Extract diff data (deterministic, no LLM)
-python3 scripts/generate_diff_data.py --base main --head HEAD --output docs/prN_diff_data.json
+# Phase 1: Setup (deterministic — diff + scaffold)
+python3 scripts/review_pack_setup.py --pr N
 
-# Pass 2a: Scaffold deterministic fields
-python3 scripts/scaffold_review_pack_data.py --pr N --diff-data docs/prN_diff_data.json --output /tmp/prN_review_pack_data.json
+# Phase 2: Review (spawn 5 review agents + 1 synthesis agent)
+# See SKILL.md Phase 2 for agent spawn patterns
 
-# Pass 2b: Semantic enrichment (orchestrator spawns 5 review agents + 1 semantic agent)
-# See references/pass2b-invocation.md for the exact agent invocation pattern
+# Phase 3: Assemble (validate .jsonl, transform, merge, render)
+python3 scripts/assemble_review_pack.py --pr N --render
 
-# Pass 3: Render HTML
-python3 scripts/render_review_pack.py --data /tmp/prN_review_pack_data.json --output docs/prN_review_pack.html --diff-data docs/prN_diff_data.json --template v2
-
-# Validate with Playwright
+# Phase 4: Deliver (Playwright validation + commit)
 npx playwright test e2e/
 ```
 
 Replace `N` with the actual PR number throughout.
 
-## 5-Agent Review Team
+## 6-Agent Review Team
 
-Pass 2b spawns five independent review agents, each in its own context window. Anti-anchoring is structural -- no agent sees another's conclusions.
+Phase 2 spawns six review agents writing `.jsonl` files. Five run in parallel (anti-anchoring is structural — no agent sees another's conclusions). The sixth (synthesis) runs after all five complete.
 
-| Abbreviation | Agent | Focus |
-|--------------|-------|-------|
-| **CH** | Code Health | Code quality, complexity, dead code, maintainability |
-| **SE** | Security | Vulnerabilities, injection vectors, auth/authz gaps |
-| **TI** | Test Integrity | Test quality, vacuous assertions, mocking hygiene |
-| **AD** | Adversarial | Gaming, spec violations, architectural dishonesty |
-| **AR** | Architecture | Zone coverage, coupling, structural changes, architecture documentation |
+| Abbreviation | Agent | Focus | Schema |
+|--------------|-------|-------|--------|
+| **CH** | Code Health | Code quality, complexity, dead code | ReviewConcept |
+| **SE** | Security | Vulnerabilities, injection vectors, auth/authz | ReviewConcept |
+| **TI** | Test Integrity | Test quality, vacuous assertions, mocking | ReviewConcept |
+| **AD** | Adversarial | Gaming, spec violations, architectural dishonesty | ReviewConcept |
+| **AR** | Architecture | Zone coverage, coupling, structural changes | ReviewConcept + ArchitectureAssessment |
+| **SY** | Synthesis | Cross-cutting analysis, decisions, post-merge items | SemanticOutput |
 
-A sixth agent (Semantic) runs in parallel, producing `whatChanged`, `decisions`, `postMergeItems`, and `factoryHistory` from the diff.
+Pydantic models for all schemas: `scripts/models.py`
 
 ## CLI Tool
 
@@ -142,16 +140,20 @@ packages/pr-review-pack/
 │   ├── template.html             # Legacy single-page template
 │   └── template_v2.html          # Mission Control HTML template
 ├── scripts/
-│   ├── generate_diff_data.py     # Pass 1: deterministic diff extraction
-│   ├── scaffold_review_pack_data.py  # Pass 2a: deterministic field scaffolding
-│   ├── render_review_pack.py     # Pass 3: deterministic HTML rendering
+│   ├── review_pack_setup.py      # Phase 1: consolidated setup
+│   ├── assemble_review_pack.py   # Phase 3: validate + transform + merge
+│   ├── models.py                 # Pydantic models (ReviewConcept, SemanticOutput, etc.)
+│   ├── generate_diff_data.py     # Deterministic diff extraction
+│   ├── scaffold_review_pack_data.py  # Deterministic field scaffolding
+│   ├── render_review_pack.py     # Deterministic HTML rendering
 │   └── review_pack_cli.py        # CLI tool (status/refresh/merge)
 ├── e2e/                          # Playwright E2E tests
 ├── tests/                        # Python unit tests
-├── references/                   # Specification documents
-├── examples/                     # Zone registry example
+├── references/
+│   ├── schemas/                  # JSON schemas from pydantic models
+│   ├── examples/                 # Example .jsonl files
+│   └── *.md                      # Specification documents
 ├── docs/                         # Generated review pack artifacts
-├── review-prompts -> ../review-prompts  # Agent paradigm prompts
 ├── SKILL.md                      # Claude Code skill entry point
 ├── requirements.txt              # Python dependencies
 ├── package.json                  # Node dependencies (Playwright)

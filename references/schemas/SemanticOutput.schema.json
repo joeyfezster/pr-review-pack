@@ -1,0 +1,345 @@
+{
+  "$defs": {
+    "CodeSnippetRef": {
+      "description": "Reference to a code snippet in a specific file.",
+      "properties": {
+        "file": {
+          "title": "File",
+          "type": "string"
+        },
+        "line_range": {
+          "description": "e.g. 'lines 72-78'",
+          "title": "Line Range",
+          "type": "string"
+        },
+        "code": {
+          "description": "Raw code content (rendered in <pre>)",
+          "title": "Code",
+          "type": "string"
+        }
+      },
+      "required": [
+        "file",
+        "line_range",
+        "code"
+      ],
+      "title": "CodeSnippetRef",
+      "type": "object"
+    },
+    "DecisionEntry": {
+      "description": "A key decision made or evident in this PR.",
+      "properties": {
+        "number": {
+          "minimum": 1,
+          "title": "Number",
+          "type": "integer"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "rationale": {
+          "description": "One-line summary of why this decision was made",
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "body": {
+          "description": "Full explanation (HTML-safe)",
+          "minLength": 1,
+          "title": "Body",
+          "type": "string"
+        },
+        "zones": {
+          "description": "Zone IDs this decision affects",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Zones",
+          "type": "array"
+        },
+        "files": {
+          "description": "Files affected by this decision",
+          "items": {
+            "$ref": "#/$defs/DecisionFile"
+          },
+          "title": "Files",
+          "type": "array"
+        }
+      },
+      "required": [
+        "number",
+        "title",
+        "rationale",
+        "body",
+        "zones"
+      ],
+      "title": "DecisionEntry",
+      "type": "object"
+    },
+    "DecisionFile": {
+      "description": "A file affected by a decision.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "change": {
+          "description": "One-line description of what changed",
+          "title": "Change",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "change"
+      ],
+      "title": "DecisionFile",
+      "type": "object"
+    },
+    "FactoryEventEntry": {
+      "description": "A factory convergence event for factory history.",
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "meta": {
+          "description": "e.g. 'Commit: 67e5600 . Feb 22'",
+          "title": "Meta",
+          "type": "string"
+        },
+        "expanded_detail": {
+          "description": "HTML-safe drill-down content",
+          "title": "Expanded Detail",
+          "type": "string"
+        },
+        "event_type": {
+          "enum": [
+            "automated",
+            "intervention"
+          ],
+          "title": "Event Type",
+          "type": "string"
+        },
+        "agent_label": {
+          "description": "e.g. 'CI (automated)' or 'Human (Joey)'",
+          "title": "Agent Label",
+          "type": "string"
+        },
+        "agent_type": {
+          "enum": [
+            "automated",
+            "human"
+          ],
+          "title": "Agent Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "detail",
+        "meta",
+        "expanded_detail",
+        "event_type",
+        "agent_label",
+        "agent_type"
+      ],
+      "title": "FactoryEventEntry",
+      "type": "object"
+    },
+    "PostMergeEntry": {
+      "description": "An item to watch or address after merging.",
+      "properties": {
+        "priority": {
+          "enum": [
+            "medium",
+            "low",
+            "cosmetic"
+          ],
+          "title": "Priority",
+          "type": "string"
+        },
+        "title": {
+          "description": "One-line title (HTML-safe, may contain <code> tags)",
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "description": {
+          "description": "Context paragraph (HTML-safe)",
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "code_snippet": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CodeSnippetRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "failure_scenario": {
+          "description": "What could go wrong if left unaddressed",
+          "minLength": 1,
+          "title": "Failure Scenario",
+          "type": "string"
+        },
+        "success_scenario": {
+          "description": "What 'fixed' looks like",
+          "minLength": 1,
+          "title": "Success Scenario",
+          "type": "string"
+        },
+        "zones": {
+          "description": "Affected zone IDs",
+          "items": {
+            "type": "string"
+          },
+          "title": "Zones",
+          "type": "array"
+        }
+      },
+      "required": [
+        "priority",
+        "title",
+        "description",
+        "failure_scenario",
+        "success_scenario"
+      ],
+      "title": "PostMergeEntry",
+      "type": "object"
+    },
+    "WhatChangedEntry": {
+      "description": "Summary of what changed, split by layer.",
+      "properties": {
+        "layer": {
+          "enum": [
+            "infrastructure",
+            "product"
+          ],
+          "title": "Layer",
+          "type": "string"
+        },
+        "summary": {
+          "description": "HTML-safe summary of changes in this layer",
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "zone_details": {
+          "description": "Per-zone breakdown of changes",
+          "items": {
+            "$ref": "#/$defs/ZoneDetail"
+          },
+          "title": "Zone Details",
+          "type": "array"
+        }
+      },
+      "required": [
+        "layer",
+        "summary"
+      ],
+      "title": "WhatChangedEntry",
+      "type": "object"
+    },
+    "ZoneDetail": {
+      "description": "Per-zone change description for what-changed summaries.",
+      "properties": {
+        "zone_id": {
+          "title": "Zone Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "description": {
+          "description": "HTML-safe description of changes in this zone",
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "zone_id",
+        "title",
+        "description"
+      ],
+      "title": "ZoneDetail",
+      "type": "object"
+    }
+  },
+  "description": "Typed union of synthesis agent outputs.\n\nEach line in the synthesis agent's .jsonl file is one SemanticOutput.\nThe `output_type` discriminator determines which fields are populated.",
+  "properties": {
+    "output_type": {
+      "enum": [
+        "what_changed",
+        "decision",
+        "post_merge_item",
+        "factory_event"
+      ],
+      "title": "Output Type",
+      "type": "string"
+    },
+    "what_changed": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WhatChangedEntry"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "decision": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DecisionEntry"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "post_merge_item": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PostMergeEntry"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "factory_event": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FactoryEventEntry"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "output_type"
+  ],
+  "title": "SemanticOutput",
+  "type": "object"
+}

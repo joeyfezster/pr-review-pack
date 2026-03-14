@@ -1,0 +1,54 @@
+# Zone Registry — Example
+#
+# This file shows the structure required by the /pr-review-pack skill.
+# Copy to your repo root as zone-registry.yaml (or .claude/zone-registry.yaml)
+# and customize for your project's architecture.
+#
+# Each zone maps file path patterns to a named architecture zone.
+# The skill uses this for deterministic file→zone mapping (no LLM involved).
+
+zones:
+  # Product zones — the application code
+  api:
+    paths: ["src/api/**", "src/routes/**"]
+    specs: ["docs/api-spec.md"]
+    category: product
+    label: "API"
+    sublabel: "REST endpoints"
+
+  core:
+    paths: ["src/core/**", "src/models/**"]
+    specs: ["docs/core-spec.md"]
+    category: product
+    label: "Core"
+    sublabel: "Business logic"
+
+  frontend:
+    paths: ["src/components/**", "src/pages/**", "src/styles/**"]
+    specs: []
+    category: product
+    label: "Frontend"
+    sublabel: "UI components"
+
+  # Test zones
+  tests:
+    paths: ["tests/**"]
+    specs: []
+    category: product
+    label: "Tests"
+    sublabel: "Unit and integration tests"
+
+  # Infrastructure zones
+  ci-cd:
+    paths: [".github/workflows/**", "Makefile", "Dockerfile"]
+    specs: []
+    category: infra
+    label: "CI/CD"
+    sublabel: "Build and deploy"
+
+  repo-infra:
+    paths: ["*.toml", "*.cfg", "*.ini", "requirements*.txt", ".gitignore"]
+    specs: []
+    category: infra
+    label: "Repo Config"
+    sublabel: "Project configuration"
