@@ -26,8 +26,11 @@ from pathlib import Path
 # These files are outputs of this pipeline — including them creates a
 # recursive blowup (review pack embeds diff data which includes itself).
 DEFAULT_EXCLUDES = [
+    # Legacy flat paths (pre-streamline)
     "docs/pr*_review_pack.html",
     "docs/pr*_diff_data.json",
+    # New structured paths (post-streamline: docs/reviews/pr{N}/)
+    "docs/reviews/*",
 ]
 
 
