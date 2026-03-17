@@ -503,19 +503,25 @@ def verify_findings(
                         f"Post-merge item zone '{zone_id}' not in registry"
                     )
 
-    # what_changed: exactly 2 entries expected (infrastructure + product)
+    # what_changed: 1-2 entries expected (at least 1 required; both if PR spans infra + product)
     wc_entries = [so for so in semantic_outputs if so.output_type == "what_changed"]
-    if len(wc_entries) != 2:
+    if len(wc_entries) == 0:
         report.add_warning(
             "synthesis.jsonl",
-            f"Expected exactly 2 what_changed entries (infrastructure + product), got {len(wc_entries)}"
+            "Expected at least 1 what_changed entry (infrastructure and/or product), got 0"
+        )
+    elif len(wc_entries) > 2:
+        report.add_warning(
+            "synthesis.jsonl",
+            f"Expected 1-2 what_changed entries, got {len(wc_entries)}"
         )
     else:
         layers = {so.what_changed.layer for so in wc_entries if so.what_changed}
-        if layers != {"infrastructure", "product"}:
+        valid_layers = {"infrastructure", "product"}
+        if not layers.issubset(valid_layers):
             report.add_warning(
                 "synthesis.jsonl",
-                f"what_changed layers should be {{'infrastructure', 'product'}}, got {layers}"
+                f"what_changed layers should be subset of {valid_layers}, got {layers}"
             )
 
 

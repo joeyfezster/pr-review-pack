@@ -3,7 +3,7 @@ name: pr-review-pack
 description: This skill should be used when the user asks to "generate a review pack", "create a PR review pack", "build a review pack for this PR", "make a review report", or when a PR is ready for review and needs a review pack artifact. Generates a self-contained interactive HTML review pack following a four-phase pipeline (Setup, Review, Assemble, Deliver).
 user-invocable: true
 argument-hint: "[PR-url-or-number]"
-allowed-tools: Bash(python3 *), Bash(npx playwright *), Bash(npm *), Bash(gh *), Bash(git *), Bash(ls *), Bash(sleep *), Bash(which *), Bash(mkdir *), Bash(open *), Bash(cat *), Bash(wc *), Bash(cd *), Read, Edit, Write, Glob, Grep, Task, TodoWrite
+allowed-tools: Bash(python3 *), Bash(npx playwright *), Bash(npm *), Bash(gh *), Bash(git *), Bash(ls *), Bash(sleep *), Bash(which *), Bash(mkdir *), Bash(open *), Bash(cat *), Bash(wc *), Bash(cd *), Read, Edit, Write, Glob, Grep, Task, TodoWrite, Agent, TeamCreate, TeamDelete, SendMessage
 ---
 
 # PR Review Pack — Mission Control
