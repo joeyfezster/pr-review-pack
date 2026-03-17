@@ -399,7 +399,8 @@ class TestRenderSidebarSectionNav:
         assert "What Changed" in result
         assert "Specs &amp; Scenarios" in result
         assert "Review Gates" in result
-        assert "Code Review" in result
+        assert "Key Findings" in result
+        assert "File Coverage" in result
         assert "Key Decisions" in result
         assert "Convergence" in result
         assert "CI Performance" in result
@@ -421,7 +422,8 @@ class TestRenderSidebarSectionNav:
         assert 'data-section="section-what-changed"' in result
         assert 'data-section="section-specs-scenarios"' in result
         assert 'data-section="section-review-gates"' in result
-        assert 'data-section="section-code-review"' in result
+        assert 'data-section="section-key-findings"' in result
+        assert 'data-section="section-file-coverage"' in result
         assert 'data-section="section-key-decisions"' in result
         assert 'data-section="section-convergence"' in result
         assert 'data-section="section-ci-performance"' in result

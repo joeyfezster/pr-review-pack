@@ -28,7 +28,10 @@ sys.path.insert(0, str(_SCRIPT_DIR))
 
 from models import (  # noqa: E402
     ArchitectureAssessmentOutput,
+    ConceptUpdate,
+    FileReviewOutcome,
     Grade,
+    GRADE_SORT_ORDER,
     LEGACY_GRADE_SORT_ORDER,
     ReviewConcept,
     SemanticOutput,
@@ -93,20 +96,38 @@ class ValidationReport:
 def read_and_validate_jsonl(
     reviews_dir: Path,
     report: ValidationReport,
-) -> tuple[dict[str, list[ReviewConcept]], list[SemanticOutput], dict | None]:
+) -> tuple[
+    dict[str, list[ReviewConcept]],
+    dict[str, list[FileReviewOutcome]],
+    list[SemanticOutput],
+    dict | None,
+]:
     """Read all .jsonl files, validate, return parsed objects.
 
+    Handles 4 line types via `_type` discriminator:
+    - "file_review" → FileReviewOutcome
+    - "concept_update" → ConceptUpdate (merged into matching concept)
+    - "architecture_assessment" → ArchitectureAssessmentOutput
+    - (absent) → ReviewConcept (for reviewer agents) or SemanticOutput (for synthesis)
+
+    ConceptUpdate lines overwrite fields on the previously-seen ReviewConcept
+    with the same concept_id. If no matching concept_id exists, it's an error.
+
     Returns:
-        (agent_concepts, semantic_outputs, architecture_assessment)
+        (agent_concepts, agent_file_outcomes, semantic_outputs, architecture_assessment)
     """
     agent_concepts: dict[str, list[ReviewConcept]] = {}
+    agent_file_outcomes: dict[str, list[FileReviewOutcome]] = {}
     semantic_outputs: list[SemanticOutput] = []
     architecture_assessment: dict | None = None
+
+    # Track concept updates per agent for merging after all lines are read
+    agent_concept_updates: dict[str, list[ConceptUpdate]] = {}
 
     jsonl_files = sorted(reviews_dir.glob("*.jsonl"))
     if not jsonl_files:
         report.add_error(str(reviews_dir), 0, "No .jsonl files found in reviews directory")
-        return agent_concepts, semantic_outputs, architecture_assessment
+        return agent_concepts, agent_file_outcomes, semantic_outputs, architecture_assessment
 
     for jsonl_path in jsonl_files:
         agent_name = parse_agent_from_filename(jsonl_path.name)
@@ -119,6 +140,8 @@ def read_and_validate_jsonl(
 
         is_synthesis = agent_name == "synthesis"
         concepts: list[ReviewConcept] = []
+        file_outcomes: list[FileReviewOutcome] = []
+        concept_updates: list[ConceptUpdate] = []
 
         with open(jsonl_path) as f:
             for line_num, line in enumerate(f, 1):
@@ -133,15 +156,100 @@ def read_and_validate_jsonl(
                     report.add_error(jsonl_path.name, line_num, f"Invalid JSON: {e}", line)
                     continue
 
-                # Architecture assessment special case
-                if obj.get("_type") == "architecture_assessment":
+                # Route by _type discriminator
+                line_type = obj.get("_type")
+
+                if line_type == "meta":
+                    # Skip setup-generated meta headers
+                    continue
+
+                if line_type == "architecture_assessment":
                     try:
                         validated = ArchitectureAssessmentOutput.model_validate(obj)
                         architecture_assessment = validated.model_dump(by_alias=True)
                     except ValidationError as e:
+                        # Graceful degradation: try to salvage overallHealth + summary
+                        report.add_warning(
+                            jsonl_path.name,
+                            f"Architecture assessment partial validation failure: "
+                            f"{e.error_count()} error(s) — {e.errors()[0]['msg']}",
+                        )
+                        overall_health = obj.get("overallHealth")
+                        summary = obj.get("summary")
+                        if overall_health and summary:
+                            architecture_assessment = {
+                                "_type": "architecture_assessment",
+                                "overallHealth": overall_health,
+                                "summary": summary,
+                                "_partial": True,
+                                "_validation_errors": [
+                                    err["msg"] for err in e.errors()[:5]
+                                ],
+                            }
+                            report.add_warning(
+                                jsonl_path.name,
+                                "Architecture assessment degraded: "
+                                "only overallHealth and summary retained",
+                            )
+                        else:
+                            architecture_assessment = {
+                                "_type": "architecture_assessment",
+                                "overallHealth": "missing",
+                                "summary": (
+                                    "<p>Architecture assessment was produced but "
+                                    "contained validation errors. Review the .jsonl "
+                                    "file for details.</p>"
+                                ),
+                                "_partial": True,
+                                "_validation_errors": [
+                                    err["msg"] for err in e.errors()[:5]
+                                ],
+                            }
+                            report.add_warning(
+                                jsonl_path.name,
+                                "Architecture assessment fully degraded: "
+                                "could not extract overallHealth or summary",
+                            )
+
+                    # Consistency check: negative health shouldn't have positive summary
+                    if architecture_assessment:
+                        health = architecture_assessment.get("overallHealth", "")
+                        summ = architecture_assessment.get("summary", "")
+                        if health in ("needs-attention", "action-required"):
+                            positive_starts = (
+                                "good shape", "healthy", "all good",
+                                "no issues", "clean", "well-structured",
+                            )
+                            summ_lower = summ.lower().lstrip("<p>").lstrip()
+                            if any(summ_lower.startswith(p) for p in positive_starts):
+                                report.add_warning(
+                                    jsonl_path.name,
+                                    f"Architecture assessment inconsistency: "
+                                    f"overallHealth is '{health}' but summary "
+                                    f"starts with positive language",
+                                )
+                    continue
+
+                if line_type == "file_review":
+                    try:
+                        fro = FileReviewOutcome.model_validate(obj)
+                        file_outcomes.append(fro)
+                    except ValidationError as e:
                         report.add_error(
                             jsonl_path.name, line_num,
-                            f"Architecture assessment validation failed: {e.error_count()} error(s) — {e.errors()[0]['msg']}",
+                            f"FileReviewOutcome validation failed: {e.error_count()} error(s) — {e.errors()[0]['msg']}",
+                            line,
+                        )
+                    continue
+
+                if line_type == "concept_update":
+                    try:
+                        cu = ConceptUpdate.model_validate(obj)
+                        concept_updates.append(cu)
+                    except ValidationError as e:
+                        report.add_error(
+                            jsonl_path.name, line_num,
+                            f"ConceptUpdate validation failed: {e.error_count()} error(s) — {e.errors()[0]['msg']}",
                             line,
                         )
                     continue
@@ -159,7 +267,7 @@ def read_and_validate_jsonl(
                         )
                     continue
 
-                # Reviewer agent → ReviewConcept
+                # Default: ReviewConcept (no _type or unrecognized)
                 try:
                     rc = ReviewConcept.model_validate(obj)
                     concepts.append(rc)
@@ -170,10 +278,108 @@ def read_and_validate_jsonl(
                         line,
                     )
 
+        # Apply concept updates: merge into matching concepts
+        if concept_updates:
+            concept_by_id = {rc.concept_id: rc for rc in concepts}
+            for cu in concept_updates:
+                if cu.concept_id not in concept_by_id:
+                    report.add_error(
+                        jsonl_path.name, 0,
+                        f"ConceptUpdate references concept_id '{cu.concept_id}' "
+                        f"which does not exist in this agent's output",
+                    )
+                    continue
+                # Merge: provided fields override existing
+                original = concept_by_id[cu.concept_id]
+                update_data = cu.model_dump(
+                    exclude={"type_discriminator", "concept_id"},
+                    exclude_none=True,
+                )
+                if update_data:
+                    merged = original.model_copy(update=update_data)
+                    concept_by_id[cu.concept_id] = merged
+            # Rebuild list preserving order
+            concepts = [concept_by_id[rc.concept_id] for rc in concepts
+                        if rc.concept_id in concept_by_id]
+
         if concepts:
             agent_concepts[agent_name] = concepts
+        if file_outcomes:
+            agent_file_outcomes[agent_name] = file_outcomes
+        if concept_updates:
+            agent_concept_updates[agent_name] = concept_updates
 
-    return agent_concepts, semantic_outputs, architecture_assessment
+    return agent_concepts, agent_file_outcomes, semantic_outputs, architecture_assessment
+
+
+# ---------------------------------------------------------------------------
+# Cascading validation — the enforcement chokepoint
+# ---------------------------------------------------------------------------
+
+
+def validate_file_coverage(
+    agent_file_outcomes: dict[str, list[FileReviewOutcome]],
+    diff_data: dict,
+    report: ValidationReport,
+) -> None:
+    """Validate that every file in the diff has a FileReviewOutcome from every reviewer.
+
+    This is the primary enforcement mechanism for exhaustive per-file coverage.
+    Missing outcomes are reported as errors (not warnings).
+    """
+    diff_files = set(diff_data.get("files", {}).keys())
+    if not diff_files:
+        return
+
+    # Expected reviewer agents (non-synthesis)
+    reviewer_agents = sorted(agent_file_outcomes.keys())
+    if not reviewer_agents:
+        # No file outcomes at all — this is valid for backward compat
+        # (pre-v3 review packs don't have FileReviewOutcome)
+        return
+
+    for agent_name in reviewer_agents:
+        outcomes = agent_file_outcomes[agent_name]
+        covered_files = {fro.file for fro in outcomes}
+        missing = diff_files - covered_files
+        if missing:
+            report.add_error(
+                f"{agent_name}.jsonl", 0,
+                f"Missing FileReviewOutcome for {len(missing)} file(s): "
+                f"{', '.join(sorted(missing)[:5])}"
+                + (f" (+{len(missing)-5} more)" if len(missing) > 5 else ""),
+            )
+
+
+def validate_concept_backing(
+    agent_concepts: dict[str, list[ReviewConcept]],
+    agent_file_outcomes: dict[str, list[FileReviewOutcome]],
+    report: ValidationReport,
+) -> None:
+    """Validate that every non-A-grade FileReviewOutcome has a backing ReviewConcept.
+
+    A file graded B, C, or F must appear in at least one ReviewConcept's
+    locations — otherwise the file has a grade but no explanation.
+    """
+    if not agent_file_outcomes:
+        return  # backward compat — no file outcomes means no backing check
+
+    # Collect all files mentioned in any concept from any agent
+    concept_files: set[str] = set()
+    for concepts in agent_concepts.values():
+        for rc in concepts:
+            for loc in rc.locations:
+                concept_files.add(loc.file)
+
+    # Check each non-A outcome
+    for agent_name, outcomes in agent_file_outcomes.items():
+        for fro in outcomes:
+            if fro.grade != Grade.A and fro.file not in concept_files:
+                report.add_error(
+                    f"{agent_name}.jsonl", 0,
+                    f"File '{fro.file}' graded {fro.grade.value} but not mentioned "
+                    f"in any ReviewConcept — non-A grades require a backing concept",
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -489,6 +695,84 @@ def transform_semantic_outputs(
 
 
 # ---------------------------------------------------------------------------
+# Transform: FileReviewOutcome → file coverage data
+# ---------------------------------------------------------------------------
+
+
+def transform_file_outcomes_to_coverage(
+    agent_file_outcomes: dict[str, list[FileReviewOutcome]],
+) -> dict:
+    """Transform FileReviewOutcome objects into file coverage data for the review pack.
+
+    Produces a per-file summary with grades from each reviewer agent,
+    plus an overall worst-grade for each file.
+
+    Returns:
+        {
+            "agents": ["code-health", "security", ...],
+            "files": [
+                {
+                    "file": "src/foo.py",
+                    "grades": {"code-health": "A", "security": "B"},
+                    "summaries": {"code-health": "...", "security": "..."},
+                    "worstGrade": "B",
+                    "worstGradeSortOrder": 2,
+                },
+                ...
+            ]
+        }
+    """
+    agents = sorted(agent_file_outcomes.keys())
+
+    # Collect all files across all agents
+    all_files: set[str] = set()
+    for outcomes in agent_file_outcomes.values():
+        for fro in outcomes:
+            all_files.add(fro.file)
+
+    # Build per-file records
+    files: list[dict] = []
+    for file_path in sorted(all_files):
+        grades: dict[str, str] = {}
+        summaries: dict[str, str] = {}
+        worst_sort = GRADE_SORT_ORDER[Grade.A]  # start at best
+
+        for agent_name in agents:
+            outcomes = agent_file_outcomes.get(agent_name, [])
+            for fro in outcomes:
+                if fro.file == file_path:
+                    grades[agent_name] = fro.grade.value
+                    summaries[agent_name] = fro.summary
+                    sort_order = GRADE_SORT_ORDER[fro.grade]
+                    if sort_order < worst_sort:
+                        worst_sort = sort_order
+                    break
+
+        # Reverse lookup worst grade from sort order
+        worst_grade = "A"
+        for g, order in GRADE_SORT_ORDER.items():
+            if order == worst_sort:
+                worst_grade = g.value
+                break
+
+        files.append({
+            "file": file_path,
+            "grades": grades,
+            "summaries": summaries,
+            "worstGrade": worst_grade,
+            "worstGradeSortOrder": worst_sort,
+        })
+
+    # Sort by worst grade (most severe first)
+    files.sort(key=lambda f: f["worstGradeSortOrder"])
+
+    return {
+        "agents": agents,
+        "files": files,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Assembly
 # ---------------------------------------------------------------------------
 
@@ -497,8 +781,14 @@ def assemble(
     pr_number: int,
     reviews_dir: Path,
     repo: Path,
+    *,
+    validate_only: bool = False,
 ) -> tuple[dict, ValidationReport]:
     """Main assembly: read, validate, transform, merge, verify.
+
+    When validate_only=True, runs schema validation and cascading validation
+    (file coverage + concept backing) but skips transformation and assembly.
+    This is the enforcement chokepoint: no valid JSONL = no assembly = no HTML.
 
     Returns (assembled_data, validation_report).
     """
@@ -519,10 +809,10 @@ def assemble(
         return scaffold_data, report
     diff_data = json.loads(diff_files[0].read_text())
 
-    # Load zone registry
-    zone_registry_path = repo / ".claude" / "zone-registry.yaml"
+    # Load zone registry (root first, .claude/ fallback)
+    zone_registry_path = repo / "zone-registry.yaml"
     if not zone_registry_path.exists():
-        zone_registry_path = repo / "zone-registry.yaml"
+        zone_registry_path = repo / ".claude" / "zone-registry.yaml"
     if not zone_registry_path.exists():
         report.add_error(str(repo), 0, "zone-registry.yaml not found")
         return scaffold_data, report
@@ -531,43 +821,70 @@ def assemble(
 
     # Step 1: Read and validate all .jsonl files
     print("Reading and validating .jsonl files...")
-    agent_concepts, semantic_outputs, architecture_assessment = read_and_validate_jsonl(
-        reviews_dir, report
+    agent_concepts, agent_file_outcomes, semantic_outputs, architecture_assessment = (
+        read_and_validate_jsonl(reviews_dir, report)
     )
 
     if report.has_errors:
-        print(f"\nValidation errors found — assembly may be incomplete.")
+        print(f"\nSchema validation errors found:")
         print(report.summary())
 
-    # Step 2: Run verification checks
+    # Step 2: Cascading validation — the enforcement chokepoint
+    # These checks run BEFORE any transformation. If they fail, assembly
+    # refuses to produce output (unless validate_only mode, which stops here).
+    print("Running cascading validation...")
+    pre_cascade_errors = len(report.errors)
+    validate_file_coverage(agent_file_outcomes, diff_data, report)
+    validate_concept_backing(agent_concepts, agent_file_outcomes, report)
+    cascade_errors = len(report.errors) - pre_cascade_errors
+
+    if cascade_errors > 0:
+        print(f"\n{cascade_errors} cascading validation error(s) — assembly refused.")
+        print(report.summary())
+        if not validate_only:
+            return {}, report
+        # In validate_only mode, we still return the report for feedback
+        return scaffold_data, report
+
+    if validate_only:
+        # Validation passed — return scaffold with report (no transforms)
+        print("Validation passed.")
+        return scaffold_data, report
+
+    # Step 3: Run verification checks (warnings, not blockers)
     print("Running verification checks...")
     verify_findings(agent_concepts, semantic_outputs, diff_data, zone_registry, report)
 
-    # Step 3: Transform ReviewConcept → AgenticReview
+    # Step 4: Transform ReviewConcept → AgenticReview
     print("Transforming ReviewConcepts → AgenticFindings...")
     agentic_review = transform_concepts_to_review(agent_concepts)
 
-    # Step 4: Transform SemanticOutput → sections
+    # Step 5: Transform FileReviewOutcome → CodeReview file coverage data
+    print("Transforming FileReviewOutcomes → file coverage data...")
+    file_coverage = transform_file_outcomes_to_coverage(agent_file_outcomes)
+
+    # Step 6: Transform SemanticOutput → sections
     print("Transforming SemanticOutputs → review pack sections...")
     what_changed, decisions, post_merge_items, factory_history = (
         transform_semantic_outputs(semantic_outputs)
     )
 
-    # Step 5: Handle architecture assessment
+    # Step 7: Handle architecture assessment
     if architecture_assessment:
         # Remove the _type discriminator before merging
         arch_assessment = {k: v for k, v in architecture_assessment.items() if k != "_type"}
         scaffold_data["architectureAssessment"] = arch_assessment
 
-    # Step 6: Merge into scaffold
+    # Step 8: Merge into scaffold
     scaffold_data["whatChanged"] = what_changed
     scaffold_data["agenticReview"] = agentic_review
+    scaffold_data["fileCoverage"] = file_coverage
     scaffold_data["decisions"] = decisions
     scaffold_data["postMergeItems"] = post_merge_items
     if factory_history is not None:
         scaffold_data["factoryHistory"] = factory_history
 
-    # Step 7: Recompute status with new data
+    # Step 9: Recompute status with new data
     from scaffold_review_pack_data import compute_status  # noqa: E402
 
     scaffold_data["status"] = compute_status(
@@ -600,21 +917,43 @@ def main() -> None:
                         help="Also render the HTML review pack")
     parser.add_argument("--strict", action="store_true",
                         help="Exit with error if validation warnings exist")
+    parser.add_argument("--validate-only", action="store_true",
+                        help="Run schema + cascading validation only, no assembly. "
+                        "Exit 0 if valid, exit 1 if errors. This is the enforcement "
+                        "chokepoint — no valid JSONL = no assembly = no HTML.")
     args = parser.parse_args()
 
     repo = Path(args.repo) if args.repo else find_repo_root()
     reviews_dir = Path(args.reviews_dir) if args.reviews_dir else repo / "docs" / "reviews" / f"pr{args.pr}"
     output_path = Path(args.output) if args.output else reviews_dir / f"pr{args.pr}_review_pack_data.json"
 
-    print(f"Assembling review pack for PR #{args.pr}")
+    if args.validate_only:
+        print(f"Validating .jsonl files for PR #{args.pr}")
+    else:
+        print(f"Assembling review pack for PR #{args.pr}")
     print(f"  Reviews dir: {reviews_dir}")
     print(f"  Repository:  {repo}")
 
-    assembled_data, report = assemble(args.pr, reviews_dir, repo)
+    assembled_data, report = assemble(
+        args.pr, reviews_dir, repo, validate_only=args.validate_only,
+    )
+
+    if args.validate_only:
+        if report.has_errors:
+            print(f"\nValidation FAILED:")
+            print(report.summary())
+            sys.exit(1)
+        else:
+            print("\nValidation PASSED — all .jsonl files are valid.")
+            if report.warnings:
+                print(report.summary())
+            sys.exit(0)
 
     if not assembled_data:
-        print("\nAssembly failed — no data produced.")
+        print("\nAssembly REFUSED — cascading validation failed.")
         print(report.summary())
+        print("\nFix the .jsonl files and re-run. The assembler will not produce")
+        print("output until all validation checks pass.")
         sys.exit(1)
 
     # Write assembled JSON

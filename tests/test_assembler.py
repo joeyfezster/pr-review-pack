@@ -17,10 +17,14 @@ from assemble_review_pack import (
     read_and_validate_jsonl,
     transform_concept_to_finding,
     transform_concepts_to_review,
+    transform_file_outcomes_to_coverage,
     transform_semantic_outputs,
+    validate_concept_backing,
+    validate_file_coverage,
     verify_findings,
 )
 from models import (
+    FileReviewOutcome,
     Grade,
     ReviewConcept,
     SemanticOutput,
@@ -394,7 +398,7 @@ class TestReadJSONL:
             }) + "\n")
 
             report = ValidationReport()
-            concepts, semantics, arch = read_and_validate_jsonl(Path(tmpdir), report)
+            concepts, file_outcomes, semantics, arch = read_and_validate_jsonl(Path(tmpdir), report)
             assert "code-health" in concepts
             assert len(concepts["code-health"]) == 1
             assert not report.has_errors
@@ -433,7 +437,7 @@ class TestReadJSONL:
             p.write_text("\n".join(lines) + "\n")
 
             report = ValidationReport()
-            concepts, _, arch = read_and_validate_jsonl(Path(tmpdir), report)
+            concepts, _, _, arch = read_and_validate_jsonl(Path(tmpdir), report)
             assert "architecture" in concepts
             assert arch is not None
             assert arch["overallHealth"] == "healthy"
@@ -444,3 +448,297 @@ class TestReadJSONL:
             read_and_validate_jsonl(Path(tmpdir), report)
             assert report.has_errors
             assert any("No .jsonl" in e["message"] for e in report.errors)
+
+
+# ---------------------------------------------------------------------------
+# Hybrid output: FileReviewOutcome + ConceptUpdate in JSONL
+# ---------------------------------------------------------------------------
+
+
+class TestHybridJSONL:
+    """Test reading .jsonl files with mixed FileReviewOutcome, ReviewConcept,
+    and ConceptUpdate lines."""
+
+    def _make_jsonl(self, tmpdir: str, agent: str, lines: list[dict]) -> Path:
+        p = Path(tmpdir) / f"pr5-{agent}-abcd1234-ef567890.jsonl"
+        p.write_text("\n".join(json.dumps(line) for line in lines) + "\n")
+        return p
+
+    def test_file_review_outcomes_parsed(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._make_jsonl(tmpdir, "code-health", [
+                {"_type": "file_review", "file": "a.py", "grade": "A", "summary": "Clean file"},
+                {"_type": "file_review", "file": "b.py", "grade": "C", "summary": "Issues found"},
+            ])
+            report = ValidationReport()
+            concepts, file_outcomes, semantics, arch = read_and_validate_jsonl(Path(tmpdir), report)
+            assert not report.has_errors
+            assert "code-health" in file_outcomes
+            assert len(file_outcomes["code-health"]) == 2
+            assert file_outcomes["code-health"][0].file == "a.py"
+            assert file_outcomes["code-health"][1].grade == Grade.C
+
+    def test_hybrid_file_review_and_concepts(self):
+        """FileReviewOutcome and ReviewConcept in same .jsonl."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._make_jsonl(tmpdir, "security", [
+                {"_type": "file_review", "file": "a.py", "grade": "A", "summary": "Clean"},
+                {"_type": "file_review", "file": "b.py", "grade": "F", "summary": "SQL injection"},
+                {
+                    "concept_id": "security-1", "title": "SQL Injection in b.py",
+                    "grade": "F", "category": "security",
+                    "summary": "Raw SQL", "detail_html": "<p>Bad</p>",
+                    "locations": [{"file": "b.py", "zones": []}],
+                },
+            ])
+            report = ValidationReport()
+            concepts, file_outcomes, _, _ = read_and_validate_jsonl(Path(tmpdir), report)
+            assert not report.has_errors
+            assert len(file_outcomes["security"]) == 2
+            assert len(concepts["security"]) == 1
+            assert concepts["security"][0].grade == Grade.F
+
+    def test_concept_update_merging(self):
+        """ConceptUpdate overrides fields on matching concept."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._make_jsonl(tmpdir, "code-health", [
+                {
+                    "concept_id": "code-health-1", "title": "Original title",
+                    "grade": "C", "category": "code-health",
+                    "summary": "Original summary", "detail_html": "<p>Original</p>",
+                    "locations": [{"file": "a.py", "zones": []}],
+                },
+                {
+                    "_type": "concept_update", "concept_id": "code-health-1",
+                    "grade": "B", "title": "Updated title",
+                },
+            ])
+            report = ValidationReport()
+            concepts, _, _, _ = read_and_validate_jsonl(Path(tmpdir), report)
+            assert not report.has_errors
+            merged = concepts["code-health"][0]
+            assert merged.grade == Grade.B
+            assert merged.title == "Updated title"
+            assert merged.summary == "Original summary"  # unchanged
+
+    def test_concept_update_missing_id_is_error(self):
+        """ConceptUpdate referencing nonexistent concept_id is an error."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._make_jsonl(tmpdir, "code-health", [
+                {
+                    "_type": "concept_update", "concept_id": "nonexistent-1",
+                    "grade": "A",
+                },
+            ])
+            report = ValidationReport()
+            read_and_validate_jsonl(Path(tmpdir), report)
+            assert report.has_errors
+            assert any("nonexistent-1" in e["message"] for e in report.errors)
+
+
+# ---------------------------------------------------------------------------
+# Cascading validation
+# ---------------------------------------------------------------------------
+
+
+class TestCascadingValidation:
+    """Test validate_file_coverage and validate_concept_backing."""
+
+    def test_file_coverage_all_covered(self):
+        diff_data = {"files": {"a.py": {}, "b.py": {}}}
+        outcomes = {
+            "code-health": [
+                FileReviewOutcome(file="a.py", grade=Grade.A, summary="ok"),
+                FileReviewOutcome(file="b.py", grade=Grade.A, summary="ok"),
+            ],
+            "security": [
+                FileReviewOutcome(file="a.py", grade=Grade.A, summary="ok"),
+                FileReviewOutcome(file="b.py", grade=Grade.A, summary="ok"),
+            ],
+        }
+        report = ValidationReport()
+        validate_file_coverage(outcomes, diff_data, report)
+        assert not report.has_errors
+
+    def test_file_coverage_missing_file(self):
+        diff_data = {"files": {"a.py": {}, "b.py": {}, "c.py": {}}}
+        outcomes = {
+            "code-health": [
+                FileReviewOutcome(file="a.py", grade=Grade.A, summary="ok"),
+                # missing b.py and c.py
+            ],
+        }
+        report = ValidationReport()
+        validate_file_coverage(outcomes, diff_data, report)
+        assert report.has_errors
+        assert any("Missing FileReviewOutcome" in e["message"] for e in report.errors)
+
+    def test_file_coverage_no_outcomes_backward_compat(self):
+        """No file outcomes at all is valid (pre-v3 packs)."""
+        diff_data = {"files": {"a.py": {}}}
+        report = ValidationReport()
+        validate_file_coverage({}, diff_data, report)
+        assert not report.has_errors
+
+    def test_concept_backing_non_a_has_concept(self):
+        concepts = {
+            "code-health": [
+                ReviewConcept(
+                    concept_id="ch-1", title="Issue", grade=Grade.C,
+                    category="code-health", summary="x", detail_html="x",
+                    locations=[{"file": "b.py", "zones": []}],
+                ),
+            ],
+        }
+        outcomes = {
+            "code-health": [
+                FileReviewOutcome(file="a.py", grade=Grade.A, summary="ok"),
+                FileReviewOutcome(file="b.py", grade=Grade.C, summary="issue"),
+            ],
+        }
+        report = ValidationReport()
+        validate_concept_backing(concepts, outcomes, report)
+        assert not report.has_errors
+
+    def test_concept_backing_non_a_without_concept_is_error(self):
+        concepts = {"code-health": []}  # no concepts at all
+        outcomes = {
+            "code-health": [
+                FileReviewOutcome(file="b.py", grade=Grade.C, summary="issue"),
+            ],
+        }
+        report = ValidationReport()
+        validate_concept_backing(concepts, outcomes, report)
+        assert report.has_errors
+        assert any("backing concept" in e["message"] for e in report.errors)
+
+    def test_concept_backing_a_grade_no_concept_ok(self):
+        """A-grade files don't need backing concepts."""
+        concepts = {"code-health": []}
+        outcomes = {
+            "code-health": [
+                FileReviewOutcome(file="a.py", grade=Grade.A, summary="ok"),
+            ],
+        }
+        report = ValidationReport()
+        validate_concept_backing(concepts, outcomes, report)
+        assert not report.has_errors
+
+
+# ---------------------------------------------------------------------------
+# File coverage transform
+# ---------------------------------------------------------------------------
+
+
+class TestFileCoverageTransform:
+    def test_basic_transform(self):
+        outcomes = {
+            "code-health": [
+                FileReviewOutcome(file="a.py", grade=Grade.A, summary="Clean"),
+                FileReviewOutcome(file="b.py", grade=Grade.C, summary="Issues"),
+            ],
+            "security": [
+                FileReviewOutcome(file="a.py", grade=Grade.A, summary="Safe"),
+                FileReviewOutcome(file="b.py", grade=Grade.F, summary="Vuln"),
+            ],
+        }
+        result = transform_file_outcomes_to_coverage(outcomes)
+        assert result["agents"] == ["code-health", "security"]
+        assert len(result["files"]) == 2
+        # Worst grade first (F before A)
+        assert result["files"][0]["file"] == "b.py"
+        assert result["files"][0]["worstGrade"] == "F"
+        assert result["files"][0]["grades"]["security"] == "F"
+        assert result["files"][1]["file"] == "a.py"
+        assert result["files"][1]["worstGrade"] == "A"
+
+    def test_empty_outcomes(self):
+        result = transform_file_outcomes_to_coverage({})
+        assert result["agents"] == []
+        assert result["files"] == []
+
+
+# ---------------------------------------------------------------------------
+# Architecture assessment graceful degradation
+# ---------------------------------------------------------------------------
+
+
+class TestArchAssessmentDegradation:
+    """Test partial validation and consistency checks for architecture assessment."""
+
+    def _make_jsonl(self, tmpdir: str, lines: list[dict]) -> Path:
+        p = Path(tmpdir) / "pr5-architecture-abcd1234-ef567890.jsonl"
+        p.write_text("\n".join(json.dumps(line) for line in lines) + "\n")
+        return p
+
+    def test_valid_assessment_no_warnings(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._make_jsonl(tmpdir, [
+                {"_type": "architecture_assessment", "overallHealth": "healthy",
+                 "summary": "All zones are covered."},
+            ])
+            report = ValidationReport()
+            _, _, _, arch = read_and_validate_jsonl(Path(tmpdir), report)
+            assert arch is not None
+            assert arch["overallHealth"] == "healthy"
+            assert not report.has_errors
+            # No consistency warning for healthy + positive
+            assert not any("inconsistency" in w["message"].lower() for w in report.warnings)
+
+    def test_partial_degradation_keeps_health_and_summary(self):
+        """If full validation fails but overallHealth + summary exist, keep them."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._make_jsonl(tmpdir, [
+                {
+                    "_type": "architecture_assessment",
+                    "overallHealth": "needs-attention",
+                    "summary": "<p>Some gaps found</p>",
+                    "zoneChanges": "INVALID_NOT_A_LIST",  # will fail validation
+                },
+            ])
+            report = ValidationReport()
+            _, _, _, arch = read_and_validate_jsonl(Path(tmpdir), report)
+            assert arch is not None
+            assert arch["overallHealth"] == "needs-attention"
+            assert arch.get("_partial") is True
+            assert not report.has_errors  # degraded, not errored
+
+    def test_full_degradation_when_no_health_or_summary(self):
+        """If even overallHealth/summary are missing, fully degrade."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._make_jsonl(tmpdir, [
+                {"_type": "architecture_assessment", "zoneChanges": "INVALID"},
+            ])
+            report = ValidationReport()
+            _, _, _, arch = read_and_validate_jsonl(Path(tmpdir), report)
+            assert arch is not None
+            assert arch["overallHealth"] == "missing"
+            assert arch.get("_partial") is True
+
+    def test_consistency_warning_negative_health_positive_summary(self):
+        """Warn when overallHealth is bad but summary starts positively."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._make_jsonl(tmpdir, [
+                {
+                    "_type": "architecture_assessment",
+                    "overallHealth": "needs-attention",
+                    "summary": "Good shape overall, minor gaps.",
+                },
+            ])
+            report = ValidationReport()
+            read_and_validate_jsonl(Path(tmpdir), report)
+            assert any("inconsistency" in w["message"].lower() for w in report.warnings)
+
+    def test_no_consistency_warning_when_healthy(self):
+        """No consistency warning for healthy + positive summary."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._make_jsonl(tmpdir, [
+                {
+                    "_type": "architecture_assessment",
+                    "overallHealth": "healthy",
+                    "summary": "Good shape, all zones covered.",
+                },
+            ])
+            report = ValidationReport()
+            read_and_validate_jsonl(Path(tmpdir), report)
+            assert not any("inconsistency" in w["message"].lower() for w in report.warnings)

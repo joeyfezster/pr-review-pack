@@ -4,12 +4,21 @@ Self-contained interactive HTML review pack generator for pull requests. The rev
 
 The output is a Mission Control layout: a two-panel HTML file with sidebar navigation, zone mini-map, collapsible sections, and keyboard shortcuts. Open it in a browser, read the top-level summary, and drill into any section that needs deeper inspection.
 
+## Install
+
+```bash
+git clone https://github.com/joeyfezster/pr-review-pack.git ~/.claude/skills/pr-review-pack
+pip install pyyaml
+```
+
+That's it. The skill is now available as `/pr-review-pack` in any Claude Code session.
+
 ## Prerequisites
 
-- **Python 3.12+** with `pyyaml` (`pip install -r requirements.txt`)
+- **Python 3.12+** with `pyyaml` (installed above)
 - **Node.js** (for Playwright E2E tests: `npm install`)
 - **`gh` CLI** authenticated (`gh auth login`)
-- **Zone registry** in the target project (`.claude/zone-registry.yaml`)
+- **Zone registry** in the target project (`zone-registry.yaml` at root, or `.claude/zone-registry.yaml` as fallback)
 
 ## Zone Registry Setup
 
@@ -135,7 +144,7 @@ When all E2E tests pass, the validation banner is removed from the rendered pack
 ## Project Structure
 
 ```
-packages/pr-review-pack/
+pr-review-pack/
 ├── assets/
 │   ├── template.html             # Legacy single-page template
 │   └── template_v2.html          # Mission Control HTML template

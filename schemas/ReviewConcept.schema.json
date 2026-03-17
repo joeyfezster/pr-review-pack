@@ -1,0 +1,133 @@
+{
+  "$defs": {
+    "ConceptLocation": {
+      "description": "A specific code location referenced by a review concept.",
+      "properties": {
+        "file": {
+          "description": "File path relative to repo root",
+          "title": "File",
+          "type": "string"
+        },
+        "lines": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Line range, e.g. '42-58' or '12'. None for file-level findings.",
+          "title": "Lines"
+        },
+        "zones": {
+          "description": "Zone IDs from zone-registry.yaml that this file belongs to",
+          "items": {
+            "type": "string"
+          },
+          "title": "Zones",
+          "type": "array"
+        },
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Location-specific comment or code snippet context",
+          "title": "Comment"
+        }
+      },
+      "required": [
+        "file"
+      ],
+      "title": "ConceptLocation",
+      "type": "object"
+    },
+    "FindingCategory": {
+      "description": "Categories for review concept findings.",
+      "enum": [
+        "code-health",
+        "security",
+        "test-integrity",
+        "adversarial",
+        "architecture",
+        "cross-cutting"
+      ],
+      "title": "FindingCategory",
+      "type": "string"
+    },
+    "Grade": {
+      "description": "Valid review grades. N/A is explicitly excluded.",
+      "enum": [
+        "A",
+        "B+",
+        "B",
+        "C",
+        "F"
+      ],
+      "title": "Grade",
+      "type": "string"
+    }
+  },
+  "description": "A single concept-level finding from a review agent.\n\nEach agent writes one ReviewConcept per line to a .jsonl file.\nThe assembler transforms these into AgenticFinding objects for the\nreview pack.\n\nIdentity: The agent name is derived from the .jsonl filename\n(e.g., pr5-code-health-abc12345-def67890.jsonl \u2192 \"code-health\"),\nNOT stored in this model.",
+  "properties": {
+    "concept_id": {
+      "description": "Unique identifier within this agent's output. Convention: {category}-{seq}, e.g. 'security-1', 'code-health-3'",
+      "title": "Concept Id",
+      "type": "string"
+    },
+    "title": {
+      "description": "One-line summary of the finding",
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "grade": {
+      "$ref": "#/$defs/Grade",
+      "description": "Quality grade: A (clean), B+ (minor), B (warnings), C (issues), F (critical)"
+    },
+    "category": {
+      "$ref": "#/$defs/FindingCategory",
+      "description": "Finding category \u2014 should match the agent's paradigm"
+    },
+    "summary": {
+      "description": "Brief explanation of the finding (plain text)",
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    },
+    "detail_html": {
+      "description": "Full explanation with evidence (HTML-safe content)",
+      "minLength": 1,
+      "title": "Detail Html",
+      "type": "string"
+    },
+    "locations": {
+      "description": "Code locations relevant to this finding. At least one location required. Single-location concepts are valid.",
+      "items": {
+        "$ref": "#/$defs/ConceptLocation"
+      },
+      "minItems": 1,
+      "title": "Locations",
+      "type": "array"
+    }
+  },
+  "required": [
+    "concept_id",
+    "title",
+    "grade",
+    "category",
+    "summary",
+    "detail_html",
+    "locations"
+  ],
+  "title": "ReviewConcept",
+  "type": "object"
+}

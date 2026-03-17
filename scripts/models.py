@@ -68,6 +68,85 @@ class FindingCategory(str, Enum):
 
 
 # ---------------------------------------------------------------------------
+# FileReviewOutcome — exhaustive per-file coverage from each reviewer
+# ---------------------------------------------------------------------------
+
+
+class FileReviewOutcome(BaseModel):
+    """Per-file review outcome — one per diff file per reviewer.
+
+    Emitted BEFORE ReviewConcept objects in the .jsonl file. Provides
+    exhaustive per-file coverage for the File Coverage card. Every file
+    in the diff must have a FileReviewOutcome from every reviewer.
+
+    Distinguished from ReviewConcept by the `_type: "file_review"` field.
+    """
+
+    type_discriminator: Literal["file_review"] = Field(
+        alias="_type", default="file_review",
+    )
+    file: str = Field(
+        ...,
+        description="File path relative to repo root (must match a file in the diff)",
+    )
+    grade: Grade = Field(
+        ...,
+        description="Quality grade for this file from this reviewer's paradigm",
+    )
+    summary: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="1-2 sentence summary of the file's status from this paradigm",
+    )
+    reviewed: bool = Field(
+        default=True,
+        description="Whether the reviewer actually examined this file (false for skip/N/A)",
+    )
+
+
+# ---------------------------------------------------------------------------
+# ConceptUpdate — append-only corrections to previously-emitted concepts
+# ---------------------------------------------------------------------------
+
+
+class ConceptUpdate(BaseModel):
+    """Append-only update to a previously-emitted ReviewConcept.
+
+    When the orchestrator feeds back validation errors, the reviewer
+    appends ConceptUpdate lines to the .jsonl file. The assembler
+    resolves updates at read time: provided fields override the
+    previous object's fields (matched by concept_id).
+
+    Distinguished from ReviewConcept by the `_type: "concept_update"` field.
+    """
+
+    type_discriminator: Literal["concept_update"] = Field(
+        alias="_type", default="concept_update",
+    )
+    concept_id: str = Field(
+        ...,
+        description="concept_id of the ReviewConcept to update",
+    )
+    # All ReviewConcept fields are optional — only provided fields override
+    title: str | None = Field(default=None, max_length=200)
+    grade: Grade | None = None
+    category: FindingCategory | None = None
+    summary: str | None = None
+    detail_html: str | None = None
+    locations: list[ConceptLocation] | None = None
+
+    @field_validator("concept_id")
+    @classmethod
+    def validate_concept_id(cls, v: str) -> str:
+        if not _KEBAB_RE.match(v):
+            raise ValueError(
+                f"concept_id '{v}' must be lowercase-kebab-case"
+            )
+        return v
+
+
+# ---------------------------------------------------------------------------
 # Zone ID validation
 # ---------------------------------------------------------------------------
 
@@ -493,14 +572,17 @@ class ArchitectureAssessmentOutput(BaseModel):
 
 
 def export_json_schemas(output_dir: str) -> None:
-    """Generate .schema.json files for ReviewConcept and SemanticOutput."""
+    """Generate .schema.json files for all agent output models."""
     import json
     from pathlib import Path
 
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    for model_cls in (ReviewConcept, SemanticOutput):
+    for model_cls in (
+        ReviewConcept, SemanticOutput, FileReviewOutcome,
+        ConceptUpdate, ArchitectureAssessmentOutput,
+    ):
         schema = model_cls.model_json_schema()
         path = out / f"{model_cls.__name__}.schema.json"
         path.write_text(json.dumps(schema, indent=2) + "\n")
@@ -515,6 +597,9 @@ if __name__ == "__main__":
         # Default: print schemas to stdout
         import json
 
-        for model_cls in (ReviewConcept, SemanticOutput):
+        for model_cls in (
+            ReviewConcept, SemanticOutput, FileReviewOutcome,
+            ConceptUpdate, ArchitectureAssessmentOutput,
+        ):
             print(f"--- {model_cls.__name__} ---")
             print(json.dumps(model_cls.model_json_schema(), indent=2))

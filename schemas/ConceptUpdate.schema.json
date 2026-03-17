@@ -1,0 +1,171 @@
+{
+  "$defs": {
+    "ConceptLocation": {
+      "description": "A specific code location referenced by a review concept.",
+      "properties": {
+        "file": {
+          "description": "File path relative to repo root",
+          "title": "File",
+          "type": "string"
+        },
+        "lines": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Line range, e.g. '42-58' or '12'. None for file-level findings.",
+          "title": "Lines"
+        },
+        "zones": {
+          "description": "Zone IDs from zone-registry.yaml that this file belongs to",
+          "items": {
+            "type": "string"
+          },
+          "title": "Zones",
+          "type": "array"
+        },
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Location-specific comment or code snippet context",
+          "title": "Comment"
+        }
+      },
+      "required": [
+        "file"
+      ],
+      "title": "ConceptLocation",
+      "type": "object"
+    },
+    "FindingCategory": {
+      "description": "Categories for review concept findings.",
+      "enum": [
+        "code-health",
+        "security",
+        "test-integrity",
+        "adversarial",
+        "architecture",
+        "cross-cutting"
+      ],
+      "title": "FindingCategory",
+      "type": "string"
+    },
+    "Grade": {
+      "description": "Valid review grades. N/A is explicitly excluded.",
+      "enum": [
+        "A",
+        "B+",
+        "B",
+        "C",
+        "F"
+      ],
+      "title": "Grade",
+      "type": "string"
+    }
+  },
+  "description": "Append-only update to a previously-emitted ReviewConcept.\n\nWhen the orchestrator feeds back validation errors, the reviewer\nappends ConceptUpdate lines to the .jsonl file. The assembler\nresolves updates at read time: provided fields override the\nprevious object's fields (matched by concept_id).\n\nDistinguished from ReviewConcept by the `_type: \"concept_update\"` field.",
+  "properties": {
+    "_type": {
+      "const": "concept_update",
+      "default": "concept_update",
+      "title": "Type",
+      "type": "string"
+    },
+    "concept_id": {
+      "description": "concept_id of the ReviewConcept to update",
+      "title": "Concept Id",
+      "type": "string"
+    },
+    "title": {
+      "anyOf": [
+        {
+          "maxLength": 200,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Title"
+    },
+    "grade": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Grade"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "category": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FindingCategory"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Summary"
+    },
+    "detail_html": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Detail Html"
+    },
+    "locations": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/ConceptLocation"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Locations"
+    }
+  },
+  "required": [
+    "concept_id"
+  ],
+  "title": "ConceptUpdate",
+  "type": "object"
+}

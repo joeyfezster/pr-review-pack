@@ -336,12 +336,76 @@
   [data-theme="dark"] .arch-issue-pill.warning { background: #713f12; color: #fde047; }
   [data-theme="dark"] .arch-issue-pill.failing { background: #7f1d1d; color: #fca5a5; }
 
+  /* ── Key Findings card ── */
+  .kf-heatbar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 12px; }
+  .kf-heatbar-seg { min-width: 4px; }
+  .kf-heatbar-seg.f { background: var(--red); }
+  .kf-heatbar-seg.c { background: var(--orange); }
+  .kf-heatbar-seg.b { background: var(--yellow); }
+  .kf-heatbar-seg.a { background: var(--green); }
+
+  .kf-heatbar-legend { display: flex; gap: 12px; margin: 6px 0 12px; font-size: 10px; color: var(--text-muted); }
+  .legend-item { display: inline-flex; align-items: center; gap: 3px; }
+  .legend-item .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+  .legend-item .swatch.f { background: var(--red); }
+  .legend-item .swatch.c { background: var(--orange); }
+  .legend-item .swatch.b { background: var(--yellow); }
+  .legend-item .swatch.a { background: var(--green); }
+
+  .kf-agent-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
+  .kf-agent-pill { display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; font-family: var(--mono); cursor: pointer; border: 1px solid var(--border); background: var(--gray-bg); color: var(--text-secondary); transition: all 0.15s; user-select: none; }
+  .kf-agent-pill:hover { border-color: var(--blue); color: var(--blue); }
+  .kf-agent-pill.active { background: var(--blue); color: white; border-color: var(--blue); }
+  [data-theme="dark"] .kf-agent-pill { background: #1f2937; border-color: #374151; color: #9ca3af; }
+  [data-theme="dark"] .kf-agent-pill:hover { border-color: #60a5fa; color: #60a5fa; }
+  [data-theme="dark"] .kf-agent-pill.active { background: #2563eb; color: white; border-color: #2563eb; }
+
+  .kf-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .kf-table th { text-align: left; padding: 6px 10px; font-size: 10px; }
+  .kf-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .kf-row { cursor: pointer; transition: background 0.15s; }
+  .kf-row:hover { background: var(--gray-bg); }
+  .kf-row.zone-hidden { display: none; }
+  .kf-row.agent-hidden { display: none; }
+  .kf-detail-row { display: none; }
+  .kf-detail-row.open { display: table-row; }
+  .kf-detail-row td { background: #fafbfc; padding: 12px 20px; font-size: 12px; border-bottom: 1px solid var(--border); }
+  [data-theme="dark"] .kf-detail-row td { background: #1a2332; }
+
+  .kf-corroboration { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 10px; font-size: 10px; font-weight: 600; background: var(--blue-bg); color: #1d4ed8; }
+  [data-theme="dark"] .kf-corroboration { background: #1e3a5f; color: #93c5fd; }
+  .kf-corroboration-1 { background: transparent; color: var(--text-muted); }
+  [data-theme="dark"] .kf-corroboration-1 { background: transparent; color: #6b7280; }
+
+  .kf-agent-tags { display: inline-flex; gap: 2px; }
+  .kf-agent-tag { display: inline-block; padding: 1px 4px; border-radius: 3px; font-size: 9px; font-weight: 700; font-family: var(--mono); background: var(--gray-bg); color: var(--text-muted); cursor: help; }
+  [data-theme="dark"] .kf-agent-tag { background: #374151; color: #9ca3af; }
+
+  .kf-a-toggle { display: flex; align-items: center; gap: 6px; padding: 8px 0; cursor: pointer; user-select: none; font-size: 11px; font-weight: 600; color: var(--text-muted); border-top: 1px solid var(--border); margin-top: 4px; }
+  .kf-a-toggle:hover { color: var(--text-secondary); }
+  .kf-a-toggle .kf-a-chevron { transition: transform 0.2s; display: inline-block; font-size: 10px; }
+  .kf-a-toggle.collapsed .kf-a-chevron { transform: rotate(-90deg); }
+  .kf-a-rows { }
+  .kf-a-rows.collapsed { display: none; }
+
+  .kf-no-match { display: none; padding: 16px; text-align: center; color: var(--text-muted); font-size: 13px; font-style: italic; }
+  .kf-no-match.visible { display: block; }
+
+  .kf-detail-files { margin-top: 8px; }
+  .kf-detail-files code { font-size: 11px; }
+  .kf-detail-summary { margin-bottom: 8px; line-height: 1.5; }
+  .kf-detail-agents { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+
   /* ── Code Review table (per-agent columns) ── */
-  .cr-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .cr-table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
   .cr-table th { text-align: center; padding: 6px 8px; font-size: 10px; }
   .cr-table th:first-child { text-align: left; }
   .cr-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .cr-table td:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cr-table td:first-child code { overflow: hidden; text-overflow: ellipsis; display: block; }
   .cr-table .cr-agent-col { width: 36px; text-align: center; }
+  .cr-table .cr-stats-col { width: 70px; text-align: center; }
+  .cr-table .cr-zone-col { width: 90px; }
   .cr-file-row { cursor: pointer; transition: background 0.15s; }
   .cr-file-row:hover { background: var(--gray-bg); }
   .cr-detail-row { display: none; }
@@ -981,14 +1045,25 @@
         </div>
       </div>
 
-      <!-- Section: Code Review -->
-      <div class="section" id="section-code-review">
+      <!-- Section: Key Findings -->
+      <div class="section" id="section-key-findings">
         <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
-          <h2>Code Review <!-- INJECT: adversarial review method badge --></h2>
+          <h2>Key Findings <!-- INJECT: key findings method badge --></h2>
           <span class="chevron">&#x25BC;</span>
         </div>
         <div class="section-body">
-          <div id="cr-no-match" class="adv-no-match">No review findings in this zone.</div>
+          <!-- INJECT: key findings section -->
+        </div>
+      </div>
+
+      <!-- Section: File Coverage -->
+      <div class="section" id="section-file-coverage">
+        <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+          <h2>File Coverage <!-- INJECT: adversarial review method badge --></h2>
+          <span class="chevron">&#x25BC;</span>
+        </div>
+        <div class="section-body">
+          <div id="cr-no-match" class="adv-no-match">No files in this zone.</div>
           <div id="cr-file-list">
             <!-- INJECT: code review file list -->
           </div>
@@ -1261,14 +1336,27 @@ function highlightZones(activeZones) {
   if (activeLabel) activeLabel.textContent = 'Active: ' + activeZones.join(', ');
   document.querySelectorAll('.sb-clear-filter').forEach(function(btn) { btn.classList.add('visible'); });
 
-  // 6. Filter decisions
+  // 6. Filter Key Findings
+  document.querySelectorAll('.kf-row').forEach(function(row) {
+    var rowZones = (row.dataset.zones || '').split(' ');
+    var match = rowZones.some(function(z) { return activeZones.includes(z); });
+    row.classList.toggle('zone-hidden', !match);
+    var detail = row.nextElementSibling;
+    if (detail && detail.classList.contains('kf-detail-row')) {
+      if (!match) { detail.classList.remove('open'); detail.classList.add('zone-hidden'); }
+      else { detail.classList.remove('zone-hidden'); }
+    }
+  });
+  updateKFNoMatch();
+
+  // 7. Filter decisions
   document.querySelectorAll('.decision-card').forEach(card => {
     const cardZones = (card.dataset.zones || '').split(' ');
     const match = cardZones.some(z => activeZones.includes(z));
     card.style.display = match ? '' : 'none';
   });
 
-  // 7. Sync mini architecture diagram
+  // 8. Sync mini architecture diagram
   syncMiniDiagram();
 }
 
@@ -1295,6 +1383,9 @@ function resetZones() {
   document.querySelectorAll('.sb-clear-filter').forEach(function(btn) { btn.classList.remove('visible'); });
   // Reset decision cards
   document.querySelectorAll('.decision-card').forEach(card => card.style.display = '');
+  // Reset Key Findings
+  document.querySelectorAll('.kf-row, .kf-detail-row').forEach(function(r) { r.classList.remove('zone-hidden'); });
+  if (typeof updateKFNoMatch === 'function') updateKFNoMatch();
   // Sync mini diagram
   syncMiniDiagram();
 }
@@ -1933,6 +2024,66 @@ function renderInlineDiff(item, fileData, view) {
   else renderSplitView(container);
   currentFileData = savedFileData;
   currentFilePath = savedFilePath;
+}
+
+// ===============================================
+// Key Findings handlers
+// ===============================================
+function toggleKFDetail(row) {
+  var detail = row.nextElementSibling;
+  if (detail && detail.classList.contains('kf-detail-row')) {
+    detail.classList.toggle('open');
+  }
+}
+
+function toggleKFAGrade() {
+  var toggle = document.getElementById('kf-a-toggle');
+  var rows = document.getElementById('kf-a-rows');
+  if (toggle && rows) {
+    toggle.classList.toggle('collapsed');
+    rows.classList.toggle('collapsed');
+  }
+}
+
+let currentKFAgent = null;
+
+function filterKFByAgent(pill, agentAbbrev) {
+  var pills = document.querySelectorAll('.kf-agent-pill');
+  if (currentKFAgent === agentAbbrev) {
+    // Deselect
+    currentKFAgent = null;
+    pills.forEach(function(p) { p.classList.remove('active'); });
+    document.querySelectorAll('.kf-row, .kf-detail-row').forEach(function(r) {
+      r.classList.remove('agent-hidden');
+    });
+  } else {
+    currentKFAgent = agentAbbrev;
+    pills.forEach(function(p) {
+      p.classList.toggle('active', p.dataset.agent === agentAbbrev);
+    });
+    document.querySelectorAll('.kf-row').forEach(function(r) {
+      var agents = (r.dataset.agents || '').split(' ');
+      var match = agents.includes(agentAbbrev);
+      r.classList.toggle('agent-hidden', !match);
+      var detail = r.nextElementSibling;
+      if (detail && detail.classList.contains('kf-detail-row')) {
+        if (!match) {
+          detail.classList.remove('open');
+          detail.classList.add('agent-hidden');
+        } else {
+          detail.classList.remove('agent-hidden');
+        }
+      }
+    });
+  }
+  updateKFNoMatch();
+}
+
+function updateKFNoMatch() {
+  var noMatch = document.getElementById('kf-no-match');
+  if (!noMatch) return;
+  var anyVisible = document.querySelector('.kf-row:not(.zone-hidden):not(.agent-hidden)');
+  noMatch.classList.toggle('visible', !anyVisible);
 }
 
 // ===============================================

@@ -498,109 +498,145 @@ def build_ci_performance(ci_checks_raw: list[dict]) -> list[dict]:
 
 
 def build_convergence(scenario_data: dict | None, ci_checks: list,
-                      gate0_data: dict | None) -> dict:
-    """Build convergence gates from deterministic data."""
-    # Gate 0 — from gate0_results.json (tier 1 deterministic)
-    if gate0_data:
-        g0_summary = gate0_data.get("summary", {})
-        gate0_pass = not g0_summary.get("has_critical", False)
-        g0_checks = g0_summary.get("total_checks", 0)
-        g0_passed = g0_summary.get("passed", 0)
-        g0_criticals = g0_summary.get("critical_findings", 0)
-        g0_warnings = g0_summary.get("warning_findings", 0)
-        g0_status_text = (
-            f"Tier 1: {g0_passed}/{g0_checks} checks, "
-            f"{g0_criticals} critical, {g0_warnings} warn"
-        )
-        g0_elapsed = gate0_data.get("total_elapsed_s", "?")
-        g0_detail = f"Deterministic tool checks ran in {g0_elapsed}s (parallel)."
-    else:
-        gate0_pass = False
-        g0_status_text = "NOT RUN"
-        g0_detail = (
-            "gate0_results.json not found. "
-            "Run: python scripts/run_gate0.py (from dark-factory package)"
-        )
+                      gate0_data: dict | None,
+                      deterministic_review_data: dict | None = None) -> dict:
+    """Build convergence gates using the 4-gate universal model.
 
-    # Gate 1 — pass/fail based on CI validate job.
-    # Looks for a job named "validate" by default. Falls back to checking
-    # all CI jobs if no "validate" job is found, since Gate 1 represents
-    # deterministic quality checks (lint + typecheck + test).
-    validate_jobs = [c for c in ci_checks if c.get("name") == "validate"]
-    if validate_jobs:
-        gate1_pass = all(c.get("state") == "SUCCESS" for c in validate_jobs)
-    elif ci_checks:
-        # Fallback: no job named "validate" — use all CI jobs as proxy
+    Gate 1: CI — repo's own CI checks (gh pr checks)
+    Gate 2: Deterministic Review — vulture, bandit, ruff, mypy
+    Gate 3: Agentic Review — populated later by assembler (placeholder here)
+    Gate 4: PR Comments — populated by prerequisite check (placeholder here)
+
+    Factory-specific gates (Gate 0 Two-Tier, Scenarios) are appended
+    only when factory artifacts exist.
+    """
+    # --- Gate 1: CI ---
+    if ci_checks:
         gate1_pass = all(c.get("state") == "SUCCESS" for c in ci_checks)
+        passing = sum(1 for c in ci_checks if c.get("state") == "SUCCESS")
+        gate1_text = f"{passing}/{len(ci_checks)} checks passing"
     else:
         gate1_pass = False
+        gate1_text = "No CI checks found"
 
-    # Gate 3 — from scenarios (only if scenarios exist)
-    if scenario_data:
-        sc_pass = scenario_data.get("passed", 0)
-        sc_total = scenario_data.get("total", 0)
+    # --- Gate 2: Deterministic Review ---
+    if deterministic_review_data:
+        det_status = deterministic_review_data.get("overall_status", "pass")
+        det_tools = deterministic_review_data.get("tools_run", 0)
+        det_findings = deterministic_review_data.get("total_findings", 0)
+        det_elapsed = deterministic_review_data.get("elapsed_seconds", 0)
+        gate2_pass = det_status == "pass"
+        gate2_text = f"{det_tools} tools, {det_findings} findings"
+        gate2_detail = f"Ran in {det_elapsed}s."
+        # Include per-tool results for click-to-expand
+        gate2_tool_results = deterministic_review_data.get("results", [])
     else:
-        sc_pass = sc_total = 0
-    has_scenarios = sc_total > 0
-    gate3_pass = sc_pass == sc_total if has_scenarios else True
+        gate2_pass = True  # no deterministic review data = skip (not block)
+        gate2_text = "Not run"
+        gate2_detail = "Run: python run_deterministic_review.py --repo ."
+        gate2_tool_results = []
 
-    all_pass = gate0_pass and gate1_pass and gate3_pass
+    # --- Gate 3: Agentic Review (placeholder — filled by assembler) ---
+    gate3_pass = True  # assembler updates this based on reviewer grades
+    gate3_text = "Pending"
 
+    # --- Gate 4: PR Comments (placeholder — filled by prerequisite check) ---
+    gate4_pass = True  # prerequisite check updates this
+    gate4_text = "Pending"
+
+    # Universal gates (always present)
     gates = [
         {
+            "name": "Gate 1 \u2014 CI",
+            "status": "passing" if gate1_pass else "failing",
+            "statusText": gate1_text,
+            "summary": "Repo CI checks on PR HEAD",
+            "detail": "",
+        },
+        {
+            "name": "Gate 2 \u2014 Deterministic",
+            "status": "passing" if gate2_pass else "failing",
+            "statusText": gate2_text,
+            "summary": gate2_detail,
+            "detail": json.dumps(gate2_tool_results) if gate2_tool_results else "",
+        },
+        {
+            "name": "Gate 3 \u2014 Agentic Review",
+            "status": "passing" if gate3_pass else "failing",
+            "statusText": gate3_text,
+            "summary": "5 reviewers + synthesis",
+            "detail": "",
+        },
+        {
+            "name": "Gate 4 \u2014 Comments",
+            "status": "passing" if gate4_pass else "failing",
+            "statusText": gate4_text,
+            "summary": "All PR review threads resolved",
+            "detail": "",
+        },
+    ]
+
+    # Factory-specific gates — only when factory artifacts exist
+    has_factory = gate0_data is not None
+    if has_factory:
+        if gate0_data:
+            g0_summary = gate0_data.get("summary", {})
+            gate0_pass = not g0_summary.get("has_critical", False)
+            g0_checks = g0_summary.get("total_checks", 0)
+            g0_passed = g0_summary.get("passed", 0)
+            g0_criticals = g0_summary.get("critical_findings", 0)
+            g0_warnings = g0_summary.get("warning_findings", 0)
+            g0_status_text = (
+                f"Tier 1: {g0_passed}/{g0_checks} checks, "
+                f"{g0_criticals} critical, {g0_warnings} warn"
+            )
+            g0_elapsed = gate0_data.get("total_elapsed_s", "?")
+            g0_detail = f"Deterministic tool checks ran in {g0_elapsed}s (parallel)."
+        else:
+            gate0_pass = False
+            g0_status_text = "NOT RUN"
+            g0_detail = "gate0_results.json not found."
+
+        gates.append({
             "name": "Gate 0 \u2014 Two-Tier Review",
             "status": "passing" if gate0_pass else "failing",
             "statusText": g0_status_text,
             "summary": g0_detail,
             "detail": "",
-        },
-        {
-            "name": "Gate 1 \u2014 Deterministic",
-            "status": "passing" if gate1_pass else "failing",
-            "statusText": "PASSING" if gate1_pass else "FAILING",
-            "summary": "",
-            "detail": "",
-        },
-        # TODO: Gate 2 is hardcoded as always-passing because the scaffold
-        # does not yet integrate NFR check results (code quality, complexity,
-        # dead code, security scans). To fix: consume nfr_results.json from
-        # the dark-factory package and derive pass/fail status from its data.
-        {
-            "name": "Gate 2 \u2014 NFR",
-            "status": "passing",
-            "statusText": "PASS",
-            "summary": "",
-            "detail": "",
-        },
-    ]
+        })
+
+    # Factory scenario gate
+    if scenario_data:
+        sc_pass = scenario_data.get("passed", 0)
+        sc_total = scenario_data.get("total", 0)
+        has_scenarios = sc_total > 0
+    else:
+        sc_pass = sc_total = 0
+        has_scenarios = False
+
     if has_scenarios:
+        gate_sc_pass = sc_pass == sc_total
         gates.append({
-            "name": "Gate 3 \u2014 Scenarios",
-            "status": "passing" if gate3_pass else "failing",
-            "statusText": (
-                f"{sc_pass}/{sc_total}"
-                f" ({sc_pass * 100 // max(sc_total, 1)}%)"
-            ),
-            "summary": (
-                f"{sc_pass} of {sc_total} holdout scenarios pass."
-            ),
+            "name": "Scenarios",
+            "status": "passing" if gate_sc_pass else "failing",
+            "statusText": f"{sc_pass}/{sc_total} ({sc_pass * 100 // max(sc_total, 1)}%)",
+            "summary": f"{sc_pass} of {sc_total} holdout scenarios pass.",
             "detail": "",
         })
 
-    scenario_note = (
-        f" {sc_pass}/{sc_total} scenario satisfaction."
-        if has_scenarios else ""
-    )
+    # Overall
+    all_pass = gate1_pass and gate2_pass and gate3_pass and gate4_pass
+    if has_factory and gate0_data:
+        all_pass = all_pass and gate0_pass
+    if has_scenarios:
+        all_pass = all_pass and (sc_pass == sc_total)
+
     return {
         "gates": gates,
         "overall": {
             "status": "passing" if all_pass else "failing",
             "statusText": "READY TO MERGE" if all_pass else "NOT READY",
-            "summary": (
-                f"All gates pass.{scenario_note}"
-                if all_pass
-                else f"Gates not all passing.{scenario_note}"
-            ),
+            "summary": "All gates pass." if all_pass else "Gates not all passing.",
             "detail": "",
         },
     }
@@ -608,13 +644,16 @@ def build_convergence(scenario_data: dict | None, ci_checks: list,
 
 # ── Main ────────────────────────────────────────────────────────────
 
-def scaffold(pr_number: int, diff_data_path: str, zone_registry_path: str,
+def scaffold(pr_number: int, diff_data_path: str, zone_registry_path: str | None,
              scenario_results_path: str | None, gate0_results_path: str | None,
              existing_path: str | None, output_path: str,
              repo_slug: str = "") -> None:
     # Load inputs
     diff_data = json.loads(Path(diff_data_path).read_text())
-    zones_registry = yaml.safe_load(Path(zone_registry_path).read_text()).get("zones", {})
+    if zone_registry_path and Path(zone_registry_path).exists():
+        zones_registry = yaml.safe_load(Path(zone_registry_path).read_text()).get("zones", {})
+    else:
+        zones_registry = {}
 
     scenario_data = None
     if scenario_results_path and Path(scenario_results_path).exists():

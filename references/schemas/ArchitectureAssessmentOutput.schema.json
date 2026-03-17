@@ -1,0 +1,300 @@
+{
+  "$defs": {
+    "CouplingWarning": {
+      "properties": {
+        "fromZone": {
+          "title": "Fromzone",
+          "type": "string"
+        },
+        "toZone": {
+          "title": "Tozone",
+          "type": "string"
+        },
+        "files": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Files",
+          "type": "array"
+        },
+        "evidence": {
+          "title": "Evidence",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fromZone",
+        "toZone",
+        "files",
+        "evidence"
+      ],
+      "title": "CouplingWarning",
+      "type": "object"
+    },
+    "DecisionVerification": {
+      "properties": {
+        "decisionNumber": {
+          "title": "Decisionnumber",
+          "type": "integer"
+        },
+        "claimedZones": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claimedzones",
+          "type": "array"
+        },
+        "verified": {
+          "title": "Verified",
+          "type": "boolean"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "decisionNumber",
+        "claimedZones",
+        "verified",
+        "reason"
+      ],
+      "title": "DecisionVerification",
+      "type": "object"
+    },
+    "DocRecommendation": {
+      "properties": {
+        "type": {
+          "enum": [
+            "update_needed",
+            "new_doc_suggested",
+            "stale_reference"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "path",
+        "reason"
+      ],
+      "title": "DocRecommendation",
+      "type": "object"
+    },
+    "RegistryWarning": {
+      "properties": {
+        "zone": {
+          "title": "Zone",
+          "type": "string"
+        },
+        "warning": {
+          "title": "Warning",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "CRITICAL",
+            "WARNING",
+            "NIT"
+          ],
+          "title": "Severity",
+          "type": "string"
+        }
+      },
+      "required": [
+        "zone",
+        "warning",
+        "severity"
+      ],
+      "title": "RegistryWarning",
+      "type": "object"
+    },
+    "UnzonedFileEntry": {
+      "description": "A file that matches no zone pattern.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "suggestedZone": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Suggestedzone"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "reason"
+      ],
+      "title": "UnzonedFileEntry",
+      "type": "object"
+    },
+    "ZoneChangeEntry": {
+      "description": "A structural zone change detected in the PR.",
+      "properties": {
+        "type": {
+          "enum": [
+            "new_zone_recommended",
+            "zone_split",
+            "zone_merge",
+            "zone_renamed",
+            "zone_removed"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "zone": {
+          "title": "Zone",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "suggestedPaths": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Suggestedpaths"
+        }
+      },
+      "required": [
+        "type",
+        "zone",
+        "reason"
+      ],
+      "title": "ZoneChangeEntry",
+      "type": "object"
+    }
+  },
+  "description": "Architecture assessment output from the architecture reviewer.\n\nWritten as the last line in the architecture reviewer's .jsonl file,\ndistinguished by `_type: \"architecture_assessment\"`.\nMaps to the ArchitectureAssessment interface in data-schema.md.",
+  "properties": {
+    "_type": {
+      "const": "architecture_assessment",
+      "default": "architecture_assessment",
+      "title": "Type",
+      "type": "string"
+    },
+    "baselineDiagram": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Baselinediagram"
+    },
+    "updateDiagram": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Updatediagram"
+    },
+    "diagramNarrative": {
+      "default": "",
+      "title": "Diagramnarrative",
+      "type": "string"
+    },
+    "unzonedFiles": {
+      "items": {
+        "$ref": "#/$defs/UnzonedFileEntry"
+      },
+      "title": "Unzonedfiles",
+      "type": "array"
+    },
+    "zoneChanges": {
+      "items": {
+        "$ref": "#/$defs/ZoneChangeEntry"
+      },
+      "title": "Zonechanges",
+      "type": "array"
+    },
+    "registryWarnings": {
+      "items": {
+        "$ref": "#/$defs/RegistryWarning"
+      },
+      "title": "Registrywarnings",
+      "type": "array"
+    },
+    "couplingWarnings": {
+      "items": {
+        "$ref": "#/$defs/CouplingWarning"
+      },
+      "title": "Couplingwarnings",
+      "type": "array"
+    },
+    "docRecommendations": {
+      "items": {
+        "$ref": "#/$defs/DocRecommendation"
+      },
+      "title": "Docrecommendations",
+      "type": "array"
+    },
+    "decisionZoneVerification": {
+      "items": {
+        "$ref": "#/$defs/DecisionVerification"
+      },
+      "title": "Decisionzoneverification",
+      "type": "array"
+    },
+    "overallHealth": {
+      "enum": [
+        "healthy",
+        "needs-attention",
+        "action-required"
+      ],
+      "title": "Overallhealth",
+      "type": "string"
+    },
+    "summary": {
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "overallHealth",
+    "summary"
+  ],
+  "title": "ArchitectureAssessmentOutput",
+  "type": "object"
+}

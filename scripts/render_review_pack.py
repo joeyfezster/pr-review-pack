@@ -1350,8 +1350,14 @@ def render_sidebar_section_nav(data: dict, has_scenarios: bool = True) -> str:
         "section-arch-assessment", "Arch Assessment",
         aa_icon_map.get(aa_health, _nav_icon("warn")),
     ))
+    # Key Findings nav icon
+    kf_icon_type, kf_icon_val = render_key_findings_nav(data)
     sections.append((
-        "section-code-review", "Code Review",
+        "section-key-findings", "Key Findings",
+        _nav_icon(kf_icon_type, kf_icon_val),
+    ))
+    sections.append((
+        "section-file-coverage", "File Coverage",
         _nav_icon("count-fail", cf_count) if cf_count > 0
         else _nav_icon("pass") if findings else _nav_icon("empty"),
     ))
@@ -1417,6 +1423,330 @@ def render_review_gates_cards(convergence: dict, has_scenarios: bool = True) -> 
     return "\n          ".join(cards)
 
 
+# ── Agent paradigm descriptions (for tooltips) ──────────────────────
+AGENT_PARADIGM_DESC = {
+    "CH": "Code Health: code quality, complexity, dead code",
+    "SE": "Security: vulnerabilities beyond bandit",
+    "TI": "Test Integrity: test quality beyond AST scanner",
+    "AD": "Adversarial: gaming, spec violations, architecture",
+    "AR": "Architecture: zone coverage, coupling, structural changes",
+    "MA": "Main Agent: primary review agent",
+}
+
+AGENT_SHORT_NAME = {
+    "CH": "Code Health",
+    "SE": "Security",
+    "TI": "Test Integrity",
+    "AD": "Adversarial",
+    "AR": "Architecture",
+    "MA": "Main Agent",
+}
+
+
+def _detect_corroboration(findings: list[dict]) -> dict[int, list[int]]:
+    """Detect corroborated findings across agents.
+
+    Two findings are corroborated if they share overlapping files AND
+    have similar titles (case-insensitive substring match).
+
+    Returns mapping: finding_index -> list of corroborating finding indices.
+    """
+    corroboration: dict[int, list[int]] = {}
+    for i, f1 in enumerate(findings):
+        corroboration[i] = []
+        f1_files = set((f1.get("file") or "").split())
+        f1_title = (f1.get("notable") or f1.get("title") or "").lower()
+        f1_agent = f1.get("agent", "")
+        for j, f2 in enumerate(findings):
+            if i == j:
+                continue
+            if f2.get("agent", "") == f1_agent:
+                continue
+            f2_files = set((f2.get("file") or "").split())
+            f2_title = (f2.get("notable") or f2.get("title") or "").lower()
+            # Overlapping files check
+            if not f1_files.intersection(f2_files):
+                continue
+            # Similar title check: one title contains a significant portion of the other
+            if len(f1_title) > 5 and len(f2_title) > 5:
+                shorter = f1_title if len(f1_title) <= len(f2_title) else f2_title
+                longer = f2_title if len(f1_title) <= len(f2_title) else f1_title
+                # Check if first few meaningful words overlap
+                words1 = set(shorter.split()[:4])
+                words2 = set(longer.split()[:4])
+                if len(words1.intersection(words2)) >= 2:
+                    corroboration[i].append(j)
+    return corroboration
+
+
+def render_key_findings(data: dict) -> str:
+    """Render the Key Findings section (Proposal B: Corroboration Lens).
+
+    Groups findings by severity (F -> C -> B -> B+ -> A).
+    Within same severity, sorted by corroboration count (descending).
+    A-grade findings collapsed behind toggle by default.
+    """
+    review = data.get("agenticReview", {})
+    findings = review.get("findings", [])
+    if not findings:
+        return '<p style="color:var(--text-muted);font-size:13px">No review findings.</p>'
+
+    zone_categories = {
+        z["id"]: z.get("category", "product")
+        for z in data.get("architecture", {}).get("zones", [])
+    }
+
+    # Detect corroboration
+    corroboration = _detect_corroboration(findings)
+
+    # Sort: severity first (F=0, C=1, B=2, B+=3, A=4), then corroboration desc
+    indexed = list(enumerate(findings))
+    indexed.sort(
+        key=lambda pair: (
+            GRADE_SORT.get(pair[1].get("grade", "N/A"), 5),
+            -len(corroboration.get(pair[0], [])),
+        )
+    )
+
+    # Grade distribution for heatbar
+    grade_counts: dict[str, int] = {}
+    for f in findings:
+        g = f.get("grade", "N/A")
+        grade_counts[g] = grade_counts.get(g, 0) + 1
+
+    total = len(findings)
+    parts: list[str] = []
+
+    # Severity heatbar
+    heatbar = '<div class="kf-heatbar">'
+    for grade_key in ("F", "C", "B", "B+", "A"):
+        count = grade_counts.get(grade_key, 0)
+        if count > 0:
+            pct = max(count / total * 100, 2)
+            css = GRADE_CLASS.get(grade_key, "na")
+            heatbar += f'<div class="kf-heatbar-seg {css}" style="width:{pct:.1f}%"></div>'
+    heatbar += "</div>"
+    # Heatbar legend
+    heatbar += (
+        '<div class="kf-heatbar-legend">'
+        '<span class="legend-item"><span class="swatch f"></span> F</span>'
+        '<span class="legend-item"><span class="swatch c"></span> C</span>'
+        '<span class="legend-item"><span class="swatch b"></span> B</span>'
+        '<span class="legend-item"><span class="swatch b"></span> B+</span>'
+        '<span class="legend-item"><span class="swatch a"></span> A</span>'
+        "</div>"
+    )
+    parts.append(heatbar)
+
+    # Agent filter pills
+    seen_agents: dict[str, str] = {}  # abbrev -> agent name
+    for f in findings:
+        agent_name = f.get("agent", "") or "main"
+        abbrev = AGENT_ABBREV.get(
+            agent_name, agent_name[:2].upper() if agent_name else "?"
+        )
+        if abbrev not in seen_agents:
+            seen_agents[abbrev] = agent_name
+    pills = '<div class="kf-agent-pills">'
+    for abbrev, agent_name in seen_agents.items():
+        tooltip = AGENT_PARADIGM_DESC.get(abbrev, agent_name)
+        short_name = AGENT_SHORT_NAME.get(abbrev, agent_name)
+        pills += (
+            f'<span class="kf-agent-pill" data-agent="{esc(abbrev)}" '
+            f'title="{esc(tooltip)}" '
+            f"onclick=\"filterKFByAgent(this, '{esc(abbrev)}')\">"
+            f"{esc(abbrev)} {esc(short_name)}</span>"
+        )
+    pills += "</div>"
+    parts.append(pills)
+
+    # No match message
+    parts.append(
+        '<div id="kf-no-match" class="kf-no-match">'
+        "No findings match the current filter.</div>"
+    )
+
+    # Build table
+    parts.append('<table class="kf-table">')
+    parts.append(
+        "<thead><tr>"
+        "<th>Grade</th>"
+        "<th>Finding</th>"
+        "<th>Agent</th>"
+        "<th>Zone</th>"
+        "<th>Corr.</th>"
+        "</tr></thead>"
+    )
+
+    # Separate A-grade findings
+    non_a_rows: list[str] = []
+    a_rows: list[str] = []
+
+    for orig_idx, f in indexed:
+        grade = f.get("grade", "N/A")
+        grade_css = GRADE_CLASS.get(grade, "na")
+        agent_name = f.get("agent", "") or "main"
+        abbrev = AGENT_ABBREV.get(
+            agent_name, agent_name[:2].upper() if agent_name else "?"
+        )
+        zones = f.get("zones", "")
+        zones_list = zones.split() if zones else []
+        notable = f.get("notable", "") or f.get("title", "")
+        file_path = f.get("file", "")
+        detail_text = f.get("detail", "") or notable
+        corr_indices = corroboration.get(orig_idx, [])
+        corr_count = len(corr_indices) + 1  # Including self
+
+        # Agents involved: self + corroborating
+        agent_abbrevs = [abbrev]
+        for ci in corr_indices:
+            c_agent = findings[ci].get("agent", "") or "main"
+            c_abbrev = AGENT_ABBREV.get(
+                c_agent, c_agent[:2].upper() if c_agent else "?"
+            )
+            if c_abbrev not in agent_abbrevs:
+                agent_abbrevs.append(c_abbrev)
+
+        # Zone tags
+        zone_html = ""
+        if zones_list:
+            zone_html = " ".join(
+                _zone_tag(z, zone_categories) for z in zones_list
+            )
+
+        # Agent tags with tooltips
+        agent_tags = ""
+        for a in agent_abbrevs:
+            a_tooltip = AGENT_PARADIGM_DESC.get(a, a)
+            agent_tags += (
+                f'<span class="kf-agent-tag" title="{esc(a_tooltip)}">'
+                f"{esc(a)}</span>"
+            )
+
+        # Corroboration badge
+        if corr_count > 1:
+            corr_html = (
+                f'<span class="kf-corroboration">'
+                f"{corr_count}x</span>"
+            )
+        else:
+            corr_html = (
+                '<span class="kf-corroboration kf-corroboration-1">'
+                "1x</span>"
+            )
+
+        zones_data = " ".join(zones_list)
+        agents_data = " ".join(agent_abbrevs)
+
+        # Main row
+        row_html = (
+            f'<tr class="kf-row" data-zones="{esc(zones_data)}" '
+            f'data-agents="{esc(agents_data)}" '
+            f'data-grade="{esc(grade)}" '
+            f'onclick="toggleKFDetail(this)">'
+            f'<td><span class="grade {grade_css}">{esc(grade)}</span></td>'
+            f"<td>{esc(notable)}</td>"
+            f'<td><span class="kf-agent-tags">{agent_tags}</span></td>'
+            f"<td>{zone_html}</td>"
+            f"<td>{corr_html}</td>"
+            f"</tr>\n"
+        )
+
+        # Detail row
+        detail_html = (
+            f'<tr class="kf-detail-row" data-zones="{esc(zones_data)}">'
+            f"<td colspan=\"5\">"
+            f'<div class="kf-detail-summary">{detail_text}</div>'
+        )
+        if file_path:
+            detail_html += (
+                f'<div class="kf-detail-files">'
+                f'<code class="file-path-link" '
+                f"onclick=\"event.stopPropagation();"
+                f"openFileModal('{esc(file_path)}')\">"
+                f"{esc(file_path)}</code></div>"
+            )
+        if len(agent_abbrevs) > 1:
+            detail_html += (
+                '<div class="kf-detail-agents">'
+                "<strong style=\"font-size:10px;color:var(--text-muted)\">"
+                "Corroborated by:</strong> "
+            )
+            for a in agent_abbrevs:
+                a_tooltip = AGENT_PARADIGM_DESC.get(a, a)
+                detail_html += (
+                    f'<span class="kf-agent-tag" title="{esc(a_tooltip)}">'
+                    f"{esc(a)}</span>"
+                )
+            detail_html += "</div>"
+        detail_html += "</td></tr>\n"
+
+        if grade == "A":
+            a_rows.append(row_html + detail_html)
+        else:
+            non_a_rows.append(row_html + detail_html)
+
+    # Non-A rows
+    parts.append("<tbody>")
+    parts.append("".join(non_a_rows))
+
+    # A-grade toggle + rows
+    a_count = len(a_rows)
+    if a_count > 0:
+        parts.append("</tbody></table>")
+        parts.append(
+            f'<div class="kf-a-toggle collapsed" id="kf-a-toggle" '
+            f'onclick="toggleKFAGrade()">'
+            f'<span class="kf-a-chevron">&#x25BC;</span>'
+            f"<span>Show {a_count} A-grade finding"
+            f'{"s" if a_count != 1 else ""}</span>'
+            f"</div>"
+        )
+        parts.append(
+            '<div class="kf-a-rows collapsed" id="kf-a-rows">'
+            '<table class="kf-table"><tbody>'
+        )
+        parts.append("".join(a_rows))
+        parts.append("</tbody></table></div>")
+    else:
+        parts.append("</tbody></table>")
+
+    return "\n".join(parts)
+
+
+def render_key_findings_method_badge(review: dict) -> str:
+    """Render method badge for Key Findings header."""
+    return render_agentic_method_badge(review)
+
+
+def render_key_findings_nav(data: dict) -> tuple[str, str]:
+    """Compute sidebar nav icon for Key Findings section.
+
+    Returns (icon_type, value) tuple:
+      - Any F -> ("count-fail", F_count)
+      - Worst C -> ("count-warn", C+F_count)
+      - Worst B/B+ -> ("count", non_A_count)
+      - All A -> ("pass", None)
+      - No findings -> ("empty", None)
+    """
+    findings = data.get("agenticReview", {}).get("findings", [])
+    if not findings:
+        return ("empty", None)
+
+    f_count = sum(1 for f in findings if f.get("grade") == "F")
+    c_count = sum(1 for f in findings if f.get("grade") == "C")
+    b_count = sum(1 for f in findings if f.get("grade") in ("B", "B+"))
+    non_a = f_count + c_count + b_count
+
+    if f_count > 0:
+        return ("count-fail", f_count)
+    if c_count > 0:
+        return ("count-warn", c_count + f_count)
+    if b_count > 0:
+        return ("count", non_a)
+    return ("pass", None)
+
+
 # ── v2 Tier 3 section renderers ─────────────────────────────────────
 
 
@@ -1480,6 +1810,15 @@ def render_code_review_list(data: dict) -> str:
     findings = data.get("agenticReview", {}).get("findings", [])
     code_diffs = data.get("codeDiffs", [])
 
+    # Build fileCoverage lookup: path → {agent_name: grade}
+    # fileCoverage.files is a list of {file, grades: {agent: grade}, ...}
+    fc_grades_by_file: dict[str, dict[str, str]] = {}
+    fc_summaries_by_file: dict[str, dict[str, str]] = {}
+    for fc_entry in data.get("fileCoverage", {}).get("files", []):
+        fp = fc_entry.get("file", "")
+        fc_grades_by_file[fp] = fc_entry.get("grades", {})
+        fc_summaries_by_file[fp] = fc_entry.get("summaries", {})
+
     # Build zone ID → category lookup from architecture data
     zone_categories = {
         z["id"]: z.get("category", "product")
@@ -1494,7 +1833,17 @@ def render_code_review_list(data: dict) -> str:
         ("AD", "adversarial", "Adversarial"),
         ("AR", "architecture", "Architecture"),
     ]
-    # Build findings lookup by file path
+
+    # Map agent keys in fileCoverage to abbreviations
+    _FC_AGENT_TO_ABBREV = {
+        "code-health": "CH",
+        "security": "SE",
+        "test-integrity": "TI",
+        "adversarial": "AD",
+        "architecture": "AR",
+    }
+
+    # Build findings lookup by file path (for detail expansion)
     findings_by_file: dict[str, list[dict]] = {}
     for f in findings:
         path = f.get("file", "")
@@ -1528,8 +1877,8 @@ def render_code_review_list(data: dict) -> str:
         "<thead><tr>"
         "<th>File</th>"
         f"{header_cols}"
-        "<th>+/&minus;</th>"
-        "<th>Zone</th>"
+        '<th class="cr-stats-col">+/&minus;</th>'
+        '<th class="cr-zone-col">Zone</th>'
         "</tr></thead><tbody>"
     )
 
@@ -1540,16 +1889,25 @@ def render_code_review_list(data: dict) -> str:
         additions = cd.get("additions", 0)
         deletions = cd.get("deletions", 0)
 
-        # Build agent → grade + detail maps
+        # Build agent → grade maps from fileCoverage (primary source)
         agent_grades: dict[str, str] = {}
         agent_details: dict[str, list[dict]] = {}
+
+        # Primary: grades from fileCoverage (FileReviewOutcome data)
+        fc_grades = fc_grades_by_file.get(path, {})
+        for agent_key, grade in fc_grades.items():
+            abbrev = _FC_AGENT_TO_ABBREV.get(agent_key, agent_key[:2].upper())
+            if grade:
+                agent_grades[abbrev] = grade
+
+        # Secondary: overlay findings (ReviewConcept data) for detail expansion
         for ff in file_findings:
             agent_name = ff.get("agent", "")
             abbrev = AGENT_ABBREV.get(
                 agent_name, agent_name[:2].upper() if agent_name else "?"
             )
             grade = ff.get("grade", "N/A")
-            # Keep worst grade
+            # Only override if findings show a worse grade than fileCoverage
             if abbrev not in agent_grades or GRADE_SORT.get(
                 grade, 5
             ) < GRADE_SORT.get(agent_grades[abbrev], 5):
@@ -1626,18 +1984,37 @@ def render_code_review_list(data: dict) -> str:
                     f"</div>"
                 )
             else:
-                detail_parts.append(
-                    f'<div class="agent-detail-entry cr-no-comment">'
-                    f'<span class="agent-detail-header">'
-                    f'<span class="agent-abbrev">{esc(abbrev)}</span>'
-                    f'<span class="grade na">&mdash;</span>'
-                    f'<span class="agent-detail-name">'
-                    f"{esc(agent_name)}</span>"
-                    f"</span>"
-                    f'<div class="agent-detail-body">'
-                    f"<em>No comments on this file.</em></div>"
-                    f"</div>"
-                )
+                # Use FileReviewOutcome summary if available (A-grade files)
+                fc_summary = fc_summaries_by_file.get(path, {}).get(_agent_key, "")
+                fc_grade = fc_grades_by_file.get(path, {}).get(_agent_key, "")
+                if fc_summary:
+                    gc = GRADE_CLASS.get(fc_grade, "na") if fc_grade else "na"
+                    grade_display = esc(fc_grade) if fc_grade else "&mdash;"
+                    detail_parts.append(
+                        f'<div class="agent-detail-entry">'
+                        f'<span class="agent-detail-header">'
+                        f'<span class="agent-abbrev">{esc(abbrev)}</span>'
+                        f'<span class="grade {gc}">{grade_display}</span>'
+                        f'<span class="agent-detail-name">'
+                        f"{esc(agent_name)}</span>"
+                        f"</span>"
+                        f'<div class="agent-detail-body">'
+                        f"<em>{esc(fc_summary)}</em></div>"
+                        f"</div>"
+                    )
+                else:
+                    detail_parts.append(
+                        f'<div class="agent-detail-entry cr-no-comment">'
+                        f'<span class="agent-detail-header">'
+                        f'<span class="agent-abbrev">{esc(abbrev)}</span>'
+                        f'<span class="grade na">&mdash;</span>'
+                        f'<span class="agent-detail-name">'
+                        f"{esc(agent_name)}</span>"
+                        f"</span>"
+                        f'<div class="agent-detail-body">'
+                        f"<em>No comments on this file.</em></div>"
+                        f"</div>"
+                    )
 
         ncols = len(agent_paradigms) + 3  # file + agents + stats + zone
         html += (
@@ -1890,6 +2267,10 @@ def render(
         )
         replacements["<!-- INJECT: architecture assessment section -->"] = (
             render_architecture_assessment(data)
+        )
+        replacements["<!-- INJECT: key findings section -->"] = render_key_findings(data)
+        replacements["<!-- INJECT: key findings method badge -->"] = (
+            render_key_findings_method_badge(data.get("agenticReview", {}))
         )
         replacements["<!-- INJECT: code diff file list -->"] = render_code_diffs_list(data)
         replacements["<!-- INJECT: code review file list -->"] = render_code_review_list(data)

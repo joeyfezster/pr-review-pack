@@ -1,0 +1,54 @@
+{
+  "$defs": {
+    "Grade": {
+      "description": "Valid review grades. N/A is explicitly excluded.",
+      "enum": [
+        "A",
+        "B+",
+        "B",
+        "C",
+        "F"
+      ],
+      "title": "Grade",
+      "type": "string"
+    }
+  },
+  "description": "Per-file review outcome \u2014 one per diff file per reviewer.\n\nEmitted BEFORE ReviewConcept objects in the .jsonl file. Provides\nexhaustive per-file coverage for the File Coverage card. Every file\nin the diff must have a FileReviewOutcome from every reviewer.\n\nDistinguished from ReviewConcept by the `_type: \"file_review\"` field.",
+  "properties": {
+    "_type": {
+      "const": "file_review",
+      "default": "file_review",
+      "title": "Type",
+      "type": "string"
+    },
+    "file": {
+      "description": "File path relative to repo root (must match a file in the diff)",
+      "title": "File",
+      "type": "string"
+    },
+    "grade": {
+      "$ref": "#/$defs/Grade",
+      "description": "Quality grade for this file from this reviewer's paradigm"
+    },
+    "summary": {
+      "description": "1-2 sentence summary of the file's status from this paradigm",
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    },
+    "reviewed": {
+      "default": true,
+      "description": "Whether the reviewer actually examined this file (false for skip/N/A)",
+      "title": "Reviewed",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "file",
+    "grade",
+    "summary"
+  ],
+  "title": "FileReviewOutcome",
+  "type": "object"
+}

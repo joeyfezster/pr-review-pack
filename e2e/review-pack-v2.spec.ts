@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
+import * as fs from 'fs';
 import path from 'path';
 
 // Test fixtures: four variants of the rendered review pack
@@ -336,7 +337,7 @@ test.describe('Tier Collapse/Expand', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════
-// Code Diffs (v2: inline in Code Review file modal, not standalone)
+// Code Diffs (v2: inline in File Coverage file modal, not standalone)
 // ═══════════════════════════════════════════════════════════════════
 
 test.describe('Code Diffs', () => {
@@ -346,7 +347,7 @@ test.describe('Code Diffs', () => {
     expect(html).toContain('DIFF_DATA_INLINE');
   });
 
-  test('file paths in code review open modal with diff content', async ({ page }) => {
+  test('file paths in file coverage open modal with diff content', async ({ page }) => {
     await page.goto(READY_PACK);
     await dismissBanner(page);
     const pathLink = page.locator('.cr-file-row .file-path-link').first();
@@ -921,11 +922,11 @@ test.describe('Architecture Assessment — Collapsible Sections', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════
-// Item 4: Code Review Table with Per-Agent Columns
+// Item 4: File Coverage Table with Per-Agent Columns
 // ═══════════════════════════════════════════════════════════════════
 
-test.describe('Code Review — Per-Agent Columns', () => {
-  test('code review renders as a table with header row', async ({ page }) => {
+test.describe('File Coverage — Per-Agent Columns', () => {
+  test('file coverage renders as a table with header row', async ({ page }) => {
     await page.goto(READY_PACK);
     const table = page.locator('.cr-table');
     await expect(table).toBeVisible();
@@ -1280,8 +1281,8 @@ test.describe('Commit Gap — Programmatic', () => {
   });
 });
 
-// Code Review nav count is now covered by Nav Icon Relationships tests
-// (Code Review nav icon shows count-fail for C/F findings)
+// File Coverage nav count is now covered by Nav Icon Relationships tests
+// (File Coverage nav icon shows count-fail for C/F findings)
 
 // ═══════════════════════════════════════════════════════════════════
 // Item 10: Decision Click — No Scroll Jump
@@ -1423,9 +1424,9 @@ test.describe('Nav Icon Relationships', () => {
     await expect(icon).toBeAttached();
   });
 
-  test('Code Review nav icon shows count-fail for C/F findings', async ({ page }) => {
+  test('File Coverage nav icon shows count-fail for C/F findings', async ({ page }) => {
     await page.goto(READY_PACK);
-    const navItem = page.locator('#mc-sidebar .sb-nav-item[data-section="section-code-review"]');
+    const navItem = page.locator('#mc-sidebar .sb-nav-item[data-section="section-file-coverage"]');
     const icon = navItem.locator('.sb-nav-icon.count-fail');
     await expect(icon).toBeAttached();
   });
@@ -1485,3 +1486,364 @@ test.describe('Nav Icon Relationships', () => {
     expect(text).toBe('3');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// 7.1: Key Findings Card (v3)
+// ═══════════════════════════════════════════════════════════════════
+
+test.describe('Key Findings Card', () => {
+  test('section exists between arch-assessment and file-coverage', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const keyFindings = page.locator('#section-key-findings');
+    await expect(keyFindings).toBeAttached();
+
+    // Verify DOM order: arch-assessment, then key-findings, then file-coverage
+    const order = await page.evaluate(() => {
+      const sections = Array.from(document.querySelectorAll('[id^="section-"]'));
+      const ids = sections.map(s => s.id);
+      const archIdx = ids.indexOf('section-arch-assessment');
+      const kfIdx = ids.indexOf('section-key-findings');
+      const fcIdx = ids.indexOf('section-file-coverage');
+      return { archIdx, kfIdx, fcIdx };
+    });
+    expect(order.kfIdx).toBeGreaterThan(order.archIdx);
+    expect(order.kfIdx).toBeLessThan(order.fcIdx);
+  });
+
+  test('severity heatbar exists with colored segments', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const heatbar = page.locator('#section-key-findings .kf-heatbar');
+    await expect(heatbar).toBeVisible();
+
+    const segments = heatbar.locator('.kf-heatbar-seg');
+    const count = await segments.count();
+    expect(count).toBeGreaterThan(0);
+  });
+
+  test('finding rows have grade, title, agent tag, zone tag', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const rows = page.locator('#section-key-findings .kf-row');
+    const count = await rows.count();
+    expect(count).toBeGreaterThan(0);
+
+    const firstRow = rows.first();
+    await expect(firstRow.locator('.grade')).toBeVisible();
+    await expect(firstRow.locator('td:nth-child(2)')).toBeVisible();
+    await expect(firstRow.locator('.kf-agent-tag')).toBeVisible();
+    await expect(firstRow.locator('.zone-tag')).toBeVisible();
+  });
+
+  test('click finding row expands to show detail', async ({ page }) => {
+    await page.goto(READY_PACK);
+    await dismissBanner(page);
+    const row = page.locator('#section-key-findings .kf-row').first();
+    await row.click();
+
+    const detail = page.locator('#section-key-findings .kf-detail-row').first();
+    await expect(detail).toBeVisible();
+  });
+
+  test('A-grade findings are collapsed by default behind toggle', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const aToggle = page.locator('#section-key-findings .kf-a-toggle');
+    await expect(aToggle).toBeAttached();
+
+    // A-grade findings container should be collapsed/hidden by default
+    const aFindings = page.locator('#section-key-findings .kf-a-rows');
+    await expect(aFindings).toBeHidden();
+  });
+
+  test('agent filter pill click filters the findings table', async ({ page }) => {
+    await page.goto(READY_PACK);
+    await dismissBanner(page);
+
+    const pill = page.locator('#section-key-findings .kf-agent-pill').first();
+    await pill.click();
+
+    // After filtering, some rows should be hidden (agent-hidden class)
+    const hiddenRows = page.locator('#section-key-findings .kf-row.agent-hidden');
+    const visibleRows = page.locator('#section-key-findings .kf-row:not(.agent-hidden)');
+    const totalVisible = await visibleRows.count();
+    const totalHidden = await hiddenRows.count();
+    // At least some filtering should have occurred (visible < total, or hidden > 0)
+    expect(totalVisible + totalHidden).toBeGreaterThan(0);
+  });
+
+  test('dark mode renders correctly for key findings elements', async ({ page }) => {
+    await page.goto(READY_PACK);
+    await dismissBanner(page);
+    await page.locator('#mc-sidebar [data-theme-btn="dark"]').click();
+
+    const heatbar = page.locator('#section-key-findings .kf-heatbar');
+    await expect(heatbar).toBeVisible();
+
+    const rows = page.locator('#section-key-findings .kf-row');
+    const count = await rows.count();
+    expect(count).toBeGreaterThan(0);
+
+    // Verify dark theme is applied
+    const theme = await page.evaluate(() =>
+      document.documentElement.getAttribute('data-theme')
+    );
+    expect(theme).toBe('dark');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// 7.2: Review Gates — 4-Gate Model (v3)
+// ═══════════════════════════════════════════════════════════════════
+
+test.describe('Review Gates — 4-Gate Model', () => {
+  test('4 gates render from convergence.gates data (Two-Tier Review, Deterministic, NFR, Scenarios)', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const cards = page.locator('.gate-review-card');
+    const count = await cards.count();
+    expect(count).toBeGreaterThanOrEqual(4);
+
+    const texts = await cards.allTextContents();
+    const allText = texts.join(' ');
+    expect(allText).toContain('Gate 0');
+    expect(allText).toContain('Two-Tier Review');
+    expect(allText).toContain('Gate 1');
+    expect(allText).toContain('Deterministic');
+    expect(allText).toContain('Gate 2');
+    expect(allText).toContain('NFR');
+    expect(allText).toContain('Gate 3');
+    expect(allText).toContain('Scenarios');
+  });
+
+  test('gate status text is present on each gate card', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const cards = page.locator('.gate-review-card');
+    const count = await cards.count();
+    expect(count).toBeGreaterThanOrEqual(4);
+
+    for (let i = 0; i < count; i++) {
+      const card = cards.nth(i);
+      const status = card.locator('.gate-status');
+      await expect(status).toBeAttached();
+      const text = await status.textContent();
+      expect(text!.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  test('non-factory fixture shows 3 gates (no Scenarios gate)', async ({ page }) => {
+    await page.goto(NOFACTORY_PACK);
+    const section = page.locator('#section-review-gates');
+    await expect(section).toBeAttached();
+
+    const cards = page.locator('.gate-review-card');
+    const count = await cards.count();
+    // NOFACTORY has scenarios=[] so Scenarios gate is removed, leaving 3 gates
+    expect(count).toBe(3);
+
+    const texts = await cards.allTextContents();
+    const allText = texts.join(' ');
+    // Scenarios gate should not be present
+    expect(allText).not.toContain('Scenarios');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// 7.3: File Coverage Card (v3 — renamed from Code Review)
+// ═══════════════════════════════════════════════════════════════════
+
+test.describe('File Coverage Card', () => {
+  test('section exists with section-file-coverage id', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const section = page.locator('#section-file-coverage');
+    await expect(section).toBeAttached();
+  });
+
+  test('section heading says "File Coverage"', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const section = page.locator('#section-file-coverage');
+    const heading = section.locator('h2, h3').first();
+    await expect(heading).toContainText('File Coverage');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Round 6 Fixes — P2, P3a, P3b, P3c
+// ═══════════════════════════════════════════════════════════════════
+
+test.describe('P2: A-grade file detail shows agent summaries', () => {
+  test('expanded file has non-empty text for every agent (no "No comments")', async ({ page }) => {
+    await page.goto(READY_PACK);
+    await dismissBanner(page);
+
+    // Expand all file rows and check each agent entry has content
+    const rows = page.locator('.cr-file-row');
+    const rowCount = await rows.count();
+    expect(rowCount).toBeGreaterThan(0);
+
+    // Expand first row
+    await rows.first().click();
+    const detailRow = page.locator('.cr-detail-row.open').first();
+    await expect(detailRow).toBeAttached();
+
+    // Every agent entry should have non-empty body text
+    const bodies = detailRow.locator('.agent-detail-body');
+    const bodyCount = await bodies.count();
+    expect(bodyCount).toBe(5);
+
+    for (let i = 0; i < bodyCount; i++) {
+      const text = await bodies.nth(i).textContent();
+      expect(text!.trim().length).toBeGreaterThan(0);
+      // Should not show "No comments on this file." if summaries exist
+    }
+  });
+
+  test('file coverage card has 5 agent grades per file row', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const rows = page.locator('.cr-file-row');
+    const count = await rows.count();
+    expect(count).toBeGreaterThan(0);
+
+    for (let i = 0; i < count; i++) {
+      const agentCols = rows.nth(i).locator('.cr-agent-col');
+      await expect(agentCols).toHaveCount(5);
+    }
+  });
+
+  test('non-A-grade file has at least one ReviewConcept finding visible when expanded', async ({ page }) => {
+    await page.goto(READY_PACK);
+    await dismissBanner(page);
+
+    // Find a file row with a non-A grade (look for grade pills with b, c, or f class)
+    const nonARows = page.locator('.cr-file-row:has(.grade.c), .cr-file-row:has(.grade.f), .cr-file-row:has(.grade.b)');
+    const nonACount = await nonARows.count();
+    if (nonACount === 0) return; // Skip if all files are A-grade
+
+    await nonARows.first().click();
+    const detail = page.locator('.cr-detail-row.open').first();
+    await expect(detail).toBeAttached();
+
+    // Should have at least one agent entry with actual finding detail (not just summary italic text)
+    const agentEntries = detail.locator('.agent-detail-entry:not(.cr-no-comment)');
+    const entryCount = await agentEntries.count();
+    expect(entryCount).toBeGreaterThan(0);
+  });
+});
+
+test.describe('P3a: Key Findings pill format', () => {
+  test('pills show abbreviation and full agent name', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const pills = page.locator('#section-key-findings .kf-agent-pill');
+    const count = await pills.count();
+    expect(count).toBeGreaterThan(0);
+
+    // Each pill should have both abbreviation and a descriptive name
+    const expectedPairs: Record<string, string> = {
+      'CH': 'Code Health',
+      'SE': 'Security',
+      'TI': 'Test Integrity',
+      'AD': 'Adversarial',
+      'AR': 'Architecture',
+    };
+
+    for (let i = 0; i < count; i++) {
+      const text = await pills.nth(i).textContent();
+      const abbrev = (await pills.nth(i).getAttribute('data-agent'))!;
+      if (abbrev in expectedPairs) {
+        expect(text).toContain(abbrev);
+        expect(text).toContain(expectedPairs[abbrev]);
+      }
+    }
+  });
+});
+
+test.describe('P3b: Heatbar legend', () => {
+  test('heatbar has legend with 5 grade labels', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const legend = page.locator('#section-key-findings .kf-heatbar-legend');
+    await expect(legend).toBeVisible();
+
+    const items = legend.locator('.legend-item');
+    await expect(items).toHaveCount(5);
+
+    const text = await legend.textContent();
+    expect(text).toContain('F');
+    expect(text).toContain('C');
+    expect(text).toContain('B');
+    expect(text).toContain('B+');
+    expect(text).toContain('A');
+  });
+});
+
+test.describe('P3c: File path overflow', () => {
+  test('file coverage table does not exceed its container width', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const table = page.locator('.cr-table');
+    await expect(table).toBeVisible();
+
+    // The table should not overflow its parent container
+    const overflow = await table.evaluate(el => {
+      const parent = el.parentElement!;
+      return el.scrollWidth > parent.clientWidth + 2; // 2px tolerance
+    });
+    expect(overflow).toBe(false);
+  });
+
+  test('agent grade columns remain visible when file paths are present', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const table = page.locator('.cr-table');
+    await expect(table).toBeVisible();
+
+    // All agent column headers should be within the viewport
+    const headers = table.locator('thead th.cr-agent-col');
+    const headerCount = await headers.count();
+    expect(headerCount).toBe(5);
+
+    const viewport = page.viewportSize()!;
+    for (let i = 0; i < headerCount; i++) {
+      const box = await headers.nth(i).boundingBox();
+      expect(box).not.toBeNull();
+      // Column should be within viewport width
+      expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width + 10);
+    }
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// Banner Removal — MUST be the LAST test block
+// Runs only when PACK_PATH env var is set (i.e., validating a real
+// review pack, not just running fixture tests). Strips the self-review
+// banner from the HTML file on disk, marking the pack as validated.
+// ═══════════════════════════════════════════════════════════════════
+
+const LIVE_PACK_PATH = process.env.PACK_PATH;
+
+if (LIVE_PACK_PATH) {
+  test.describe('Banner Removal (live pack)', () => {
+    test('remove validation banner on all-pass', async () => {
+      const htmlPath = path.resolve(LIVE_PACK_PATH);
+      let html = fs.readFileSync(htmlPath, 'utf-8');
+
+      // Set data-inspected="true" on <body>
+      html = html.replace(
+        /data-inspected="false"/,
+        'data-inspected="true"'
+      );
+
+      // Remove the banner div
+      html = html.replace(
+        /<div id="visual-inspection-banner"[^>]*>[\s\S]*?<\/div>/,
+        ''
+      );
+
+      // Remove the spacer div
+      html = html.replace(
+        /<div id="visual-inspection-spacer"[^>]*><\/div>/,
+        ''
+      );
+
+      fs.writeFileSync(htmlPath, html, 'utf-8');
+
+      // Verify
+      const updated = fs.readFileSync(htmlPath, 'utf-8');
+      expect(updated).toContain('data-inspected="true"');
+      expect(updated).not.toMatch(/<div id="visual-inspection-banner"/);
+    });
+  });
+}

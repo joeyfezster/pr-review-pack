@@ -207,7 +207,7 @@ class TestV2Render:
 
     def test_code_diffs_section_present(self, tmp_path, sample_review_pack_data):
         html = _render_to_html(tmp_path, sample_review_pack_data, "v2")
-        assert "section-code-review" in html
+        assert "section-file-coverage" in html
         assert "src/alpha/core.py" in html
         assert "infra/deploy.sh" in html
 

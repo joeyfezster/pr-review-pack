@@ -14,9 +14,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 from models import (
     CodeSnippetRef,
     ConceptLocation,
+    ConceptUpdate,
     DecisionEntry,
     DecisionFile,
     FactoryEventEntry,
+    FileReviewOutcome,
     FindingCategory,
     Grade,
     GRADE_SORT_ORDER,
@@ -351,12 +353,23 @@ class TestExampleJSONL:
     def test_review_concept_examples(self, examples_dir: Path):
         jsonl_files = list(examples_dir.glob("*-code-health-*.jsonl"))
         assert len(jsonl_files) >= 1, "Expected at least 1 code-health example"
+        concept_count = 0
+        file_review_count = 0
         for f in jsonl_files:
             with open(f) as fh:
                 for i, line in enumerate(fh, 1):
                     obj = json.loads(line)
-                    rc = ReviewConcept.model_validate(obj)
-                    assert rc.concept_id, f"Line {i} in {f.name} has empty concept_id"
+                    # Hybrid format: FileReviewOutcome or ReviewConcept
+                    if obj.get("_type") == "file_review":
+                        fro = FileReviewOutcome.model_validate(obj)
+                        assert fro.file, f"Line {i} in {f.name} has empty file"
+                        file_review_count += 1
+                    else:
+                        rc = ReviewConcept.model_validate(obj)
+                        assert rc.concept_id, f"Line {i} in {f.name} has empty concept_id"
+                        concept_count += 1
+        assert concept_count > 0, "Expected at least 1 ReviewConcept in examples"
+        assert file_review_count > 0, "Expected at least 1 FileReviewOutcome in examples"
 
     def test_semantic_output_examples(self, examples_dir: Path):
         jsonl_files = list(examples_dir.glob("*-synthesis-*.jsonl"))
@@ -367,3 +380,110 @@ class TestExampleJSONL:
                     obj = json.loads(line)
                     so = SemanticOutput.model_validate(obj)
                     assert so.output_type, f"Line {i} in {f.name} has empty output_type"
+
+
+# ---------------------------------------------------------------------------
+# FileReviewOutcome
+# ---------------------------------------------------------------------------
+
+
+class TestFileReviewOutcome:
+    def test_valid_file_review(self):
+        fro = FileReviewOutcome.model_validate({
+            "_type": "file_review",
+            "file": "src/main.py",
+            "grade": "A",
+            "summary": "Clean implementation",
+        })
+        assert fro.file == "src/main.py"
+        assert fro.grade == Grade.A
+        assert fro.reviewed is True
+
+    def test_file_review_with_reviewed_false(self):
+        fro = FileReviewOutcome.model_validate({
+            "_type": "file_review",
+            "file": "data/config.yaml",
+            "grade": "A",
+            "summary": "Config file, not code-reviewed",
+            "reviewed": False,
+        })
+        assert fro.reviewed is False
+
+    def test_file_review_type_discriminator(self):
+        fro = FileReviewOutcome(file="a.py", grade=Grade.B, summary="ok")
+        dumped = fro.model_dump(by_alias=True)
+        assert dumped["_type"] == "file_review"
+
+    def test_file_review_missing_file_rejected(self):
+        with pytest.raises(ValidationError):
+            FileReviewOutcome.model_validate({
+                "_type": "file_review",
+                "grade": "A",
+                "summary": "Missing file field",
+            })
+
+    def test_file_review_empty_summary_rejected(self):
+        with pytest.raises(ValidationError):
+            FileReviewOutcome.model_validate({
+                "_type": "file_review",
+                "file": "a.py",
+                "grade": "A",
+                "summary": "",
+            })
+
+    def test_file_review_invalid_grade_rejected(self):
+        with pytest.raises(ValidationError):
+            FileReviewOutcome.model_validate({
+                "_type": "file_review",
+                "file": "a.py",
+                "grade": "N/A",
+                "summary": "ok",
+            })
+
+
+# ---------------------------------------------------------------------------
+# ConceptUpdate
+# ---------------------------------------------------------------------------
+
+
+class TestConceptUpdate:
+    def test_valid_concept_update(self):
+        cu = ConceptUpdate.model_validate({
+            "_type": "concept_update",
+            "concept_id": "security-1",
+            "grade": "B",
+            "title": "Updated finding",
+        })
+        assert cu.concept_id == "security-1"
+        assert cu.grade == Grade.B
+        assert cu.title == "Updated finding"
+        assert cu.summary is None  # not provided
+
+    def test_concept_update_type_discriminator(self):
+        cu = ConceptUpdate(concept_id="ch-1")
+        dumped = cu.model_dump(by_alias=True)
+        assert dumped["_type"] == "concept_update"
+
+    def test_concept_update_all_fields_optional_except_id(self):
+        cu = ConceptUpdate.model_validate({
+            "_type": "concept_update",
+            "concept_id": "arch-1",
+        })
+        assert cu.grade is None
+        assert cu.title is None
+        assert cu.summary is None
+        assert cu.category is None
+
+    def test_concept_update_invalid_id_rejected(self):
+        with pytest.raises(ValidationError):
+            ConceptUpdate.model_validate({
+                "_type": "concept_update",
+                "concept_id": "Invalid ID With Spaces",
+            })
+
+    def test_concept_update_missing_id_rejected(self):
+        with pytest.raises(ValidationError):
+            ConceptUpdate.model_validate({
+                "_type": "concept_update",
+                "grade": "A",
+            })

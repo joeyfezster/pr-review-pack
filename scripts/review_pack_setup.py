@@ -13,8 +13,8 @@ Output files:
   - pr{N}_scaffold.json                   (scaffold JSON for assembler)
 
 Usage:
-    python review_pack_setup.py --pr 35
-    python review_pack_setup.py --pr 35 --base main --skip-prereqs
+    python review_pack_setup.py --pr 35 --base main
+    python review_pack_setup.py --pr 35 --base master --skip-prereqs
 """
 from __future__ import annotations
 
@@ -65,11 +65,17 @@ def check_prerequisites(pr_number: int, repo_slug: str, skip: bool = False) -> b
     ci_raw = _run(["gh", "pr", "checks", str(pr_number), "--json", "name,state"])
     if ci_raw.returncode == 0 and ci_raw.stdout.strip():
         checks = json.loads(ci_raw.stdout)
-        failing = [c["name"] for c in checks if c.get("state") != "SUCCESS"]
+        failing = [c["name"] for c in checks if c.get("state") in ("FAILURE", "ERROR")]
+        pending = [c["name"] for c in checks if c.get("state") in ("PENDING", "QUEUED")]
+        skipped = [c["name"] for c in checks if c.get("state") in ("SKIPPED", "NEUTRAL")]
+        passing = [c["name"] for c in checks if c.get("state") == "SUCCESS"]
         if failing:
             issues.append(f"CI failing: {', '.join(failing)}")
-        else:
-            print(f"  CI: {len(checks)} checks passing")
+        if pending:
+            print(f"  CI pending: {', '.join(pending)}")
+        if skipped:
+            print(f"  CI skipped/neutral: {', '.join(skipped)}")
+        print(f"  CI: {len(passing)} passing, {len(skipped)} skipped, {len(pending)} pending, {len(failing)} failing")
     else:
         issues.append("Could not fetch CI status (gh pr checks failed)")
 
@@ -102,10 +108,10 @@ def check_prerequisites(pr_number: int, repo_slug: str, skip: bool = False) -> b
                 print(f"  Comments: {total} threads, all resolved")
 
     if issues:
-        print("Prerequisites FAILED:")
+        print("Prerequisites — gaps detected (will surface as BLOCKED in status):")
         for issue in issues:
-            print(f"  ✗ {issue}")
-        return False
+            print(f"  ⚠ {issue}")
+        return True  # Continue — gate failures are tracked in scaffold, not hard stops
 
     print("Prerequisites: PASSED")
     return True
@@ -181,8 +187,12 @@ def generate_diff_data(
     return output_file
 
 
-def find_zone_registry(repo: Path) -> Path:
-    """Find zone-registry.yaml in repo root or .claude/ directory."""
+def find_zone_registry(repo: Path) -> Path | None:
+    """Find zone-registry.yaml in repo root or .claude/ directory.
+
+    Returns None if not found — the orchestrator should have the architecture
+    agent generate one from the baseline repo structure.
+    """
     candidates = [
         repo / "zone-registry.yaml",
         repo / ".claude" / "zone-registry.yaml",
@@ -190,8 +200,8 @@ def find_zone_registry(repo: Path) -> Path:
     for p in candidates:
         if p.exists():
             return p
-    print("ERROR: zone-registry.yaml not found at repo root or .claude/", file=sys.stderr)
-    sys.exit(1)
+    print("WARNING: zone-registry.yaml not found. The architecture agent should generate one.", file=sys.stderr)
+    return None
 
 
 def find_optional_file(repo: Path, relative_path: str) -> str | None:
@@ -211,6 +221,19 @@ def get_repo_slug(repo: Path) -> str:
     else:
         slug = "/".join(url.split("/")[-2:])
     return slug.removesuffix(".git")
+
+
+def pre_create_jsonl_files(pr_number: int, base_short: str, head_short: str, output_dir: Path) -> list[Path]:
+    """Pre-create .jsonl files with meta header so agents can Read-then-Write."""
+    agents = ["code-health", "security", "test-integrity", "adversarial", "architecture", "synthesis"]
+    created = []
+    for agent in agents:
+        path = output_dir / f"pr{pr_number}-{agent}-{base_short}-{head_short}.jsonl"
+        if not path.exists():
+            header = json.dumps({"_type": "meta", "agent": agent, "pr": pr_number, "created": "setup"})
+            path.write_text(header + "\n")
+            created.append(path)
+    return created
 
 
 def convert_gate0_tier2(output_dir: Path, repo: Path) -> None:
@@ -239,7 +262,7 @@ def main() -> None:
         description="Review Pack Setup — prerequisites + Pass 1 + scaffold"
     )
     parser.add_argument("--pr", type=int, required=True, help="PR number")
-    parser.add_argument("--base", default="main", help="Base branch (default: main)")
+    parser.add_argument("--base", required=True, help="Base branch (detect via: gh pr view N --json baseRefName -q .baseRefName)")
     parser.add_argument("--head", default="HEAD", help="Head ref (default: HEAD)")
     parser.add_argument("--skip-prereqs", action="store_true",
                         help="Skip prerequisite checks")
@@ -269,7 +292,8 @@ def main() -> None:
 
     # Step 4: Scaffold (Pass 2a)
     print("\nPass 2a: Scaffolding review pack data")
-    zone_registry_path = str(find_zone_registry(repo))
+    zone_reg = find_zone_registry(repo)
+    zone_registry_path = str(zone_reg) if zone_reg else None
     scaffold_output = output_dir / f"pr{args.pr}_scaffold.json"
 
     scaffold(
@@ -290,12 +314,22 @@ def main() -> None:
     # Step 5: Convert gate0 tier 2 files if they exist
     convert_gate0_tier2(output_dir, repo)
 
+    # Step 6: Pre-create .jsonl files for review agents
+    base_short = _short_sha(args.base, repo)
+    head_short = _short_sha(args.head, repo)
+    created = pre_create_jsonl_files(args.pr, base_short, head_short, output_dir)
+    if created:
+        print(f"\nPre-created {len(created)} .jsonl files (agents can Read-then-Write):")
+        for p in created:
+            print(f"  {p.name}")
+
     # Summary
     print(f"\n{'='*60}")
     print(f"Setup complete for PR #{args.pr}")
     print(f"  Diff data:  {diff_data_path.name}")
     print(f"  Scaffold:   {scaffold_output.name}")
     print(f"  Output dir: {output_dir}")
+    print(f"  HTML target: docs/pr{args.pr}_review_pack_{base_short}-{head_short}.html")
     print(f"\nNext: Run 5 review agents + synthesis agent, writing .jsonl to {output_dir}/")
     print(f"Then: Run assemble_review_pack.py --pr {args.pr}")
 
