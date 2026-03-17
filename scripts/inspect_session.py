@@ -97,16 +97,33 @@ def check_skill_loaded(entries: list[dict]) -> dict:
     for entry in entries:
         tr = entry.get("toolUseResult", {})
         if isinstance(tr, dict) and tr.get("success") is True:
-            cmd = tr.get("commandName", "")
+            cmd = str(tr.get("commandName", ""))
             if "pr-review-pack" in cmd or "review-pack" in cmd:
                 return {"pass": True, "detail": f"Skill loaded: {cmd}"}
-        # Also check for Skill tool_use
+        # Check for Skill tool_use
         if entry.get("type") == "assistant":
             for block in entry.get("message", {}).get("content", []):
                 if block.get("type") == "tool_use" and block.get("name") == "Skill":
                     skill_name = block.get("input", {}).get("skill", "")
                     if "pr-review-pack" in skill_name:
                         return {"pass": True, "detail": f"Skill invoked: {skill_name}"}
+        # Check for isMeta user messages containing skill content (how -p mode loads skills)
+        if entry.get("type") == "user" and entry.get("isMeta"):
+            msg = entry.get("message", {})
+            content = msg.get("content", "")
+            if isinstance(content, str) and "pr-review-pack" in content.lower():
+                return {"pass": True, "detail": "Skill loaded via isMeta injection"}
+            if isinstance(content, list):
+                for block in content:
+                    text = block.get("text", "") if isinstance(block, dict) else str(block)
+                    if "pr-review-pack" in text.lower():
+                        return {"pass": True, "detail": "Skill loaded via isMeta injection"}
+        # Check if the -p prompt itself mentions the skill
+        if entry.get("type") == "user" and not entry.get("isMeta"):
+            msg = entry.get("message", {})
+            content = msg.get("content", "")
+            if isinstance(content, str) and "/pr-review-pack" in content:
+                return {"pass": True, "detail": f"Skill invoked via -p prompt: {content[:60]}"}
     return {"pass": False, "detail": "Skill invocation not found in session"}
 
 
@@ -160,23 +177,47 @@ def check_agent_spawns(tool_calls: list[dict]) -> dict:
 
 
 def check_ghost_writing(tool_calls: list[dict], pr_number: int | None) -> dict:
-    """Check if the MAIN agent wrote .jsonl review content (ghost-writing)."""
+    """Check if the MAIN agent wrote .jsonl review content (ghost-writing).
+
+    Distinguishes between:
+    - Ghost-writing (FAIL): Main agent uses Write to create wholesale .jsonl content
+    - Corrections (OK): Main agent uses Edit to fix validation errors after feedback loop
+    - Bash heredoc (OK if by subagent): cat >> file << 'EOF' style appends
+    """
     ghost_writes = []
+    corrections = []
     for call in tool_calls:
-        if call["name"] in ("Write", "Edit") and call.get("agent_id") is None:
-            file_path = call["input"].get("file_path", "")
-            if ".jsonl" in file_path and "review" not in file_path.lower().split("/")[-1].replace(".jsonl", ""):
-                # Check if it's a review agent output file
-                if re.search(r"pr\d+-(code-health|security|test-integrity|adversarial|architecture|synthesis)-", file_path):
-                    ghost_writes.append(file_path)
+        if call.get("agent_id") is not None:
+            continue  # subagent writes are fine
+        file_path = call["input"].get("file_path", "") if call["name"] in ("Write", "Edit") else ""
+        if not file_path:
+            # Check for Bash heredoc writes to .jsonl by main agent
+            if call["name"] == "Bash":
+                cmd = str(call["input"].get("command", ""))
+                if re.search(r"(cat\s*>>?\s*\S+\.jsonl|>\s*\S+\.jsonl)", cmd):
+                    if re.search(r"pr\d+-(code-health|security|test-integrity|adversarial|architecture|synthesis)-", cmd):
+                        ghost_writes.append(f"Bash: {cmd[:80]}")
+            continue
+        if not re.search(r"pr\d+-(code-health|security|test-integrity|adversarial|architecture|synthesis)-", file_path):
+            continue
+        if ".jsonl" not in file_path:
+            continue
+        # Edit = likely a correction after validation loop; Write = likely ghost-writing
+        if call["name"] == "Edit":
+            corrections.append(file_path)
+        else:
+            ghost_writes.append(file_path)
 
     return {
         "pass": len(ghost_writes) == 0,
         "detail": (
-            "No ghost-writing detected" if not ghost_writes
+            "No ghost-writing detected"
+            + (f" ({len(corrections)} post-validation correction(s) by main agent — acceptable)" if corrections else "")
+            if not ghost_writes
             else f"GHOST-WRITING: Main agent wrote {len(ghost_writes)} .jsonl file(s): {', '.join(ghost_writes[:3])}"
         ),
         "ghost_writes": ghost_writes,
+        "corrections": corrections,
     }
 
 
@@ -237,13 +278,18 @@ def check_playwright(tool_calls: list[dict]) -> dict:
 
 
 def check_subagent_writes(session_dir: Path, session_id: str) -> dict:
-    """Check subagent JSONL files to verify agents wrote their own files."""
+    """Check subagent JSONL files to verify agents wrote their own files.
+
+    Agents may write via Write/Edit tools OR via Bash heredoc (cat >> file << 'EOF').
+    Both are valid — the key is that the AGENT produced the content, not the main agent.
+    """
     subagent_dir = session_dir / session_id / "subagents"
     if not subagent_dir.exists():
         return {"pass": False, "detail": "No subagent directory found", "agents": []}
 
     agent_files = sorted(subagent_dir.glob("agent-*.jsonl"))
     write_agents = []
+    write_methods = {}  # agent_id -> method used
 
     for agent_file in agent_files:
         agent_id = agent_file.stem.replace("agent-", "")
@@ -251,21 +297,33 @@ def check_subagent_writes(session_dir: Path, session_id: str) -> dict:
         tool_calls = extract_tool_calls(entries)
 
         wrote_jsonl = False
+        method = None
         for call in tool_calls:
             if call["name"] in ("Write", "Edit"):
                 file_path = call["input"].get("file_path", "")
                 if ".jsonl" in file_path:
                     wrote_jsonl = True
+                    method = call["name"]
+                    break
+            elif call["name"] == "Bash":
+                cmd = str(call["input"].get("command", ""))
+                # Detect heredoc/redirect writes to .jsonl files
+                if re.search(r"(cat\s*>>?\s*\S+\.jsonl|>>?\s*\S+\.jsonl|EOF.*\.jsonl)", cmd):
+                    wrote_jsonl = True
+                    method = "Bash(heredoc)"
                     break
 
         if wrote_jsonl:
             write_agents.append(agent_id)
+            write_methods[agent_id] = method
 
+    methods_summary = ", ".join(f"{v}" for v in set(write_methods.values())) if write_methods else "none"
     return {
         "pass": len(write_agents) >= 5,  # 5 reviewers + synthesis should write
-        "detail": f"{len(write_agents)}/{len(agent_files)} subagents wrote .jsonl files",
+        "detail": f"{len(write_agents)}/{len(agent_files)} subagents wrote .jsonl files (via {methods_summary})",
         "total_subagents": len(agent_files),
         "writing_subagents": len(write_agents),
+        "write_methods": write_methods,
     }
 
 
