@@ -237,7 +237,13 @@ FileReviewOutcome lines (do NOT modify existing lines — append-only).
 Schema: ${CLAUDE_SKILL_DIR}/references/schemas/ConceptUpdate.schema.json
 ```
 
-**CRITICAL: The main agent must NEVER write .jsonl content itself.** If a reviewer agent fails to write its file, resume the agent with the error message. If it still fails after 2 retries, flag the failure in the banner — do not ghost-write the content. Ghost-writing defeats independent review.
+**CRITICAL: The main agent must NEVER write .jsonl content itself — not via Write, not via Edit, not via Bash(cat >>), not via any mechanism.** If a reviewer agent fails to write its file, resume the agent with the error message. If it still fails after 2 retries, flag the failure in the banner — do not ghost-write the content. Ghost-writing defeats independent review.
+
+**Common ghost-writing patterns to AVOID:**
+- `Write` or `Edit` to agent .jsonl files from the main agent
+- `Bash(cat >> agent-file.jsonl << 'EOF' ...)` from the main agent
+- Any main agent action that adds ReviewConcept or FileReviewOutcome lines to agent files
+- The ONLY acceptable main agent .jsonl edit is correcting JSON syntax errors (via Edit) after the validation loop
 
 The **architecture reviewer** additionally writes a special `_type: "architecture_assessment"` line as the last line of its .jsonl file.
 
