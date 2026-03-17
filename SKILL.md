@@ -165,7 +165,19 @@ If `gate0_tier2` files exist for the current HEAD, the setup script converts the
 > "agent write failure — review incomplete" and skip to Phase 4.
 > A review pack with a failure banner is MORE trustworthy than one with ghost-written content.
 
-Spawn 6 review agents that write `.jsonl` files into `docs/reviews/pr{N}/`. Each agent gets **Read + Write tools only** — no Bash. All agents use `model: "opus"` and **`mode: "acceptEdits"`** (required — without this, subagents cannot write files and the main agent will be forced to ghost-write, breaking the independent-reviewer trust model).
+**You MUST use Agent Teams, not plain subagents.** Team agents get their own independent context window; plain subagents share the parent's context and cannot hold the full PR diff independently.
+
+**Step 0: Create the review team.**
+```
+TeamCreate { "team_name": "pr-review-{N}" }
+```
+
+Then spawn 6 review agents into this team. Each agent gets **Read + Write tools only** — no Bash. All agents use `model: "opus"` and **`mode: "acceptEdits"`** (required — without this, agents cannot write files and the main agent will be forced to ghost-write, breaking the independent-reviewer trust model).
+
+**After all agents complete (Phase 2 + 2b), clean up the team:**
+```
+TeamDelete { "team_name": "pr-review-{N}" }
+```
 
 The setup script pre-creates all 6 `.jsonl` files with a meta header line. This allows agents to Read the file first (satisfying Claude Code's Read-before-Write requirement) and then append their output.
 
@@ -193,6 +205,7 @@ All 5 run simultaneously. Each writes a `.jsonl` file with **hybrid output**:
 | architecture | `${CLAUDE_SKILL_DIR}/review-prompts/architecture_review.md` | `pr{N}-architecture-{base8}-{head8}.jsonl` |
 
 **Agent spawn parameters:**
+- `team_name: "pr-review-{N}"` — **non-negotiable, agents MUST be team members**
 - `model: "opus"`
 - `mode: "acceptEdits"` — **non-negotiable, agents MUST be able to write files**
 - Tools: Read, Write, Glob, Grep (no Bash, no Edit)

@@ -143,16 +143,39 @@ def check_setup_phase(tool_calls: list[dict]) -> dict:
 
 
 def check_agent_spawns(tool_calls: list[dict]) -> dict:
-    """Check if review agents were spawned (not ghost-written by main agent)."""
+    """Check if review agents were spawned as Agent Team members.
+
+    Verifies:
+    - TeamCreate was called (agents must be team members, not plain subagents)
+    - 6 expected agents were spawned with team_name parameter
+    - TeamDelete was called for cleanup
+    """
     agent_spawns = []
+    team_created = False
+    team_deleted = False
+    team_name = None
+    agents_with_team = 0
+    agents_without_team = 0
+
     for call in tool_calls:
-        if call["name"] == "Agent":
+        if call["name"] == "TeamCreate":
+            team_created = True
+            team_name = call["input"].get("team_name", "")
+        elif call["name"] == "TeamDelete":
+            team_deleted = True
+        elif call["name"] == "Agent":
             desc = call["input"].get("description", "")
             prompt = call["input"].get("prompt", "")[:200]
+            has_team = bool(call["input"].get("team_name"))
+            if has_team:
+                agents_with_team += 1
+            else:
+                agents_without_team += 1
             agent_spawns.append({
                 "description": desc,
                 "prompt_preview": prompt,
                 "agent_id": call.get("agent_id"),
+                "has_team": has_team,
             })
 
     expected_agents = ["code-health", "security", "test-integrity", "adversarial", "architecture", "synthesis"]
@@ -164,15 +187,29 @@ def check_agent_spawns(tool_calls: list[dict]) -> dict:
                 found_agents.add(agent)
 
     missing = set(expected_agents) - found_agents
+
+    # Build detail message
+    details = []
+    if not team_created:
+        details.append("NO TeamCreate (agents are plain subagents, not team members!)")
+    else:
+        details.append(f"Team '{team_name}' created")
+    details.append(f"{len(agent_spawns)} agents spawned ({agents_with_team} with team, {agents_without_team} without)")
+    details.append(f"{len(found_agents)}/6 expected agents identified")
+    if missing:
+        details.append(f"Missing: {', '.join(sorted(missing))}")
+    if not team_deleted and team_created:
+        details.append("WARNING: TeamDelete not called")
+
     return {
-        "pass": len(missing) == 0,
-        "detail": (
-            f"Spawned {len(agent_spawns)} agents, identified {len(found_agents)}/6 expected"
-            + (f". Missing: {', '.join(sorted(missing))}" if missing else "")
-        ),
+        "pass": len(missing) == 0 and team_created,
+        "detail": ". ".join(details),
         "spawns": agent_spawns,
         "found_agents": sorted(found_agents),
         "missing_agents": sorted(missing),
+        "team_created": team_created,
+        "team_deleted": team_deleted,
+        "team_name": team_name,
     }
 
 

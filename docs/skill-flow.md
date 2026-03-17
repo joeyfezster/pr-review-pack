@@ -61,9 +61,13 @@ USER: /pr-review-pack {PR-URL}
  ├─ Discover quality standards
  │   └─ copilot-instructions.md / CLAUDE.md / code_quality_standards.md
  │
- ├─ Step 1: Spawn 5 Review Agents ─────────────── ALL PARALLEL ──────────┐
+ ├─ Step 0: TeamCreate { "team_name": "pr-review-{N}" }
+ │   └─ MUST use Agent Teams (not plain subagents) — team agents get own context
+ │
+ ├─ Step 1: Spawn 5 Review Agents into team ───── ALL PARALLEL ──────────┐
  │                                                                        │
- │   Each agent: model=opus, mode=acceptEdits, tools=[Read,Write,Glob,Grep]
+ │   Each agent: team_name="pr-review-{N}", model=opus, mode=acceptEdits
+ │   Tools: [Read,Write,Glob,Grep]
  │   Each reads: diff_data.json + zone-registry.yaml + quality standards  │
  │   Each writes: .jsonl with HYBRID output                               │
  │                                                                        │
@@ -154,6 +158,9 @@ USER: /pr-review-pack {PR-URL}
  │   │  │  Identifies corroborated findings              │
  │   │  │  (same issue flagged by 2+ agents)             │
  │   │  └──────────────────────────────────────────────┘
+ │
+ ├─ Step 3: TeamDelete { "team_name": "pr-review-{N}" }
+ │   └─ Clean up team after all agents + synthesis complete
  │
  ╔══════════════════════════════════════════════════════════════════════════╗
  ║  PHASE 3: ASSEMBLE (deterministic — enforcement chokepoint)           ║
