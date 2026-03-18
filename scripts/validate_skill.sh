@@ -248,12 +248,11 @@ for spec in "$@"; do
     echo ""
 done
 
-# --- Step 6: JSONL session inspection guidance ---
-echo "=== Session JSONL Inspection ==="
-echo ""
-echo "To inspect what actually happened (never trust model output text):"
+# --- Step 6: Automated JSONL session inspection ---
+echo "=== Session JSONL Inspection (automated) ==="
 echo ""
 
+INSPECT_FAILED=0
 for spec in "$@"; do
     IFS=: read -r repo pr <<< "$spec"
     dir_name="$(echo "$repo" | tr '/' '-')-${pr}"
@@ -263,26 +262,28 @@ for spec in "$@"; do
     encoded_cwd=$(echo "$target" | sed 's|/|-|g')
     session_dir="$HOME/.claude/projects/${encoded_cwd}"
 
+    echo "--- ${dir_name} ---"
+
     if [ -d "$session_dir" ]; then
-        # Find most recent session
-        latest_session=$(find "$session_dir" -maxdepth 1 -name "*.jsonl" -type f 2>/dev/null | sort -t/ -k999 | tail -1)
-        if [ -n "$latest_session" ]; then
-            session_id=$(basename "$latest_session" .jsonl)
-            subagent_dir="$session_dir/$session_id/subagents"
-            subagent_count=0
-            if [ -d "$subagent_dir" ]; then
-                subagent_count=$(find "$subagent_dir" -name "agent-*.jsonl" | wc -l | tr -d ' ')
-            fi
-            echo "  ${dir_name}:"
-            echo "    Session: $latest_session"
-            echo "    Subagents: $subagent_count"
+        # Run the inspector with --repo-dir and --pr for full validation
+        if python3 "$SCRIPT_DIR/inspect_session.py" \
+            --session-dir "$session_dir" \
+            --pr "$pr" \
+            --repo-dir "$target"; then
+            echo "  => PASS"
+        else
+            echo "  => FAIL"
+            INSPECT_FAILED=$((INSPECT_FAILED + 1))
         fi
     else
-        echo "  ${dir_name}: No session data found at $session_dir"
+        echo "  No session data found at $session_dir"
+        INSPECT_FAILED=$((INSPECT_FAILED + 1))
     fi
+    echo ""
 done
 
 echo ""
 echo "=== Done ==="
-echo "${FAILED} failure(s) out of ${#PIDS[@]} run(s)."
+echo "${FAILED} process failure(s), ${INSPECT_FAILED} inspection failure(s) out of ${#PIDS[@]} run(s)."
 echo "Results in: ${RESULTS_DIR}"
+exit $((FAILED + INSPECT_FAILED))

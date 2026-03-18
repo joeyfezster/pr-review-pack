@@ -9,14 +9,17 @@ Checks against the desired state in skill-flow.md:
   2. Phase 1 (Setup): review_pack_setup.py ran
   3. Phase 2 (Review): 5 reviewer agents + 1 synthesis agent spawned
      - Each agent wrote its own .jsonl (not ghost-written by main agent)
-     - Validation feedback loop executed
+     - Validation feedback loop executed with resume-on-failure
   4. Phase 3 (Assemble): assemble_review_pack.py + render_review_pack.py ran
   5. Phase 4 (Deliver): Playwright tests ran, banner removed
   6. Zero permission denials
+  7. Zone registry exists
+  8. Filesystem artifacts complete (HTML with SHAs, data JSON, 6 .jsonl files)
+  9. Synthesis contains what_changed entries
 
 Usage:
     python inspect_session.py --session-dir ~/.claude/projects/-path/
-    python inspect_session.py --session-dir ~/.claude/projects/-path/ --pr 15040
+    python inspect_session.py --session-dir ~/.claude/projects/-path/ --pr 15040 --repo-dir ~/tmp/fastapi-15040
 """
 from __future__ import annotations
 
@@ -49,7 +52,7 @@ def parse_session(session_path: Path) -> list[dict]:
 
 
 def extract_tool_calls(entries: list[dict]) -> list[dict]:
-    """Extract all tool_use calls from assistant messages."""
+    """Extract all tool_use calls from assistant messages, preserving order."""
     calls = []
     for entry in entries:
         if entry.get("type") != "assistant":
@@ -60,35 +63,34 @@ def extract_tool_calls(entries: list[dict]) -> list[dict]:
                 calls.append({
                     "name": block.get("name"),
                     "input": block.get("input", {}),
+                    "id": block.get("id"),
                     "uuid": entry.get("uuid"),
                     "agent_id": entry.get("agentId"),
                 })
     return calls
 
 
-def extract_tool_results(entries: list[dict]) -> list[dict]:
-    """Extract all tool_result entries."""
-    results = []
+def extract_tool_results(entries: list[dict]) -> dict[str, dict]:
+    """Extract all tool_result entries, keyed by tool_use_id."""
+    results = {}
     for entry in entries:
         if entry.get("type") != "user":
             continue
         msg = entry.get("message", {})
         content = msg.get("content", []) if isinstance(msg.get("content"), list) else []
         for block in content:
+            tool_use_id = None
             if block.get("type") == "tool_result":
-                results.append({
-                    "tool_use_id": block.get("tool_use_id"),
-                    "content": block.get("content"),
-                    "is_error": block.get("is_error", False),
-                    "uuid": entry.get("uuid"),
-                })
+                tool_use_id = block.get("tool_use_id")
             elif isinstance(block, dict) and "tool_use_id" in block:
-                results.append({
-                    "tool_use_id": block.get("tool_use_id"),
+                tool_use_id = block.get("tool_use_id")
+            if tool_use_id:
+                results[tool_use_id] = {
+                    "tool_use_id": tool_use_id,
                     "content": block.get("content"),
                     "is_error": block.get("is_error", False),
                     "uuid": entry.get("uuid"),
-                })
+                }
     return results
 
 
@@ -167,6 +169,7 @@ def check_agent_spawns(tool_calls: list[dict]) -> dict:
             desc = call["input"].get("description", "")
             prompt = call["input"].get("prompt", "")[:200]
             has_team = bool(call["input"].get("team_name"))
+            is_resume = bool(call["input"].get("resume"))
             if has_team:
                 agents_with_team += 1
             else:
@@ -176,11 +179,14 @@ def check_agent_spawns(tool_calls: list[dict]) -> dict:
                 "prompt_preview": prompt,
                 "agent_id": call.get("agent_id"),
                 "has_team": has_team,
+                "is_resume": is_resume,
             })
 
     expected_agents = ["code-health", "security", "test-integrity", "adversarial", "architecture", "synthesis"]
     found_agents = set()
     for spawn in agent_spawns:
+        if spawn["is_resume"]:
+            continue  # resumes don't count as initial spawns
         desc_lower = (spawn["description"] + " " + spawn["prompt_preview"]).lower()
         for agent in expected_agents:
             if agent.replace("-", " ") in desc_lower or agent in desc_lower:
@@ -194,7 +200,8 @@ def check_agent_spawns(tool_calls: list[dict]) -> dict:
         details.append("NO TeamCreate (agents are plain subagents, not team members!)")
     else:
         details.append(f"Team '{team_name}' created")
-    details.append(f"{len(agent_spawns)} agents spawned ({agents_with_team} with team, {agents_without_team} without)")
+    resume_count = sum(1 for s in agent_spawns if s["is_resume"])
+    details.append(f"{len(agent_spawns)} agent calls ({agents_with_team} with team, {agents_without_team} without, {resume_count} resumes)")
     details.append(f"{len(found_agents)}/6 expected agents identified")
     if missing:
         details.append(f"Missing: {', '.join(sorted(missing))}")
@@ -258,21 +265,62 @@ def check_ghost_writing(tool_calls: list[dict], pr_number: int | None) -> dict:
     }
 
 
-def check_validation_loop(tool_calls: list[dict]) -> dict:
-    """Check if the validation feedback loop ran."""
+def check_validation_loop(tool_calls: list[dict], tool_results: dict[str, dict]) -> dict:
+    """Check the validation feedback loop ran AND that failures triggered agent resumes.
+
+    The loop is: validate → if errors → RESUME original agent with errors → re-validate.
+    Key: when validation fails, the SAME agent must be RESUMED (Agent with resume param),
+    NOT a new agent spawned with the same prompt.
+    """
     validation_runs = 0
+    validation_failures = 0
+    agent_resumes = 0
+
+    # Track validation calls and their results
     for call in tool_calls:
         if call["name"] == "Bash":
             cmd = str(call["input"].get("command", ""))
             if "assemble_review_pack" in cmd and "--validate-only" in cmd:
                 validation_runs += 1
+                # Check if this validation failed by looking at its tool_result
+                call_id = call.get("id")
+                if call_id and call_id in tool_results:
+                    result = tool_results[call_id]
+                    if result.get("is_error"):
+                        validation_failures += 1
+                    else:
+                        # Check result content for error indicators
+                        content = str(result.get("content", ""))
+                        if "error" in content.lower() and ("exit code 1" in content.lower() or "failed" in content.lower()):
+                            validation_failures += 1
+
+    # Count agent resumes (Agent calls with resume parameter)
+    for call in tool_calls:
+        if call["name"] == "Agent" and call["input"].get("resume"):
+            agent_resumes += 1
+
+    # Build assessment
+    details = [f"Validation ran {validation_runs} time(s)"]
+    if validation_failures > 0:
+        details.append(f"{validation_failures} failure(s) detected")
+        if agent_resumes > 0:
+            details.append(f"{agent_resumes} agent resume(s) — loop is working correctly")
+        else:
+            details.append("NO agent resumes after failures — loop is BROKEN (errors not fed back to original agents)")
+    elif validation_runs > 0:
+        details.append("all validations passed on first attempt (no resumes needed)")
+    if agent_resumes > 0 and validation_failures == 0:
+        details.append(f"{agent_resumes} agent resume(s) detected (validation failures may not have been captured in JSONL)")
+
+    # Pass criteria: validation ran AND (no failures, OR failures had resumes)
+    loop_correct = validation_runs >= 1 and (validation_failures == 0 or agent_resumes > 0)
 
     return {
-        "pass": validation_runs >= 1,
-        "detail": f"Validation loop ran {validation_runs} time(s)" + (
-            " (expected ≥5 — one per reviewer)" if validation_runs < 5 else ""
-        ),
+        "pass": loop_correct,
+        "detail": ". ".join(details),
         "validation_runs": validation_runs,
+        "validation_failures": validation_failures,
+        "agent_resumes": agent_resumes,
     }
 
 
@@ -387,7 +435,223 @@ def check_permission_denials(entries: list[dict]) -> dict:
     }
 
 
-def inspect_session(session_dir: Path, pr_number: int | None = None) -> dict:
+# ---------------------------------------------------------------------------
+# NEW CHECKS — Filesystem artifact validation (requires --repo-dir)
+# ---------------------------------------------------------------------------
+
+
+def check_zone_registry(tool_calls: list[dict], repo_dir: Path | None) -> dict:
+    """Check that zone-registry.yaml exists.
+
+    Verifies via:
+    1. Filesystem: zone-registry.yaml exists at repo root or .claude/
+    2. JSONL: architect agent was spawned to create it (if no pre-existing file)
+    """
+    # JSONL check: was an architect agent spawned?
+    architect_spawned = False
+    for call in tool_calls:
+        if call["name"] == "Agent" and not call["input"].get("resume"):
+            desc_lower = (call["input"].get("description", "") + " " + call["input"].get("prompt", "")[:300]).lower()
+            if "zone" in desc_lower and ("architect" in desc_lower or "registry" in desc_lower):
+                architect_spawned = True
+                break
+
+    # Filesystem check (if repo_dir provided)
+    if repo_dir:
+        zone_at_root = (repo_dir / "zone-registry.yaml").exists()
+        zone_at_claude = (repo_dir / ".claude" / "zone-registry.yaml").exists()
+        exists = zone_at_root or zone_at_claude
+        location = "repo root" if zone_at_root else ".claude/" if zone_at_claude else "NOT FOUND"
+
+        return {
+            "pass": exists,
+            "detail": (
+                f"zone-registry.yaml found at {location}"
+                + (f" (architect agent spawned)" if architect_spawned else " (pre-existing or created by setup)")
+                if exists
+                else f"zone-registry.yaml NOT FOUND"
+                + (f" (architect agent WAS spawned but file missing)" if architect_spawned else " (architect agent NOT spawned either)")
+            ),
+            "exists": exists,
+            "architect_spawned": architect_spawned,
+        }
+    else:
+        # Without repo_dir, can only check JSONL for architect spawn
+        return {
+            "pass": architect_spawned,  # conservative: if no repo_dir, require architect evidence in JSONL
+            "detail": (
+                "Architect agent spawned for zone registry (no --repo-dir to verify file)"
+                if architect_spawned
+                else "Cannot verify zone registry — no architect agent in JSONL and no --repo-dir provided"
+            ),
+            "architect_spawned": architect_spawned,
+        }
+
+
+def check_filesystem_artifacts(repo_dir: Path | None, pr_number: int | None) -> dict:
+    """Check that all expected filesystem artifacts exist.
+
+    Validates:
+    - HTML review pack with SHAs in filename + banner removed
+    - Review pack data JSON
+    - 6 .jsonl files with content (not just meta headers)
+    """
+    if not repo_dir or not pr_number:
+        return {
+            "pass": True,  # skip if no repo_dir/pr — don't fail, just note
+            "detail": "Skipped — --repo-dir and --pr required for filesystem checks",
+            "skipped": True,
+        }
+
+    details = []
+    failures = []
+
+    reviews_dir = repo_dir / "docs" / "reviews" / f"pr{pr_number}"
+
+    # Check 1: HTML with SHAs in filename + banner removed
+    html_pattern = f"pr{pr_number}_review_pack_*-*.html"
+    html_files = list((repo_dir / "docs").glob(html_pattern))
+    if html_files:
+        html_path = html_files[0]
+        details.append(f"HTML: {html_path.name}")
+        # Check banner removal
+        html_content = html_path.read_text(errors="replace")
+        if 'data-inspected="true"' in html_content:
+            details.append("Banner: removed (data-inspected=true)")
+        else:
+            failures.append("Banner NOT removed (data-inspected != true)")
+    else:
+        # Check for non-SHA version
+        plain_pattern = f"pr{pr_number}_review_pack*.html"
+        plain_files = list((repo_dir / "docs").glob(plain_pattern))
+        if plain_files:
+            failures.append(f"HTML exists but WITHOUT SHAs in filename: {plain_files[0].name}")
+        else:
+            failures.append("HTML review pack NOT FOUND")
+
+    # Check 2: Review pack data JSON
+    data_json = reviews_dir / f"pr{pr_number}_review_pack_data.json"
+    if data_json.exists():
+        details.append("Data JSON: exists")
+    else:
+        failures.append("Data JSON (pr{}_review_pack_data.json) NOT FOUND — assembly failed or didn't run".format(pr_number))
+
+    # Check 3: 6 .jsonl files with content
+    expected_agents = ["code-health", "security", "test-integrity", "adversarial", "architecture", "synthesis"]
+    jsonl_found = 0
+    jsonl_with_content = 0
+    missing_agents = []
+    meta_only_agents = []
+
+    for agent in expected_agents:
+        agent_files = list(reviews_dir.glob(f"pr{pr_number}-{agent}-*.jsonl"))
+        if agent_files:
+            jsonl_found += 1
+            line_count = sum(1 for _ in open(agent_files[0]))
+            if line_count > 1:  # more than just the meta header
+                jsonl_with_content += 1
+            else:
+                meta_only_agents.append(agent)
+        else:
+            missing_agents.append(agent)
+
+    details.append(f"JSONL files: {jsonl_found}/6 found, {jsonl_with_content}/6 have content")
+    if missing_agents:
+        failures.append(f"Missing .jsonl: {', '.join(missing_agents)}")
+    if meta_only_agents:
+        failures.append(f"Meta-only .jsonl (no agent content): {', '.join(meta_only_agents)}")
+
+    all_detail = ". ".join(details + failures)
+    return {
+        "pass": len(failures) == 0,
+        "detail": all_detail,
+        "html_found": len(html_files) > 0 if 'html_files' in dir() else False,
+        "data_json_found": data_json.exists(),
+        "jsonl_found": jsonl_found,
+        "jsonl_with_content": jsonl_with_content,
+        "missing_agents": missing_agents,
+        "meta_only_agents": meta_only_agents,
+        "failures": failures,
+    }
+
+
+def check_synthesis_content(repo_dir: Path | None, pr_number: int | None) -> dict:
+    """Check that the synthesis .jsonl contains what_changed entries.
+
+    The synthesis agent must produce at least 1 what_changed entry (infrastructure
+    or product layer summary). This is the core deliverable of the synthesis phase.
+    """
+    if not repo_dir or not pr_number:
+        return {
+            "pass": True,
+            "detail": "Skipped — --repo-dir and --pr required",
+            "skipped": True,
+        }
+
+    reviews_dir = repo_dir / "docs" / "reviews" / f"pr{pr_number}"
+    synthesis_files = list(reviews_dir.glob(f"pr{pr_number}-synthesis-*.jsonl"))
+
+    if not synthesis_files:
+        return {"pass": False, "detail": "Synthesis .jsonl file NOT FOUND"}
+
+    synthesis_path = synthesis_files[0]
+    what_changed_count = 0
+    decision_count = 0
+    post_merge_count = 0
+    total_lines = 0
+    parse_errors = 0
+
+    with open(synthesis_path) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            total_lines += 1
+            try:
+                obj = json.loads(line)
+                line_type = obj.get("_type", "")
+                if line_type == "meta":
+                    continue
+                if line_type == "what_changed":
+                    what_changed_count += 1
+                elif line_type == "decision":
+                    decision_count += 1
+                elif line_type == "post_merge_item":
+                    post_merge_count += 1
+            except json.JSONDecodeError:
+                parse_errors += 1
+
+    details = [
+        f"{total_lines} lines in synthesis .jsonl",
+        f"{what_changed_count} what_changed",
+        f"{decision_count} decisions",
+        f"{post_merge_count} post_merge_items",
+    ]
+    if parse_errors:
+        details.append(f"{parse_errors} parse errors")
+
+    return {
+        "pass": what_changed_count >= 1,
+        "detail": ". ".join(details) + (
+            "" if what_changed_count >= 1
+            else " — FAIL: synthesis must produce at least 1 what_changed entry"
+        ),
+        "what_changed_count": what_changed_count,
+        "decision_count": decision_count,
+        "post_merge_count": post_merge_count,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Main inspection orchestrator
+# ---------------------------------------------------------------------------
+
+
+def inspect_session(
+    session_dir: Path,
+    pr_number: int | None = None,
+    repo_dir: Path | None = None,
+) -> dict:
     """Run all checks on a session."""
     session_path = find_latest_session(session_dir)
     if not session_path:
@@ -396,6 +660,7 @@ def inspect_session(session_dir: Path, pr_number: int | None = None) -> dict:
     session_id = session_path.stem
     entries = parse_session(session_path)
     tool_calls = extract_tool_calls(entries)
+    tool_results = extract_tool_results(entries)
 
     results = {
         "session_id": session_id,
@@ -405,19 +670,28 @@ def inspect_session(session_dir: Path, pr_number: int | None = None) -> dict:
         "checks": {},
     }
 
-    # Run all checks
+    # JSONL-based checks (always run)
     results["checks"]["skill_loaded"] = check_skill_loaded(entries)
     results["checks"]["setup_phase"] = check_setup_phase(tool_calls)
     results["checks"]["agent_spawns"] = check_agent_spawns(tool_calls)
     results["checks"]["ghost_writing"] = check_ghost_writing(tool_calls, pr_number)
-    results["checks"]["validation_loop"] = check_validation_loop(tool_calls)
+    results["checks"]["validation_loop"] = check_validation_loop(tool_calls, tool_results)
     results["checks"]["assembly"] = check_assembly(tool_calls)
     results["checks"]["playwright"] = check_playwright(tool_calls)
     results["checks"]["subagent_writes"] = check_subagent_writes(session_dir, session_id)
     results["checks"]["permission_denials"] = check_permission_denials(entries)
 
-    # Overall pass/fail
-    all_pass = all(c["pass"] for c in results["checks"].values())
+    # Filesystem-based checks (require --repo-dir and --pr)
+    results["checks"]["zone_registry"] = check_zone_registry(tool_calls, repo_dir)
+    results["checks"]["filesystem_artifacts"] = check_filesystem_artifacts(repo_dir, pr_number)
+    results["checks"]["synthesis_content"] = check_synthesis_content(repo_dir, pr_number)
+
+    # Overall pass/fail (skip checks that were skipped due to missing args)
+    active_checks = {
+        k: v for k, v in results["checks"].items()
+        if not v.get("skipped", False)
+    }
+    all_pass = all(c["pass"] for c in active_checks.values())
     results["overall_pass"] = all_pass
 
     return results
@@ -434,20 +708,27 @@ def print_report(results: dict) -> None:
     print()
 
     for check_name, check_result in results["checks"].items():
+        if check_result.get("skipped"):
+            print(f"  [-] {check_name}: {check_result['detail']}")
+            continue
         status = "PASS" if check_result["pass"] else "FAIL"
         icon = "+" if check_result["pass"] else "X"
         print(f"  [{icon}] {check_name}: {check_result['detail']}")
 
     print()
     overall = "PASS" if results["overall_pass"] else "FAIL"
-    print(f"Overall: {overall}")
+    active_count = sum(1 for c in results["checks"].values() if not c.get("skipped"))
+    pass_count = sum(1 for c in results["checks"].values() if not c.get("skipped") and c["pass"])
+    print(f"Overall: {overall} ({pass_count}/{active_count} checks passed)")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Inspect Claude Code session JSONL")
     parser.add_argument("--session-dir", required=True,
                         help="Path to session directory (e.g., ~/.claude/projects/-path/)")
-    parser.add_argument("--pr", type=int, default=None, help="PR number for ghost-writing check")
+    parser.add_argument("--pr", type=int, default=None, help="PR number for ghost-writing and filesystem checks")
+    parser.add_argument("--repo-dir", default=None,
+                        help="Path to the target repo directory for filesystem artifact checks")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     args = parser.parse_args()
 
@@ -456,7 +737,9 @@ def main() -> None:
         print(f"ERROR: Session directory not found: {session_dir}")
         sys.exit(1)
 
-    results = inspect_session(session_dir, args.pr)
+    repo_dir = Path(args.repo_dir) if args.repo_dir else None
+
+    results = inspect_session(session_dir, args.pr, repo_dir)
 
     if args.json:
         print(json.dumps(results, indent=2))

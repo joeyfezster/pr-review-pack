@@ -255,7 +255,23 @@ The **architecture reviewer** additionally writes a special `_type: "architectur
 
 After all 5 reviewers complete, execute this loop **for each reviewer agent**.
 
-**⚠ You MUST save each agent's ID when spawning it.** The validation loop RESUMES the original agent — it does NOT spawn a new agent with the same prompt. A new agent lacks the analysis context and will produce shallow corrections.
+**⚠ You MUST save each agent's return ID when spawning it.** The validation loop RESUMES the original agent — it does NOT spawn a new agent with the same prompt. A new agent lacks the analysis context and will produce shallow corrections.
+
+**HOW TO SAVE AND RESUME:**
+When you spawn each reviewer agent, the Agent tool returns an agent ID. Store it:
+```
+# When spawning — save the returned agent ID
+code_health_result = Agent(prompt="...", team_name="pr-review-{N}", ...)
+# The result includes the agent_id — save it for resume
+```
+
+When resuming after validation failure, use the `resume` parameter:
+```
+# When resuming — use resume parameter with the SAVED agent ID
+Agent(resume="<saved-agent-id-from-spawn>", prompt="Validation failed. Errors:\n{errors}\n\nAppend corrections...")
+```
+
+**DO NOT spawn a new Agent with a fresh prompt to "fix" errors. A new agent has no context of the original analysis. You MUST use resume.**
 
 ```
 FOR each reviewer agent (code-health, security, test-integrity, adversarial, architecture):
@@ -268,16 +284,22 @@ FOR each reviewer agent (code-health, security, test-integrity, adversarial, arc
   If exit 1 → proceed to STEP 3.
 
   ── STEP 3: RESUME AGENT (not spawn new) ──
-  RESUME the SAME reviewer agent (using its saved agent ID) with this message:
+  RESUME the SAME reviewer agent using Agent(resume="<saved-agent-id>"):
 
-     "Validation failed. Here are the errors:
-     {paste the full stderr output from the validation script}
+     Agent(
+       resume="<the agent ID saved from the original spawn>",
+       prompt="Validation failed. Here are the errors:
+       {paste the full stderr output from the validation script}
 
-     Append corrections to your .jsonl file:
-     - For missing FileReviewOutcome: append new file_review lines
-     - For missing concept backing: append new ReviewConcept lines
-     - For field errors: append ConceptUpdate lines
-     Do NOT modify existing lines — append only."
+       Append corrections to your .jsonl file:
+       - For missing FileReviewOutcome: append new file_review lines
+       - For missing concept backing: append new ReviewConcept lines
+       - For field errors: append ConceptUpdate lines
+       Do NOT modify existing lines — append only."
+     )
+
+  ⚠ If you spawn a NEW agent instead of using resume, the inspector will
+  detect this and flag the session as FAILED.
 
   ── STEP 4: RE-VALIDATE ──
   After the agent appends corrections, go back to STEP 1.
