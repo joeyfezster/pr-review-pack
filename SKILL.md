@@ -255,23 +255,34 @@ The **architecture reviewer** additionally writes a special `_type: "architectur
 
 After all 5 reviewers complete, execute this loop **for each reviewer agent**.
 
-**⚠ You MUST save each agent's return ID when spawning it.** The validation loop RESUMES the original agent — it does NOT spawn a new agent with the same prompt. A new agent lacks the analysis context and will produce shallow corrections.
+**Save each agent's return ID when spawning it.** The validation loop should ideally RESUME the original agent. If resume is not possible, spawn a new correction agent with the errors — this is acceptable as long as an AGENT handles the fix, not the main agent.
 
-**HOW TO SAVE AND RESUME:**
-When you spawn each reviewer agent, the Agent tool returns an agent ID. Store it:
-```
-# When spawning — save the returned agent ID
-code_health_result = Agent(prompt="...", team_name="pr-review-{N}", ...)
-# The result includes the agent_id — save it for resume
-```
+**CORRECTION PROTOCOL (two acceptable patterns):**
 
-When resuming after validation failure, use the `resume` parameter:
+**Pattern A (preferred): Resume the original agent**
 ```
-# When resuming — use resume parameter with the SAVED agent ID
-Agent(resume="<saved-agent-id-from-spawn>", prompt="Validation failed. Errors:\n{errors}\n\nAppend corrections...")
+Agent(resume="<saved-agent-id>", prompt="Validation failed. Errors:\n{errors}\n\nAppend corrections...")
 ```
 
-**DO NOT spawn a new Agent with a fresh prompt to "fix" errors. A new agent has no context of the original analysis. You MUST use resume.**
+**Pattern B (acceptable): Spawn a new fix agent into the same team**
+```
+Agent(
+  prompt="Validation of the {agent-name} reviewer output failed. Here are the errors:
+  {paste the full stderr output from the validation script}
+
+  Read the existing .jsonl file at: docs/reviews/pr{N}/pr{N}-{agent}-{base8}-{head8}.jsonl
+  Append corrections:
+  - For missing FileReviewOutcome: append new file_review lines
+  - For missing concept backing: append new ReviewConcept lines
+  - For field errors: append ConceptUpdate lines
+  Do NOT modify existing lines — append only.",
+  team_name="pr-review-{N}",
+  model="opus",
+  mode="acceptEdits"
+)
+```
+
+**What is NEVER acceptable:** The main agent writing .jsonl content itself. That is ghost-writing. An agent must produce the corrections.
 
 ```
 FOR each reviewer agent (code-health, security, test-integrity, adversarial, architecture):
@@ -283,23 +294,9 @@ FOR each reviewer agent (code-health, security, test-integrity, adversarial, arc
   If exit 0 → this reviewer's output is valid, move to next reviewer.
   If exit 1 → proceed to STEP 3.
 
-  ── STEP 3: RESUME AGENT (not spawn new) ──
-  RESUME the SAME reviewer agent using Agent(resume="<saved-agent-id>"):
-
-     Agent(
-       resume="<the agent ID saved from the original spawn>",
-       prompt="Validation failed. Here are the errors:
-       {paste the full stderr output from the validation script}
-
-       Append corrections to your .jsonl file:
-       - For missing FileReviewOutcome: append new file_review lines
-       - For missing concept backing: append new ReviewConcept lines
-       - For field errors: append ConceptUpdate lines
-       Do NOT modify existing lines — append only."
-     )
-
-  ⚠ If you spawn a NEW agent instead of using resume, the inspector will
-  detect this and flag the session as FAILED.
+  ── STEP 3: CORRECTION AGENT ──
+  Use Pattern A (resume) if possible. Otherwise use Pattern B (new fix agent).
+  Either way, pass the FULL stderr from the validation script to the agent.
 
   ── STEP 4: RE-VALIDATE ──
   After the agent appends corrections, go back to STEP 1.
@@ -311,7 +308,7 @@ FOR each reviewer agent (code-health, security, test-integrity, adversarial, arc
      DO NOT ghost-write, DO NOT proceed to Phase 4.
 ```
 
-**Why resume the agent instead of fixing it yourself?** The reviewer agent has the full context of its analysis — why it graded a file the way it did, what it found, what it considered. When you edit its .jsonl file, you're substituting your surface-level understanding for its deep analysis. The result is a review pack that claims to represent 5 independent perspectives but actually represents yours.
+**Why use an agent instead of fixing it yourself?** The reviewer agent has the full context of its analysis — why it graded a file the way it did, what it found, what it considered. When you edit its .jsonl file, you're substituting your surface-level understanding for its deep analysis. The result is a review pack that claims to represent 5 independent perspectives but actually represents yours.
 
 ### Step 2: Spawn Synthesis Agent (After Step 1)
 

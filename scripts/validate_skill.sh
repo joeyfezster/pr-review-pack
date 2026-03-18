@@ -13,7 +13,7 @@ set -euo pipefail
 # Environment variables:
 #   WORK_DIR      — base directory for cloned repos (default: ~/tmp)
 #   MAX_TURNS     — max agent turns per run (default: 200)
-#   MAX_BUDGET    — max dollar spend per run (default: 5.00)
+#   MAX_BUDGET    — max dollar spend per run (default: 15.00)
 #   RESULTS_DIR   — override results directory
 #   INSTALL_FIRST — set to "1" to re-install skill before running (default: 0)
 #   CLEAN_REPOS   — set to "1" to clean repos before running (default: 1)
@@ -24,7 +24,7 @@ SKILL_DIR="$HOME/.claude/skills/pr-review-pack"
 
 WORK_DIR="${WORK_DIR:-$HOME/tmp}"
 MAX_TURNS="${MAX_TURNS:-200}"
-MAX_BUDGET="${MAX_BUDGET:-5.00}"
+MAX_BUDGET="${MAX_BUDGET:-15.00}"
 CLEAN_REPOS="${CLEAN_REPOS:-1}"
 INSTALL_FIRST="${INSTALL_FIRST:-0}"
 
@@ -259,7 +259,8 @@ for spec in "$@"; do
     target="${WORK_DIR}/${dir_name}"
 
     # Find the encoded cwd for this repo
-    encoded_cwd=$(echo "$target" | sed 's|/|-|g')
+    # Claude encodes cwds by replacing / with - AND removing dots
+    encoded_cwd=$(echo "$target" | sed 's|/|-|g' | sed 's|\.||g')
     session_dir="$HOME/.claude/projects/${encoded_cwd}"
 
     echo "--- ${dir_name} ---"

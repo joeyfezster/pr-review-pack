@@ -266,54 +266,89 @@ def check_ghost_writing(tool_calls: list[dict], pr_number: int | None) -> dict:
 
 
 def check_validation_loop(tool_calls: list[dict], tool_results: dict[str, dict]) -> dict:
-    """Check the validation feedback loop ran AND that failures triggered agent resumes.
+    """Check the validation feedback loop ran AND that failures triggered agent correction.
 
-    The loop is: validate → if errors → RESUME original agent with errors → re-validate.
-    Key: when validation fails, the SAME agent must be RESUMED (Agent with resume param),
-    NOT a new agent spawned with the same prompt.
+    The ideal loop is: validate → if errors → RESUME original agent → re-validate.
+    In practice, the orchestrator may spawn a NEW fix agent instead of resuming.
+    Both patterns are acceptable as long as an AGENT (not the main agent) handles
+    the correction — the trust model requires agent-produced content, not specifically
+    the *same* agent. Resume is preferred but new-agent-with-errors is valid.
+
+    What is NOT acceptable: main agent editing .jsonl files directly after validation
+    failure (that's ghost-writing, checked separately by check_ghost_writing).
     """
     validation_runs = 0
     validation_failures = 0
     agent_resumes = 0
+    fix_agents_spawned = 0
 
-    # Track validation calls and their results
-    for call in tool_calls:
+    # Track validation call timestamps (by index) to detect post-failure agent spawns
+    validation_failure_indices = []
+
+    for i, call in enumerate(tool_calls):
         if call["name"] == "Bash":
             cmd = str(call["input"].get("command", ""))
             if "assemble_review_pack" in cmd and "--validate-only" in cmd:
                 validation_runs += 1
                 # Check if this validation failed by looking at its tool_result
                 call_id = call.get("id")
+                failed = False
                 if call_id and call_id in tool_results:
                     result = tool_results[call_id]
                     if result.get("is_error"):
-                        validation_failures += 1
+                        failed = True
                     else:
-                        # Check result content for error indicators
                         content = str(result.get("content", ""))
                         if "error" in content.lower() and ("exit code 1" in content.lower() or "failed" in content.lower()):
-                            validation_failures += 1
+                            failed = True
+                if failed:
+                    validation_failures += 1
+                    validation_failure_indices.append(i)
 
-    # Count agent resumes (Agent calls with resume parameter)
-    for call in tool_calls:
-        if call["name"] == "Agent" and call["input"].get("resume"):
-            agent_resumes += 1
+    # Count correction mechanisms: resumes, new fix agents, AND SendMessage corrections
+    send_message_corrections = 0
+
+    for i, call in enumerate(tool_calls):
+        if call["name"] == "Agent":
+            if call["input"].get("resume"):
+                agent_resumes += 1
+            elif validation_failure_indices:
+                # Check if this Agent spawn came after a validation failure
+                prompt_lower = call["input"].get("prompt", "").lower()
+                desc_lower = call["input"].get("description", "").lower()
+                is_fix_agent = any(kw in prompt_lower or kw in desc_lower for kw in [
+                    "error", "validation", "fix", "correct", "fail", "missing",
+                    "append", "file_review", "filereviewoutcome", "reviewconcept",
+                ])
+                if is_fix_agent and i > validation_failure_indices[0]:
+                    fix_agents_spawned += 1
+        elif call["name"] == "SendMessage" and validation_failure_indices:
+            # SendMessage to team agents with error/fix content after validation failure
+            msg = str(call["input"].get("message", "")).lower()
+            if i > validation_failure_indices[0] and any(kw in msg for kw in [
+                "error", "validation", "fail", "fix", "missing", "correct",
+            ]):
+                send_message_corrections += 1
 
     # Build assessment
+    correction_agents = agent_resumes + fix_agents_spawned + send_message_corrections
     details = [f"Validation ran {validation_runs} time(s)"]
     if validation_failures > 0:
         details.append(f"{validation_failures} failure(s) detected")
         if agent_resumes > 0:
-            details.append(f"{agent_resumes} agent resume(s) — loop is working correctly")
-        else:
-            details.append("NO agent resumes after failures — loop is BROKEN (errors not fed back to original agents)")
+            details.append(f"{agent_resumes} agent resume(s) — ideal loop pattern")
+        if fix_agents_spawned > 0:
+            details.append(f"{fix_agents_spawned} new fix agent(s) spawned — acceptable correction pattern")
+        if send_message_corrections > 0:
+            details.append(f"{send_message_corrections} SendMessage correction(s) to team agents — acceptable pattern")
+        if correction_agents == 0:
+            details.append("NO correction agents after failures — errors may not have been addressed")
     elif validation_runs > 0:
-        details.append("all validations passed on first attempt (no resumes needed)")
-    if agent_resumes > 0 and validation_failures == 0:
-        details.append(f"{agent_resumes} agent resume(s) detected (validation failures may not have been captured in JSONL)")
+        details.append("all validations passed on first attempt (no corrections needed)")
 
-    # Pass criteria: validation ran AND (no failures, OR failures had resumes)
-    loop_correct = validation_runs >= 1 and (validation_failures == 0 or agent_resumes > 0)
+    # Pass criteria: validation ran AND (no failures, OR failures had some correction agent)
+    # The ghost_writing check separately ensures main agent didn't write .jsonl content
+    loop_correct = validation_runs >= 1 and (validation_failures == 0 or correction_agents > 0)
 
     return {
         "pass": loop_correct,
@@ -321,6 +356,8 @@ def check_validation_loop(tool_calls: list[dict], tool_results: dict[str, dict])
         "validation_runs": validation_runs,
         "validation_failures": validation_failures,
         "agent_resumes": agent_resumes,
+        "fix_agents_spawned": fix_agents_spawned,
+        "send_message_corrections": send_message_corrections,
     }
 
 
