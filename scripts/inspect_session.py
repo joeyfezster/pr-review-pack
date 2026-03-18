@@ -609,7 +609,9 @@ def check_synthesis_content(repo_dir: Path | None, pr_number: int | None) -> dic
             total_lines += 1
             try:
                 obj = json.loads(line)
-                line_type = obj.get("_type", "")
+                # SemanticOutput uses "output_type" as discriminator (not "_type")
+                # Reviewer agents use "_type". Check both for robustness.
+                line_type = obj.get("output_type", obj.get("_type", ""))
                 if line_type == "meta":
                     continue
                 if line_type == "what_changed":
