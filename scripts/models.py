@@ -14,18 +14,17 @@ Design decisions (from streamline_review_pack.md):
 from __future__ import annotations
 
 import re
-from enum import Enum
-from typing import Annotated, Literal
+from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
-
 
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
 
 
-class Grade(str, Enum):
+class Grade(StrEnum):
     """Valid review grades. N/A is explicitly excluded."""
 
     A = "A"
@@ -48,15 +47,15 @@ GRADE_SORT_ORDER: dict[Grade, int] = {
 # The old schema used: 0=N/A, 1=B, 2=B+, 3=A.
 # We map from Grade to the legacy values for backward compat.
 LEGACY_GRADE_SORT_ORDER: dict[Grade, int] = {
-    Grade.F: 0,     # was N/A in old schema; F is the new "worst"
-    Grade.C: 0,     # C didn't exist in old schema; treat as lowest
+    Grade.F: 0,  # was N/A in old schema; F is the new "worst"
+    Grade.C: 0,  # C didn't exist in old schema; treat as lowest
     Grade.B: 1,
     Grade.B_PLUS: 2,
     Grade.A: 3,
 }
 
 
-class FindingCategory(str, Enum):
+class FindingCategory(StrEnum):
     """Categories for review concept findings."""
 
     CODE_HEALTH = "code-health"
@@ -83,7 +82,8 @@ class FileReviewOutcome(BaseModel):
     """
 
     type_discriminator: Literal["file_review"] = Field(
-        alias="_type", default="file_review",
+        alias="_type",
+        default="file_review",
     )
     file: str = Field(
         ...,
@@ -122,7 +122,8 @@ class ConceptUpdate(BaseModel):
     """
 
     type_discriminator: Literal["concept_update"] = Field(
-        alias="_type", default="concept_update",
+        alias="_type",
+        default="concept_update",
     )
     concept_id: str = Field(
         ...,
@@ -140,9 +141,7 @@ class ConceptUpdate(BaseModel):
     @classmethod
     def validate_concept_id(cls, v: str) -> str:
         if not _KEBAB_RE.match(v):
-            raise ValueError(
-                f"concept_id '{v}' must be lowercase-kebab-case"
-            )
+            raise ValueError(f"concept_id '{v}' must be lowercase-kebab-case")
         return v
 
 
@@ -161,8 +160,7 @@ def _validate_zone_id(zone_id: str) -> str:
     """
     if not _KEBAB_RE.match(zone_id):
         raise ValueError(
-            f"Zone ID '{zone_id}' must be lowercase-kebab-case "
-            f"(e.g. 'rl-core', 'review-pack')"
+            f"Zone ID '{zone_id}' must be lowercase-kebab-case (e.g. 'rl-core', 'review-pack')"
         )
     return zone_id
 
@@ -425,9 +423,7 @@ class SemanticOutput(BaseModel):
     The `output_type` discriminator determines which fields are populated.
     """
 
-    output_type: Literal[
-        "what_changed", "decision", "post_merge_item", "factory_event"
-    ]
+    output_type: Literal["what_changed", "decision", "post_merge_item", "factory_event"]
 
     # what_changed
     what_changed: WhatChangedEntry | None = None
@@ -453,8 +449,7 @@ class SemanticOutput(BaseModel):
         active = field_map[self.output_type]
         if active is None:
             raise ValueError(
-                f"output_type is '{self.output_type}' but the corresponding "
-                f"field is None"
+                f"output_type is '{self.output_type}' but the corresponding field is None"
             )
         # Ensure other fields are None
         for key, val in field_map.items():
@@ -476,7 +471,8 @@ class UnzonedFileEntry(BaseModel):
 
     path: str
     suggested_zone: str | None = Field(
-        default=None, alias="suggestedZone",
+        default=None,
+        alias="suggestedZone",
     )
     reason: str
 
@@ -485,13 +481,17 @@ class ZoneChangeEntry(BaseModel):
     """A structural zone change detected in the PR."""
 
     type: Literal[
-        "new_zone_recommended", "zone_split", "zone_merge",
-        "zone_renamed", "zone_removed",
+        "new_zone_recommended",
+        "zone_split",
+        "zone_merge",
+        "zone_renamed",
+        "zone_removed",
     ]
     zone: str
     reason: str
     suggested_paths: list[str] | None = Field(
-        default=None, alias="suggestedPaths",
+        default=None,
+        alias="suggestedPaths",
     )
 
 
@@ -532,7 +532,8 @@ class ArchitectureAssessmentOutput(BaseModel):
     model_config = {"populate_by_name": True}
 
     type_discriminator: Literal["architecture_assessment"] = Field(
-        alias="_type", default="architecture_assessment",
+        alias="_type",
+        default="architecture_assessment",
     )
 
     # Diagram data (nullable — may not be produced for small PRs)
@@ -542,22 +543,28 @@ class ArchitectureAssessmentOutput(BaseModel):
 
     # Assessment details
     unzoned_files: list[UnzonedFileEntry] = Field(
-        default_factory=list, alias="unzonedFiles",
+        default_factory=list,
+        alias="unzonedFiles",
     )
     zone_changes: list[ZoneChangeEntry] = Field(
-        default_factory=list, alias="zoneChanges",
+        default_factory=list,
+        alias="zoneChanges",
     )
     registry_warnings: list[RegistryWarning] = Field(
-        default_factory=list, alias="registryWarnings",
+        default_factory=list,
+        alias="registryWarnings",
     )
     coupling_warnings: list[CouplingWarning] = Field(
-        default_factory=list, alias="couplingWarnings",
+        default_factory=list,
+        alias="couplingWarnings",
     )
     doc_recommendations: list[DocRecommendation] = Field(
-        default_factory=list, alias="docRecommendations",
+        default_factory=list,
+        alias="docRecommendations",
     )
     decision_zone_verification: list[DecisionVerification] = Field(
-        default_factory=list, alias="decisionZoneVerification",
+        default_factory=list,
+        alias="decisionZoneVerification",
     )
 
     overall_health: Literal["healthy", "needs-attention", "action-required"] = Field(
@@ -580,8 +587,11 @@ def export_json_schemas(output_dir: str) -> None:
     out.mkdir(parents=True, exist_ok=True)
 
     for model_cls in (
-        ReviewConcept, SemanticOutput, FileReviewOutcome,
-        ConceptUpdate, ArchitectureAssessmentOutput,
+        ReviewConcept,
+        SemanticOutput,
+        FileReviewOutcome,
+        ConceptUpdate,
+        ArchitectureAssessmentOutput,
     ):
         schema = model_cls.model_json_schema()
         path = out / f"{model_cls.__name__}.schema.json"
@@ -598,8 +608,11 @@ if __name__ == "__main__":
         import json
 
         for model_cls in (
-            ReviewConcept, SemanticOutput, FileReviewOutcome,
-            ConceptUpdate, ArchitectureAssessmentOutput,
+            ReviewConcept,
+            SemanticOutput,
+            FileReviewOutcome,
+            ConceptUpdate,
+            ArchitectureAssessmentOutput,
         ):
             print(f"--- {model_cls.__name__} ---")
             print(json.dumps(model_cls.model_json_schema(), indent=2))

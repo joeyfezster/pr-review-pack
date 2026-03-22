@@ -7,6 +7,7 @@ using the v2 template and abstract fixture data.
 Usage:
     cd packages/pr-review-pack && python3 e2e/generate_fixtures.py
 """
+
 from __future__ import annotations
 
 import copy
@@ -544,22 +545,24 @@ def main() -> None:
     blocked["convergence"]["gates"][0]["status"] = "failing"
     blocked["convergence"]["gates"][0]["statusText"] = "FAILING"
     # Add a failing CI job
-    blocked["ciPerformance"].append({
-        "name": "security-scan",
-        "trigger": "(push)",
-        "status": "fail",
-        "time": "1m 30s",
-        "timeSeconds": 90,
-        "healthTag": "acceptable",
-        "detail": {
-            "coverage": "Dependency vulnerability scan",
-            "gates": "Gate 2",
-            "zones": ["zone-gamma"],
-            "specRefs": [],
-            "checks": [{"label": "safety check", "detail": "1 vulnerability found"}],
-            "notes": "Critical CVE detected.",
-        },
-    })
+    blocked["ciPerformance"].append(
+        {
+            "name": "security-scan",
+            "trigger": "(push)",
+            "status": "fail",
+            "time": "1m 30s",
+            "timeSeconds": 90,
+            "healthTag": "acceptable",
+            "detail": {
+                "coverage": "Dependency vulnerability scan",
+                "gates": "Gate 2",
+                "zones": ["zone-gamma"],
+                "specRefs": [],
+                "checks": [{"label": "safety check", "detail": "1 vulnerability found"}],
+                "notes": "Critical CVE detected.",
+            },
+        }
+    )
     _render_variant(blocked, DIFF_DATA, "/tmp/pr26_review_pack_v2_blocked.html")
 
     # ── NO_FACTORY ──

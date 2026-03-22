@@ -4,6 +4,7 @@ Verifies render_architecture_assessment() produces correct HTML for each
 subsection: health badge, narrative, unzoned files, zone changes, coupling
 warnings, registry health, doc recommendations, and decision verification.
 """
+
 from __future__ import annotations
 
 import sys
@@ -17,7 +18,6 @@ from render_review_pack import render_architecture_assessment
 
 
 class TestArchAssessmentEmpty:
-
     def test_none_returns_empty(self):
         assert render_architecture_assessment({"architectureAssessment": None}) == ""
 
@@ -33,7 +33,6 @@ class TestArchAssessmentEmpty:
 
 
 class TestHealthBadge:
-
     def test_healthy(self):
         html = render_architecture_assessment(
             {"architectureAssessment": {"overallHealth": "healthy"}}
@@ -60,7 +59,6 @@ class TestHealthBadge:
 
 
 class TestSummary:
-
     def test_summary_rendered(self):
         html = render_architecture_assessment(
             {"architectureAssessment": {"summary": "<p>Test summary.</p>"}}
@@ -68,9 +66,7 @@ class TestSummary:
         assert "<p>Test summary.</p>" in html
 
     def test_no_summary_no_extra_div(self):
-        html = render_architecture_assessment(
-            {"architectureAssessment": {"summary": ""}}
-        )
+        html = render_architecture_assessment({"architectureAssessment": {"summary": ""}})
         assert "Test summary" not in html
 
 
@@ -78,7 +74,6 @@ class TestSummary:
 
 
 class TestNarrative:
-
     def test_narrative_rendered(self):
         html = render_architecture_assessment(
             {"architectureAssessment": {"diagramNarrative": "<p>Arch changed.</p>"}}
@@ -87,9 +82,7 @@ class TestNarrative:
         assert "Arch changed." in html
 
     def test_no_narrative_no_section(self):
-        html = render_architecture_assessment(
-            {"architectureAssessment": {"diagramNarrative": ""}}
-        )
+        html = render_architecture_assessment({"architectureAssessment": {"diagramNarrative": ""}})
         assert "arch-narrative" not in html
 
 
@@ -97,7 +90,6 @@ class TestNarrative:
 
 
 class TestUnzonedFiles:
-
     def test_unzoned_table_rendered(self):
         html = render_architecture_assessment(
             {
@@ -125,9 +117,7 @@ class TestUnzonedFiles:
         assert "zone-alpha" in html
 
     def test_no_unzoned_no_section(self):
-        html = render_architecture_assessment(
-            {"architectureAssessment": {"unzonedFiles": []}}
-        )
+        html = render_architecture_assessment({"architectureAssessment": {"unzonedFiles": []}})
         assert "arch-subsubsection" not in html
 
     def test_html_escaping_in_path(self):
@@ -152,7 +142,6 @@ class TestUnzonedFiles:
 
 
 class TestZoneChanges:
-
     def test_zone_changes_rendered(self):
         html = render_architecture_assessment(
             {
@@ -168,9 +157,7 @@ class TestZoneChanges:
         assert "New Zone Recommended" in html
 
     def test_no_changes_no_section(self):
-        html = render_architecture_assessment(
-            {"architectureAssessment": {"zoneChanges": []}}
-        )
+        html = render_architecture_assessment({"architectureAssessment": {"zoneChanges": []}})
         assert "arch-change-item" not in html
 
 
@@ -178,7 +165,6 @@ class TestZoneChanges:
 
 
 class TestCouplingWarnings:
-
     def test_coupling_rendered(self):
         html = render_architecture_assessment(
             {
@@ -200,9 +186,7 @@ class TestCouplingWarnings:
         assert "Direct import" in html
 
     def test_no_coupling_no_section(self):
-        html = render_architecture_assessment(
-            {"architectureAssessment": {"couplingWarnings": []}}
-        )
+        html = render_architecture_assessment({"architectureAssessment": {"couplingWarnings": []}})
         assert "arch-coupling-item" not in html
 
 
@@ -210,7 +194,6 @@ class TestCouplingWarnings:
 
 
 class TestRegistryWarnings:
-
     def test_registry_warnings_rendered(self):
         html = render_architecture_assessment(
             {
@@ -227,9 +210,7 @@ class TestRegistryWarnings:
         assert "WARNING" in html
 
     def test_no_warnings_no_section(self):
-        html = render_architecture_assessment(
-            {"architectureAssessment": {"registryWarnings": []}}
-        )
+        html = render_architecture_assessment({"architectureAssessment": {"registryWarnings": []}})
         assert "arch-registry-item" not in html
 
 
@@ -237,7 +218,6 @@ class TestRegistryWarnings:
 
 
 class TestDocRecommendations:
-
     def test_doc_recs_rendered(self):
         html = render_architecture_assessment(
             {
@@ -263,7 +243,6 @@ class TestDocRecommendations:
 
 
 class TestDecisionVerification:
-
     def test_unverified_decisions_shown(self):
         html = render_architecture_assessment(
             {
@@ -312,7 +291,6 @@ class TestDecisionVerification:
 
 
 class TestFullFixtureRender:
-
     def test_renders_all_populated_sections(self, sample_review_pack_data):
         html = render_architecture_assessment(sample_review_pack_data)
         # Health badge

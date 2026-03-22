@@ -1,4 +1,5 @@
 """Tests for script tag escaping and HTML entity escaping."""
+
 from __future__ import annotations
 
 import sys
@@ -13,17 +14,16 @@ from render_review_pack import _escape_script_closing, esc
 
 
 class TestEscapeScriptClosing:
-
     def test_escape_script_closing_tag(self):
         """</script> should be escaped to <\\/script>."""
-        text = 'some text </script> more text'
+        text = "some text </script> more text"
         result = _escape_script_closing(text)
         assert "</script" not in result
         assert r"<\/script" in result
 
     def test_escape_script_case_insensitive(self):
         """</Script> (capital S) should also be escaped."""
-        text = 'some text </Script> more text'
+        text = "some text </Script> more text"
         result = _escape_script_closing(text)
         assert "</Script" not in result
         assert r"<\/Script" in result
@@ -36,21 +36,21 @@ class TestEscapeScriptClosing:
 
     def test_multiple_occurrences(self):
         """Multiple </script> occurrences are all escaped."""
-        text = 'a</script>b</script>c</script>d'
+        text = "a</script>b</script>c</script>d"
         result = _escape_script_closing(text)
         assert "</script" not in result
         assert result.count(r"<\/script") == 3
 
     def test_script_opening_tag_preserved(self):
         """<script> opening tags should NOT be modified."""
-        text = '<script>var x = 1;</script>'
+        text = "<script>var x = 1;</script>"
         result = _escape_script_closing(text)
         assert "<script>" in result
         assert result.startswith("<script>")
 
     def test_mixed_case_variants(self):
         """Both </script and </Script are escaped."""
-        text = '</script>and</Script>'
+        text = "</script>and</Script>"
         result = _escape_script_closing(text)
         assert "</script" not in result
         assert "</Script" not in result
@@ -72,7 +72,6 @@ class TestEscapeScriptClosing:
 
 
 class TestEscHtmlEntities:
-
     def test_escapes_less_than(self):
         assert "&lt;" in esc("<div>")
 

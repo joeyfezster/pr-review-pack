@@ -36,9 +36,7 @@ def _get_repo_slug(override: str | None = None) -> str:
     """Return owner/repo from CLI flag or git remote origin."""
     if override:
         return override
-    url = subprocess.check_output(
-        ["git", "remote", "get-url", "origin"], text=True
-    ).strip()
+    url = subprocess.check_output(["git", "remote", "get-url", "origin"], text=True).strip()
     # SCP-style (git@host:owner/repo.git) has no scheme prefix
     if ":" in url and not url.startswith(("https://", "http://", "ssh://")):
         slug = url.split(":")[-1]
@@ -63,11 +61,10 @@ X_START = 20
 
 # ── Helpers ─────────────────────────────────────────────────────────
 
+
 def run_gh(args: list[str]) -> str:
     """Run a gh CLI command and return stdout."""
-    result = subprocess.run(
-        ["gh"] + args, capture_output=True, text=True, timeout=30
-    )
+    result = subprocess.run(["gh"] + args, capture_output=True, text=True, timeout=30)
     if result.returncode != 0:
         print(f"WARNING: gh {' '.join(args)} failed: {result.stderr}", file=sys.stderr)
         return ""
@@ -115,10 +112,17 @@ def parse_ci_time(started: str, completed: str) -> float:
 
 # ── Builders ────────────────────────────────────────────────────────
 
-def build_header(pr_number: int, diff_data: dict, pr_meta: dict,
-                 scenario_data: dict | None, ci_checks: list,
-                 comment_counts: dict, gate0_data: dict | None,
-                 repo_slug: str = "") -> dict:
+
+def build_header(
+    pr_number: int,
+    diff_data: dict,
+    pr_meta: dict,
+    scenario_data: dict | None,
+    ci_checks: list,
+    comment_counts: dict,
+    gate0_data: dict | None,
+    repo_slug: str = "",
+) -> dict:
     """Build the header section from deterministic sources."""
     # Gate 0 badge
     if gate0_data:
@@ -176,19 +180,24 @@ def build_header(pr_number: int, diff_data: dict, pr_meta: dict,
         "filesChanged": diff_data.get("total_files", pr_meta.get("changedFiles", 0)),
         "commits": num_commits,
         "statusBadges": [
-            {"label": g0_label, "type": g0_type,
-             "icon": g0_icon},
-            {"label": f"CI {ci_pass}/{ci_total}",
-             "type": ci_type,
-             "icon": "\u2713" if ci_type == "pass" else "\u2717"},
-            {"label": "No Scenarios" if sc_total == 0
-             else f"{sc_pass}/{sc_total} Scenarios",
-             "type": sc_type,
-             "icon": "\u2014" if sc_total == 0
-             else ("\u2713" if sc_type == "pass" else "\u26a0")},
-            {"label": f"{resolved}/{total_comments} comments resolved",
-             "type": cm_type,
-             "icon": "\u2713" if cm_type == "pass" else "\u26a0"},
+            {"label": g0_label, "type": g0_type, "icon": g0_icon},
+            {
+                "label": f"CI {ci_pass}/{ci_total}",
+                "type": ci_type,
+                "icon": "\u2713" if ci_type == "pass" else "\u2717",
+            },
+            {
+                "label": "No Scenarios" if sc_total == 0 else f"{sc_pass}/{sc_total} Scenarios",
+                "type": sc_type,
+                "icon": "\u2014"
+                if sc_total == 0
+                else ("\u2713" if sc_type == "pass" else "\u26a0"),
+            },
+            {
+                "label": f"{resolved}/{total_comments} comments resolved",
+                "type": cm_type,
+                "icon": "\u2713" if cm_type == "pass" else "\u26a0",
+            },
         ],
         "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "generatedBy": "dark factory review agent",
@@ -224,16 +233,18 @@ def build_architecture(zones_registry: dict, diff_data: dict) -> dict:
         cat = zone_def.get("category", "product")
         x = category_x.get(cat, X_START)
         y = ROW_Y.get(cat, ROW_Y["product"])
-        arch_zones.append({
-            "id": zone_id,
-            "label": zone_def.get("label", zone_id),
-            "sublabel": zone_def.get("sublabel", ""),
-            "category": cat,
-            "fileCount": zone_file_counts.get(zone_id, 0),
-            "position": {"x": x, "y": y, "width": ZONE_WIDTH, "height": ZONE_HEIGHT},
-            "specs": zone_def.get("specs", []),
-            "isModified": zone_modified.get(zone_id, False),
-        })
+        arch_zones.append(
+            {
+                "id": zone_id,
+                "label": zone_def.get("label", zone_id),
+                "sublabel": zone_def.get("sublabel", ""),
+                "category": cat,
+                "fileCount": zone_file_counts.get(zone_id, 0),
+                "position": {"x": x, "y": y, "width": ZONE_WIDTH, "height": ZONE_HEIGHT},
+                "specs": zone_def.get("specs", []),
+                "isModified": zone_modified.get(zone_id, False),
+            }
+        )
         category_x[cat] = x + ZONE_WIDTH + ZONE_GAP
 
     # Simple arrow: factory → first product zone (if both exist)
@@ -243,18 +254,22 @@ def build_architecture(zones_registry: dict, diff_data: dict) -> dict:
     if factory_zones and product_zones:
         fz = factory_zones[0]["position"]
         pz = product_zones[0]["position"]
-        arrows.append({
-            "from": {"x": fz["x"] + fz["width"] // 2, "y": fz["y"] + fz["height"]},
-            "to": {"x": pz["x"] + pz["width"] // 2, "y": pz["y"]},
-        })
+        arrows.append(
+            {
+                "from": {"x": fz["x"] + fz["width"] // 2, "y": fz["y"] + fz["height"]},
+                "to": {"x": pz["x"] + pz["width"] // 2, "y": pz["y"]},
+            }
+        )
     # Chain product zones left-to-right
     for i in range(len(product_zones) - 1):
         p1 = product_zones[i]["position"]
         p2 = product_zones[i + 1]["position"]
-        arrows.append({
-            "from": {"x": p1["x"] + p1["width"], "y": p1["y"] + p1["height"] // 2},
-            "to": {"x": p2["x"], "y": p2["y"] + p2["height"] // 2},
-        })
+        arrows.append(
+            {
+                "from": {"x": p1["x"] + p1["width"], "y": p1["y"] + p1["height"] // 2},
+                "to": {"x": p2["x"], "y": p2["y"] + p2["height"] // 2},
+            }
+        )
 
     return {
         "zones": arch_zones,
@@ -272,11 +287,13 @@ def build_specs(zones_registry: dict) -> list[dict]:
         for spec_path in zone_def.get("specs", []):
             if spec_path not in seen:
                 seen.add(spec_path)
-                specs.append({
-                    "path": spec_path,
-                    "icon": "\U0001f4cb",
-                    "description": Path(spec_path).stem.replace("_", " ").title(),
-                })
+                specs.append(
+                    {
+                        "path": spec_path,
+                        "icon": "\U0001f4cb",
+                        "description": Path(spec_path).stem.replace("_", " ").title(),
+                    }
+                )
     return specs
 
 
@@ -322,18 +339,24 @@ def build_scenarios(
     scenarios = []
     for r in scenario_data.get("results", []):
         cat = r.get("category", "integration")
-        scenarios.append({
-            "name": r["name"],
-            "category": cat,
-            "status": "pass" if r["passed"] else "fail",
-            "zone": category_zone_map.get(cat, ""),
-            "detail": {
-                "what": r.get("name", ""),
-                "how": f"Exit code {r.get('exit_code', '?')}, {r.get('duration_seconds', 0):.1f}s",
-                "result": r.get("stdout", "").strip()[:200] if r["passed"]
-                else r.get("error_summary", r.get("stderr", "").strip()[:200]),
-            },
-        })
+        scenarios.append(
+            {
+                "name": r["name"],
+                "category": cat,
+                "status": "pass" if r["passed"] else "fail",
+                "zone": category_zone_map.get(cat, ""),
+                "detail": {
+                    "what": r.get("name", ""),
+                    "how": (
+                        f"Exit code {r.get('exit_code', '?')}, "
+                        f"{r.get('duration_seconds', 0):.1f}s"
+                    ),
+                    "result": r.get("stdout", "").strip()[:200]
+                    if r["passed"]
+                    else r.get("error_summary", r.get("stderr", "").strip()[:200]),
+                },
+            }
+        )
     return scenarios
 
 
@@ -372,9 +395,7 @@ def compute_status(
     # Blocked conditions
     if any_failing:
         failing_gates = [
-            g.get("name", f"gate {i}")
-            for i, g in enumerate(gates)
-            if g.get("status") == "failing"
+            g.get("name", f"gate {i}") for i, g in enumerate(gates) if g.get("status") == "failing"
         ]
         reasons.append(f"Failing gates: {', '.join(failing_gates)}")
     if overall_failing:
@@ -394,9 +415,7 @@ def compute_status(
     if has_c_grade:
         reasons.append(f"C-grade findings in {c_count} file(s)")
     if commit_gap > 0:
-        reasons.append(
-            f"{commit_gap} commit(s) not covered by agent analysis"
-        )
+        reasons.append(f"{commit_gap} commit(s) not covered by agent analysis")
     aa_health = (
         architecture_assessment.get("overallHealth", "missing")
         if architecture_assessment
@@ -446,9 +465,7 @@ def compute_verdict(
 
 def _status_value_to_legacy(value: str) -> str:
     """Map new status values to legacy verdict values."""
-    return {"ready": "ready", "needs-review": "review", "blocked": "blocked"}.get(
-        value, "review"
-    )
+    return {"ready": "ready", "needs-review": "review", "blocked": "blocked"}.get(value, "review")
 
 
 def build_code_diffs(diff_data: dict, zones_registry: dict) -> list[dict]:
@@ -460,13 +477,15 @@ def build_code_diffs(diff_data: dict, zones_registry: dict) -> list[dict]:
     result = []
     for filepath, file_info in files.items():
         zones = match_file_to_zones(filepath, zones_registry)
-        result.append({
-            "path": filepath,
-            "additions": file_info.get("additions", 0),
-            "deletions": file_info.get("deletions", 0),
-            "status": file_info.get("status", "modified"),
-            "zones": zones,
-        })
+        result.append(
+            {
+                "path": filepath,
+                "additions": file_info.get("additions", 0),
+                "deletions": file_info.get("deletions", 0),
+                "status": file_info.get("status", "modified"),
+                "zones": zones,
+            }
+        )
     return result
 
 
@@ -478,28 +497,33 @@ def build_ci_performance(ci_checks_raw: list[dict]) -> list[dict]:
         name = c.get("name", "unknown")
         # Determine trigger from link URL or context
         trigger = "(PR)" if "pull_request" in c.get("link", "") else "(push)"
-        checks.append({
-            "name": name,
-            "trigger": trigger,
-            "status": "pass" if c.get("state") == "SUCCESS" else "fail",
-            "time": format_time(dur),
-            "timeSeconds": round(dur),
-            "healthTag": health_tag(dur),
-            "detail": {
-                "coverage": f"{name} job",
-                "gates": "",
-                "zones": [],
-                "specRefs": [],
-                "checks": [],
-                "notes": None,
-            },
-        })
+        checks.append(
+            {
+                "name": name,
+                "trigger": trigger,
+                "status": "pass" if c.get("state") == "SUCCESS" else "fail",
+                "time": format_time(dur),
+                "timeSeconds": round(dur),
+                "healthTag": health_tag(dur),
+                "detail": {
+                    "coverage": f"{name} job",
+                    "gates": "",
+                    "zones": [],
+                    "specRefs": [],
+                    "checks": [],
+                    "notes": None,
+                },
+            }
+        )
     return checks
 
 
-def build_convergence(scenario_data: dict | None, ci_checks: list,
-                      gate0_data: dict | None,
-                      deterministic_review_data: dict | None = None) -> dict:
+def build_convergence(
+    scenario_data: dict | None,
+    ci_checks: list,
+    gate0_data: dict | None,
+    deterministic_review_data: dict | None = None,
+) -> dict:
     """Build convergence gates using the 4-gate universal model.
 
     Gate 1: CI — repo's own CI checks (gh pr checks)
@@ -597,13 +621,15 @@ def build_convergence(scenario_data: dict | None, ci_checks: list,
             g0_status_text = "NOT RUN"
             g0_detail = "gate0_results.json not found."
 
-        gates.append({
-            "name": "Gate 0 \u2014 Two-Tier Review",
-            "status": "passing" if gate0_pass else "failing",
-            "statusText": g0_status_text,
-            "summary": g0_detail,
-            "detail": "",
-        })
+        gates.append(
+            {
+                "name": "Gate 0 \u2014 Two-Tier Review",
+                "status": "passing" if gate0_pass else "failing",
+                "statusText": g0_status_text,
+                "summary": g0_detail,
+                "detail": "",
+            }
+        )
 
     # Factory scenario gate
     if scenario_data:
@@ -616,13 +642,15 @@ def build_convergence(scenario_data: dict | None, ci_checks: list,
 
     if has_scenarios:
         gate_sc_pass = sc_pass == sc_total
-        gates.append({
-            "name": "Scenarios",
-            "status": "passing" if gate_sc_pass else "failing",
-            "statusText": f"{sc_pass}/{sc_total} ({sc_pass * 100 // max(sc_total, 1)}%)",
-            "summary": f"{sc_pass} of {sc_total} holdout scenarios pass.",
-            "detail": "",
-        })
+        gates.append(
+            {
+                "name": "Scenarios",
+                "status": "passing" if gate_sc_pass else "failing",
+                "statusText": f"{sc_pass}/{sc_total} ({sc_pass * 100 // max(sc_total, 1)}%)",
+                "summary": f"{sc_pass} of {sc_total} holdout scenarios pass.",
+                "detail": "",
+            }
+        )
 
     # Overall
     all_pass = gate1_pass and gate2_pass and gate3_pass and gate4_pass
@@ -644,10 +672,17 @@ def build_convergence(scenario_data: dict | None, ci_checks: list,
 
 # ── Main ────────────────────────────────────────────────────────────
 
-def scaffold(pr_number: int, diff_data_path: str, zone_registry_path: str | None,
-             scenario_results_path: str | None, gate0_results_path: str | None,
-             existing_path: str | None, output_path: str,
-             repo_slug: str = "") -> None:
+
+def scaffold(
+    pr_number: int,
+    diff_data_path: str,
+    zone_registry_path: str | None,
+    scenario_results_path: str | None,
+    gate0_results_path: str | None,
+    existing_path: str | None,
+    output_path: str,
+    repo_slug: str = "",
+) -> None:
     # Load inputs
     diff_data = json.loads(Path(diff_data_path).read_text())
     if zone_registry_path and Path(zone_registry_path).exists():
@@ -672,15 +707,20 @@ def scaffold(pr_number: int, diff_data_path: str, zone_registry_path: str | None
             existing["agenticReview"] = existing.pop("adversarialReview")
 
     # Fetch PR metadata and CI checks from GitHub
-    pr_meta_raw = run_gh([
-        "pr", "view", str(pr_number), "--json",
-        "title,number,headRefName,baseRefName,headRefOid,url,commits,additions,deletions,changedFiles"
-    ])
+    pr_meta_raw = run_gh(
+        [
+            "pr",
+            "view",
+            str(pr_number),
+            "--json",
+            "title,number,headRefName,baseRefName,headRefOid,url,commits,additions,deletions,changedFiles",
+        ]
+    )
     pr_meta = json.loads(pr_meta_raw) if pr_meta_raw else {}
 
-    ci_raw = run_gh([
-        "pr", "checks", str(pr_number), "--json", "name,state,startedAt,completedAt,link"
-    ])
+    ci_raw = run_gh(
+        ["pr", "checks", str(pr_number), "--json", "name,state,startedAt,completedAt,link"]
+    )
     ci_checks = json.loads(ci_raw) if ci_raw else []
 
     # Fetch comment counts
@@ -697,22 +737,34 @@ def scaffold(pr_number: int, diff_data_path: str, zone_registry_path: str | None
         }}
       }}
     }}'''
-    comment_raw = run_gh([
-        "api", "graphql", "-f", f"query={comment_query}",
-        "--jq", """{
+    comment_raw = run_gh(
+        [
+            "api",
+            "graphql",
+            "-f",
+            f"query={comment_query}",
+            "--jq",
+            """{
   total: (.data.repository.pullRequest.reviewThreads.nodes
     | length),
   unresolved: ([
     .data.repository.pullRequest.reviewThreads.nodes[]
     | select(.isResolved == false)] | length)
-}"""
-    ])
+}""",
+        ]
+    )
     comment_counts = json.loads(comment_raw) if comment_raw else {"total": 0, "unresolved": 0}
 
     # Build deterministic sections
     header = build_header(
-        pr_number, diff_data, pr_meta, scenario_data,
-        ci_checks, comment_counts, gate0_data, repo_slug,
+        pr_number,
+        diff_data,
+        pr_meta,
+        scenario_data,
+        ci_checks,
+        comment_counts,
+        gate0_data,
+        repo_slug,
     )
     architecture = build_architecture(zones_registry, diff_data)
     specs = build_specs(zones_registry)
@@ -723,29 +775,31 @@ def scaffold(pr_number: int, diff_data_path: str, zone_registry_path: str | None
 
     # v2 extensions: status, commit scope, code diffs
     agentic_review_data = (
-        existing.get("agenticReview", {"findings": []}) if existing
-        else {"findings": []}
+        existing.get("agenticReview", {"findings": []}) if existing else {"findings": []}
     )
 
     # Commit scope tracking
     head_sha = pr_meta.get("headRefOid", diff_data.get("head_sha", ""))
-    reviewed_sha = (
-        existing.get("reviewedCommitSHA", head_sha) if existing else head_sha
-    )
+    reviewed_sha = existing.get("reviewedCommitSHA", head_sha) if existing else head_sha
     # Compute commit gap (how many commits between reviewed and HEAD)
     commit_gap = 0
     if reviewed_sha and head_sha and reviewed_sha != head_sha:
-        gap_raw = run_gh([
-            "api", f"repos/{repo_slug}/compare/{reviewed_sha[:12]}...{head_sha[:12]}",
-            "--jq", ".ahead_by",
-        ])
+        gap_raw = run_gh(
+            [
+                "api",
+                f"repos/{repo_slug}/compare/{reviewed_sha[:12]}...{head_sha[:12]}",
+                "--jq",
+                ".ahead_by",
+            ]
+        )
         try:
             commit_gap = int(gap_raw) if gap_raw else 0
         except ValueError:
             commit_gap = 0
 
     status = compute_status(
-        convergence, agentic_review_data,
+        convergence,
+        agentic_review_data,
         reviewed_sha=reviewed_sha,
         head_sha=head_sha,
         commit_gap=commit_gap,
@@ -780,9 +834,7 @@ def scaffold(pr_number: int, diff_data_path: str, zone_registry_path: str | None
         # gh pr view --json commits returns nodes with committedDate
         if isinstance(last_commit, dict):
             head_commit_date = (
-                last_commit.get("committedDate")
-                or last_commit.get("authoredDate")
-                or now_iso
+                last_commit.get("committedDate") or last_commit.get("authoredDate") or now_iso
             )
 
     result: dict = {
@@ -806,29 +858,35 @@ def scaffold(pr_number: int, diff_data_path: str, zone_registry_path: str | None
         "codeDiffs": code_diffs,
         "whatChanged": (
             existing.get("whatChanged", semantic_defaults["whatChanged"])
-            if existing else semantic_defaults["whatChanged"]
+            if existing
+            else semantic_defaults["whatChanged"]
         ),
         "agenticReview": (
             existing.get("agenticReview", semantic_defaults["agenticReview"])
-            if existing else semantic_defaults["agenticReview"]
+            if existing
+            else semantic_defaults["agenticReview"]
         ),
         "ciPerformance": ci_perf,
         "decisions": (
             existing.get("decisions", semantic_defaults["decisions"])
-            if existing else semantic_defaults["decisions"]
+            if existing
+            else semantic_defaults["decisions"]
         ),
         "convergence": convergence,
         "postMergeItems": (
             existing.get("postMergeItems", semantic_defaults["postMergeItems"])
-            if existing else semantic_defaults["postMergeItems"]
+            if existing
+            else semantic_defaults["postMergeItems"]
         ),
         "factoryHistory": (
             existing.get("factoryHistory", semantic_defaults["factoryHistory"])
-            if existing else semantic_defaults["factoryHistory"]
+            if existing
+            else semantic_defaults["factoryHistory"]
         ),
         "architectureAssessment": (
             existing.get("architectureAssessment", semantic_defaults["architectureAssessment"])
-            if existing else semantic_defaults["architectureAssessment"]
+            if existing
+            else semantic_defaults["architectureAssessment"]
         ),
     }
 
@@ -875,19 +933,17 @@ def main() -> None:
         description="Scaffold ReviewPackData with deterministic fields",
     )
     parser.add_argument("--pr", type=int, required=True)
-    parser.add_argument("--diff-data", required=True,
-                        help="Path to diff data JSON")
-    parser.add_argument("--zone-registry",
-                        default=".claude/zone-registry.yaml")
-    parser.add_argument("--scenario-results",
-                        default="artifacts/factory/scenario_results.json")
-    parser.add_argument("--gate0-results",
-                        default="artifacts/factory/gate0_results.json")
-    parser.add_argument("--existing", default=None,
-                        help="Existing JSON (preserves semantic fields)")
+    parser.add_argument("--diff-data", required=True, help="Path to diff data JSON")
+    parser.add_argument("--zone-registry", default=".claude/zone-registry.yaml")
+    parser.add_argument("--scenario-results", default="artifacts/factory/scenario_results.json")
+    parser.add_argument("--gate0-results", default="artifacts/factory/gate0_results.json")
+    parser.add_argument(
+        "--existing", default=None, help="Existing JSON (preserves semantic fields)"
+    )
     parser.add_argument("--output", required=True)
     parser.add_argument(
-        "--repo", default=None,
+        "--repo",
+        default=None,
         help="GitHub repo slug (owner/repo). Auto-detected from git remote if omitted.",
     )
     args = parser.parse_args()

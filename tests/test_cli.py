@@ -6,6 +6,7 @@ requiring git/gh CLI or network access.
 TODO: cmd_refresh and cmd_merge are subprocess-heavy and tightly coupled
 to git/gh — add integration tests when a mock harness is available.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -27,7 +28,6 @@ from review_pack_cli import cmd_status, extract_data_from_html, get_auth_token  
 
 
 class TestExtractDataFromHtml:
-
     def test_extracts_valid_json(self, tmp_path):
         data = {"header": {"prNumber": 42}, "status": {"value": "ready"}}
         html = f"""<html>

@@ -16,6 +16,7 @@ Usage:
     python run_deterministic_review.py --repo /path/to/repo --output results.json
     python run_deterministic_review.py --repo /path/to/repo --json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -56,8 +57,18 @@ def _has_config(repo: Path, tool: str) -> bool:
 
 def _find_python_files(repo: Path) -> list[str]:
     """Find Python source files, excluding common non-reviewable dirs."""
-    excludes = {".git", "node_modules", "__pycache__", ".venv", "venv",
-                ".tox", ".eggs", "build", "dist", ".mypy_cache"}
+    excludes = {
+        ".git",
+        "node_modules",
+        "__pycache__",
+        ".venv",
+        "venv",
+        ".tox",
+        ".eggs",
+        "build",
+        "dist",
+        ".mypy_cache",
+    }
     files = []
     for p in repo.rglob("*.py"):
         if any(part in excludes for part in p.parts):
@@ -71,7 +82,10 @@ def run_vulture(repo: Path) -> dict:
     try:
         result = subprocess.run(
             [sys.executable, "-m", "vulture", "."],
-            capture_output=True, text=True, timeout=120, cwd=repo,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=repo,
         )
         findings = []
         for line in result.stdout.strip().split("\n"):
@@ -86,17 +100,35 @@ def run_vulture(repo: Path) -> dict:
             "exit_code": result.returncode,
         }
     except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-        return {"tool": "vulture", "description": "Dead code detection",
-                "status": "error", "error": str(e), "finding_count": 0, "findings": []}
+        return {
+            "tool": "vulture",
+            "description": "Dead code detection",
+            "status": "error",
+            "error": str(e),
+            "finding_count": 0,
+            "findings": [],
+        }
 
 
 def run_bandit(repo: Path) -> dict:
     """Run bandit security scanner."""
     try:
         result = subprocess.run(
-            [sys.executable, "-m", "bandit", "-r", ".", "-f", "json",
-             "--exclude", ".git,.venv,venv,node_modules"],
-            capture_output=True, text=True, timeout=120, cwd=repo,
+            [
+                sys.executable,
+                "-m",
+                "bandit",
+                "-r",
+                ".",
+                "-f",
+                "json",
+                "--exclude",
+                ".git,.venv,venv,node_modules",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=repo,
         )
         try:
             data = json.loads(result.stdout)
@@ -123,12 +155,23 @@ def run_bandit(repo: Path) -> dict:
                 "exit_code": result.returncode,
             }
         except json.JSONDecodeError:
-            return {"tool": "bandit", "description": "Security vulnerability patterns",
-                    "status": "pass", "finding_count": 0, "findings": [],
-                    "exit_code": result.returncode}
+            return {
+                "tool": "bandit",
+                "description": "Security vulnerability patterns",
+                "status": "pass",
+                "finding_count": 0,
+                "findings": [],
+                "exit_code": result.returncode,
+            }
     except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-        return {"tool": "bandit", "description": "Security vulnerability patterns",
-                "status": "error", "error": str(e), "finding_count": 0, "findings": []}
+        return {
+            "tool": "bandit",
+            "description": "Security vulnerability patterns",
+            "status": "error",
+            "error": str(e),
+            "finding_count": 0,
+            "findings": [],
+        }
 
 
 def run_ruff(repo: Path) -> dict:
@@ -136,7 +179,10 @@ def run_ruff(repo: Path) -> dict:
     try:
         result = subprocess.run(
             [sys.executable, "-m", "ruff", "check", ".", "--output-format", "json"],
-            capture_output=True, text=True, timeout=120, cwd=repo,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=repo,
         )
         try:
             findings_raw = json.loads(result.stdout)
@@ -158,12 +204,23 @@ def run_ruff(repo: Path) -> dict:
                 "exit_code": result.returncode,
             }
         except json.JSONDecodeError:
-            return {"tool": "ruff", "description": "Lint checks",
-                    "status": "pass", "finding_count": 0, "findings": [],
-                    "exit_code": result.returncode}
+            return {
+                "tool": "ruff",
+                "description": "Lint checks",
+                "status": "pass",
+                "finding_count": 0,
+                "findings": [],
+                "exit_code": result.returncode,
+            }
     except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-        return {"tool": "ruff", "description": "Lint checks",
-                "status": "error", "error": str(e), "finding_count": 0, "findings": []}
+        return {
+            "tool": "ruff",
+            "description": "Lint checks",
+            "status": "error",
+            "error": str(e),
+            "finding_count": 0,
+            "findings": [],
+        }
 
 
 def run_mypy(repo: Path) -> dict:
@@ -171,7 +228,10 @@ def run_mypy(repo: Path) -> dict:
     try:
         result = subprocess.run(
             [sys.executable, "-m", "mypy", ".", "--no-error-summary"],
-            capture_output=True, text=True, timeout=180, cwd=repo,
+            capture_output=True,
+            text=True,
+            timeout=180,
+            cwd=repo,
         )
         findings = []
         for line in result.stdout.strip().split("\n"):
@@ -187,8 +247,14 @@ def run_mypy(repo: Path) -> dict:
             "exit_code": result.returncode,
         }
     except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-        return {"tool": "mypy", "description": "Type checking",
-                "status": "error", "error": str(e), "finding_count": 0, "findings": []}
+        return {
+            "tool": "mypy",
+            "description": "Type checking",
+            "status": "error",
+            "error": str(e),
+            "finding_count": 0,
+            "findings": [],
+        }
 
 
 def run_deterministic_review(repo: Path) -> dict:

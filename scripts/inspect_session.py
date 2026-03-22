@@ -19,8 +19,10 @@ Checks against the desired state in skill-flow.md:
 
 Usage:
     python inspect_session.py --session-dir ~/.claude/projects/-path/
-    python inspect_session.py --session-dir ~/.claude/projects/-path/ --pr 15040 --repo-dir ~/tmp/fastapi-15040
+    python inspect_session.py --session-dir ~/.claude/projects/-path/ \\
+        --pr 15040 --repo-dir ~/tmp/fastapi-15040
 """
+
 from __future__ import annotations
 
 import argparse
@@ -60,13 +62,15 @@ def extract_tool_calls(entries: list[dict]) -> list[dict]:
         msg = entry.get("message", {})
         for block in msg.get("content", []):
             if block.get("type") == "tool_use":
-                calls.append({
-                    "name": block.get("name"),
-                    "input": block.get("input", {}),
-                    "id": block.get("id"),
-                    "uuid": entry.get("uuid"),
-                    "agent_id": entry.get("agentId"),
-                })
+                calls.append(
+                    {
+                        "name": block.get("name"),
+                        "input": block.get("input", {}),
+                        "id": block.get("id"),
+                        "uuid": entry.get("uuid"),
+                        "agent_id": entry.get("agentId"),
+                    }
+                )
     return calls
 
 
@@ -140,7 +144,9 @@ def check_setup_phase(tool_calls: list[dict]) -> dict:
                 break
     return {
         "pass": setup_ran,
-        "detail": "review_pack_setup.py executed" if setup_ran else "Setup script not found in trace",
+        "detail": "review_pack_setup.py executed"
+        if setup_ran
+        else "Setup script not found in trace",
     }
 
 
@@ -174,15 +180,24 @@ def check_agent_spawns(tool_calls: list[dict]) -> dict:
                 agents_with_team += 1
             else:
                 agents_without_team += 1
-            agent_spawns.append({
-                "description": desc,
-                "prompt_preview": prompt,
-                "agent_id": call.get("agent_id"),
-                "has_team": has_team,
-                "is_resume": is_resume,
-            })
+            agent_spawns.append(
+                {
+                    "description": desc,
+                    "prompt_preview": prompt,
+                    "agent_id": call.get("agent_id"),
+                    "has_team": has_team,
+                    "is_resume": is_resume,
+                }
+            )
 
-    expected_agents = ["code-health", "security", "test-integrity", "adversarial", "architecture", "synthesis"]
+    expected_agents = [
+        "code-health",
+        "security",
+        "test-integrity",
+        "adversarial",
+        "architecture",
+        "synthesis",
+    ]
     found_agents = set()
     for spawn in agent_spawns:
         if spawn["is_resume"]:
@@ -201,7 +216,11 @@ def check_agent_spawns(tool_calls: list[dict]) -> dict:
     else:
         details.append(f"Team '{team_name}' created")
     resume_count = sum(1 for s in agent_spawns if s["is_resume"])
-    details.append(f"{len(agent_spawns)} agent calls ({agents_with_team} with team, {agents_without_team} without, {resume_count} resumes)")
+    details.append(
+        f"{len(agent_spawns)} agent calls "
+        f"({agents_with_team} with team, "
+        f"{agents_without_team} without, {resume_count} resumes)"
+    )
     details.append(f"{len(found_agents)}/6 expected agents identified")
     if missing:
         details.append(f"Missing: {', '.join(sorted(missing))}")
@@ -239,10 +258,16 @@ def check_ghost_writing(tool_calls: list[dict], pr_number: int | None) -> dict:
             if call["name"] == "Bash":
                 cmd = str(call["input"].get("command", ""))
                 if re.search(r"(cat\s*>>?\s*\S+\.jsonl|>\s*\S+\.jsonl)", cmd):
-                    if re.search(r"pr\d+-(code-health|security|test-integrity|adversarial|architecture|synthesis)-", cmd):
+                    if re.search(
+                        r"pr\d+-(code-health|security|test-integrity|adversarial|architecture|synthesis)-",
+                        cmd,
+                    ):
                         ghost_writes.append(f"Bash: {cmd[:80]}")
             continue
-        if not re.search(r"pr\d+-(code-health|security|test-integrity|adversarial|architecture|synthesis)-", file_path):
+        if not re.search(
+            r"pr\d+-(code-health|security|test-integrity|adversarial|architecture|synthesis)-",
+            file_path,
+        ):
             continue
         if ".jsonl" not in file_path:
             continue
@@ -256,9 +281,17 @@ def check_ghost_writing(tool_calls: list[dict], pr_number: int | None) -> dict:
         "pass": len(ghost_writes) == 0,
         "detail": (
             "No ghost-writing detected"
-            + (f" ({len(corrections)} post-validation correction(s) by main agent — acceptable)" if corrections else "")
+            + (
+                f" ({len(corrections)} post-validation correction(s) by main agent — acceptable)"
+                if corrections
+                else ""
+            )
             if not ghost_writes
-            else f"GHOST-WRITING: Main agent wrote {len(ghost_writes)} .jsonl file(s): {', '.join(ghost_writes[:3])}"
+            else (
+                f"GHOST-WRITING: Main agent wrote "
+                f"{len(ghost_writes)} .jsonl file(s): "
+                f"{', '.join(ghost_writes[:3])}"
+            )
         ),
         "ghost_writes": ghost_writes,
         "corrections": corrections,
@@ -299,7 +332,9 @@ def check_validation_loop(tool_calls: list[dict], tool_results: dict[str, dict])
                         failed = True
                     else:
                         content = str(result.get("content", ""))
-                        if "error" in content.lower() and ("exit code 1" in content.lower() or "failed" in content.lower()):
+                        if "error" in content.lower() and (
+                            "exit code 1" in content.lower() or "failed" in content.lower()
+                        ):
                             failed = True
                 if failed:
                     validation_failures += 1
@@ -316,18 +351,37 @@ def check_validation_loop(tool_calls: list[dict], tool_results: dict[str, dict])
                 # Check if this Agent spawn came after a validation failure
                 prompt_lower = call["input"].get("prompt", "").lower()
                 desc_lower = call["input"].get("description", "").lower()
-                is_fix_agent = any(kw in prompt_lower or kw in desc_lower for kw in [
-                    "error", "validation", "fix", "correct", "fail", "missing",
-                    "append", "file_review", "filereviewoutcome", "reviewconcept",
-                ])
+                is_fix_agent = any(
+                    kw in prompt_lower or kw in desc_lower
+                    for kw in [
+                        "error",
+                        "validation",
+                        "fix",
+                        "correct",
+                        "fail",
+                        "missing",
+                        "append",
+                        "file_review",
+                        "filereviewoutcome",
+                        "reviewconcept",
+                    ]
+                )
                 if is_fix_agent and i > validation_failure_indices[0]:
                     fix_agents_spawned += 1
         elif call["name"] == "SendMessage" and validation_failure_indices:
             # SendMessage to team agents with error/fix content after validation failure
             msg = str(call["input"].get("message", "")).lower()
-            if i > validation_failure_indices[0] and any(kw in msg for kw in [
-                "error", "validation", "fail", "fix", "missing", "correct",
-            ]):
+            if i > validation_failure_indices[0] and any(
+                kw in msg
+                for kw in [
+                    "error",
+                    "validation",
+                    "fail",
+                    "fix",
+                    "missing",
+                    "correct",
+                ]
+            ):
                 send_message_corrections += 1
 
     # Build assessment
@@ -338,11 +392,18 @@ def check_validation_loop(tool_calls: list[dict], tool_results: dict[str, dict])
         if agent_resumes > 0:
             details.append(f"{agent_resumes} agent resume(s) — ideal loop pattern")
         if fix_agents_spawned > 0:
-            details.append(f"{fix_agents_spawned} new fix agent(s) spawned — acceptable correction pattern")
+            details.append(
+                f"{fix_agents_spawned} new fix agent(s) spawned — acceptable correction pattern"
+            )
         if send_message_corrections > 0:
-            details.append(f"{send_message_corrections} SendMessage correction(s) to team agents — acceptable pattern")
+            details.append(
+                f"{send_message_corrections} SendMessage correction(s) "
+                f"to team agents — acceptable pattern"
+            )
         if correction_agents == 0:
-            details.append("NO correction agents after failures — errors may not have been addressed")
+            details.append(
+                "NO correction agents after failures — errors may not have been addressed"
+            )
     elif validation_runs > 0:
         details.append("all validations passed on first attempt (no corrections needed)")
 
@@ -395,7 +456,9 @@ def check_playwright(tool_calls: list[dict]) -> dict:
 
     return {
         "pass": playwright_ran,
-        "detail": "Playwright tests executed" if playwright_ran else "Playwright tests NOT found in trace",
+        "detail": "Playwright tests executed"
+        if playwright_ran
+        else "Playwright tests NOT found in trace",
     }
 
 
@@ -439,10 +502,15 @@ def check_subagent_writes(session_dir: Path, session_id: str) -> dict:
             write_agents.append(agent_id)
             write_methods[agent_id] = method
 
-    methods_summary = ", ".join(f"{v}" for v in set(write_methods.values())) if write_methods else "none"
+    methods_summary = (
+        ", ".join(f"{v}" for v in set(write_methods.values())) if write_methods else "none"
+    )
     return {
         "pass": len(write_agents) >= 5,  # 5 reviewers + synthesis should write
-        "detail": f"{len(write_agents)}/{len(agent_files)} subagents wrote .jsonl files (via {methods_summary})",
+        "detail": (
+            f"{len(write_agents)}/{len(agent_files)} subagents "
+            f"wrote .jsonl files (via {methods_summary})"
+        ),
         "total_subagents": len(agent_files),
         "writing_subagents": len(write_agents),
         "write_methods": write_methods,
@@ -465,9 +533,8 @@ def check_permission_denials(entries: list[dict]) -> dict:
 
     return {
         "pass": len(denials) == 0,
-        "detail": f"{len(denials)} permission denial(s)" + (
-            f": {denials[0][:100]}..." if denials else ""
-        ),
+        "detail": f"{len(denials)} permission denial(s)"
+        + (f": {denials[0][:100]}..." if denials else ""),
         "denials": denials,
     }
 
@@ -488,7 +555,9 @@ def check_zone_registry(tool_calls: list[dict], repo_dir: Path | None) -> dict:
     architect_spawned = False
     for call in tool_calls:
         if call["name"] == "Agent" and not call["input"].get("resume"):
-            desc_lower = (call["input"].get("description", "") + " " + call["input"].get("prompt", "")[:300]).lower()
+            desc_lower = (
+                call["input"].get("description", "") + " " + call["input"].get("prompt", "")[:300]
+            ).lower()
             if "zone" in desc_lower and ("architect" in desc_lower or "registry" in desc_lower):
                 architect_spawned = True
                 break
@@ -504,10 +573,18 @@ def check_zone_registry(tool_calls: list[dict], repo_dir: Path | None) -> dict:
             "pass": exists,
             "detail": (
                 f"zone-registry.yaml found at {location}"
-                + (f" (architect agent spawned)" if architect_spawned else " (pre-existing or created by setup)")
+                + (
+                    " (architect agent spawned)"
+                    if architect_spawned
+                    else " (pre-existing or created by setup)"
+                )
                 if exists
-                else f"zone-registry.yaml NOT FOUND"
-                + (f" (architect agent WAS spawned but file missing)" if architect_spawned else " (architect agent NOT spawned either)")
+                else "zone-registry.yaml NOT FOUND"
+                + (
+                    " (architect agent WAS spawned but file missing)"
+                    if architect_spawned
+                    else " (architect agent NOT spawned either)"
+                )
             ),
             "exists": exists,
             "architect_spawned": architect_spawned,
@@ -515,11 +592,15 @@ def check_zone_registry(tool_calls: list[dict], repo_dir: Path | None) -> dict:
     else:
         # Without repo_dir, can only check JSONL for architect spawn
         return {
-            "pass": architect_spawned,  # conservative: if no repo_dir, require architect evidence in JSONL
+            # conservative: require architect evidence in JSONL
+            "pass": architect_spawned,
             "detail": (
                 "Architect agent spawned for zone registry (no --repo-dir to verify file)"
                 if architect_spawned
-                else "Cannot verify zone registry — no architect agent in JSONL and no --repo-dir provided"
+                else (
+                    "Cannot verify zone registry — no architect "
+                    "agent in JSONL and no --repo-dir provided"
+                )
             ),
             "architect_spawned": architect_spawned,
         }
@@ -571,10 +652,20 @@ def check_filesystem_artifacts(repo_dir: Path | None, pr_number: int | None) -> 
     if data_json.exists():
         details.append("Data JSON: exists")
     else:
-        failures.append("Data JSON (pr{}_review_pack_data.json) NOT FOUND — assembly failed or didn't run".format(pr_number))
+        failures.append(
+            f"Data JSON (pr{pr_number}_review_pack_data.json) "
+            f"NOT FOUND — assembly failed or didn't run"
+        )
 
     # Check 3: 6 .jsonl files with content
-    expected_agents = ["code-health", "security", "test-integrity", "adversarial", "architecture", "synthesis"]
+    expected_agents = [
+        "code-health",
+        "security",
+        "test-integrity",
+        "adversarial",
+        "architecture",
+        "synthesis",
+    ]
     jsonl_found = 0
     jsonl_with_content = 0
     missing_agents = []
@@ -602,7 +693,7 @@ def check_filesystem_artifacts(repo_dir: Path | None, pr_number: int | None) -> 
     return {
         "pass": len(failures) == 0,
         "detail": all_detail,
-        "html_found": len(html_files) > 0 if 'html_files' in dir() else False,
+        "html_found": len(html_files) > 0 if "html_files" in dir() else False,
         "data_json_found": data_json.exists(),
         "jsonl_found": jsonl_found,
         "jsonl_with_content": jsonl_with_content,
@@ -671,8 +762,10 @@ def check_synthesis_content(repo_dir: Path | None, pr_number: int | None) -> dic
 
     return {
         "pass": what_changed_count >= 1,
-        "detail": ". ".join(details) + (
-            "" if what_changed_count >= 1
+        "detail": ". ".join(details)
+        + (
+            ""
+            if what_changed_count >= 1
             else " — FAIL: synthesis must produce at least 1 what_changed entry"
         ),
         "what_changed_count": what_changed_count,
@@ -726,10 +819,7 @@ def inspect_session(
     results["checks"]["synthesis_content"] = check_synthesis_content(repo_dir, pr_number)
 
     # Overall pass/fail (skip checks that were skipped due to missing args)
-    active_checks = {
-        k: v for k, v in results["checks"].items()
-        if not v.get("skipped", False)
-    }
+    active_checks = {k: v for k, v in results["checks"].items() if not v.get("skipped", False)}
     all_pass = all(c["pass"] for c in active_checks.values())
     results["overall_pass"] = all_pass
 
@@ -750,7 +840,7 @@ def print_report(results: dict) -> None:
         if check_result.get("skipped"):
             print(f"  [-] {check_name}: {check_result['detail']}")
             continue
-        status = "PASS" if check_result["pass"] else "FAIL"
+        "PASS" if check_result["pass"] else "FAIL"
         icon = "+" if check_result["pass"] else "X"
         print(f"  [{icon}] {check_name}: {check_result['detail']}")
 
@@ -763,11 +853,19 @@ def print_report(results: dict) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Inspect Claude Code session JSONL")
-    parser.add_argument("--session-dir", required=True,
-                        help="Path to session directory (e.g., ~/.claude/projects/-path/)")
-    parser.add_argument("--pr", type=int, default=None, help="PR number for ghost-writing and filesystem checks")
-    parser.add_argument("--repo-dir", default=None,
-                        help="Path to the target repo directory for filesystem artifact checks")
+    parser.add_argument(
+        "--session-dir",
+        required=True,
+        help="Path to session directory (e.g., ~/.claude/projects/-path/)",
+    )
+    parser.add_argument(
+        "--pr", type=int, default=None, help="PR number for ghost-writing and filesystem checks"
+    )
+    parser.add_argument(
+        "--repo-dir",
+        default=None,
+        help="Path to the target repo directory for filesystem artifact checks",
+    )
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     args = parser.parse_args()
 

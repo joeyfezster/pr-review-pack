@@ -7,6 +7,7 @@ clear messages if anything is missing. Exits 0 on success, 1 on failure.
 Usage:
     python3 "${CLAUDE_SKILL_DIR}/scripts/check_prerequisites.py"
 """
+
 from __future__ import annotations
 
 import shutil
@@ -22,7 +23,9 @@ def _check_command(name: str, version_flag: str = "--version") -> tuple[bool, st
     try:
         result = subprocess.run(
             [path, version_flag],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         version = (result.stdout or result.stderr).strip().split("\n")[0]
         return True, f"{name}: {version}"
@@ -47,20 +50,26 @@ def _check_playwright() -> tuple[bool, str]:
     try:
         result = subprocess.run(
             [npx, "playwright", "--version"],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
         )
         version = (result.stdout or result.stderr).strip().split("\n")[0]
         # Check if chromium is installed
         browsers = subprocess.run(
             [npx, "playwright", "install", "--dry-run"],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
         )
         chromium_ok = "chromium" not in (browsers.stdout or "").lower()
         if not chromium_ok:
             # Dry-run isn't reliable — just check if the browser binary exists
-            test_result = subprocess.run(
+            subprocess.run(
                 [npx, "playwright", "test", "--list"],
-                capture_output=True, text=True, timeout=15,
+                capture_output=True,
+                text=True,
+                timeout=15,
                 cwd="/tmp",
             )
             # If it can list tests, chromium is likely installed

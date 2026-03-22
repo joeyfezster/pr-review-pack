@@ -13,6 +13,7 @@ Usage:
     python3 generate_diff_data.py --base main --head HEAD --output pr_diff_data.json
     python3 generate_diff_data.py  # defaults: --base main --head HEAD --output pr_diff_data.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -136,14 +137,10 @@ def get_pr_metadata(base: str, head: str, cwd: Path) -> dict:
         pass
 
     # Try to get head branch name
-    head_branch = run(
-        ["git", "rev-parse", "--abbrev-ref", head], cwd=cwd
-    ).strip()
+    head_branch = run(["git", "rev-parse", "--abbrev-ref", head], cwd=cwd).strip()
     if head_branch == "HEAD":
         # Detached HEAD, try symbolic ref
-        head_branch = run(
-            ["git", "symbolic-ref", "--short", "HEAD"], cwd=cwd
-        ).strip() or "HEAD"
+        head_branch = run(["git", "symbolic-ref", "--short", "HEAD"], cwd=cwd).strip() or "HEAD"
 
     return {
         "head_sha": head_sha,
@@ -257,9 +254,7 @@ def main() -> None:
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(output, indent=2))
-    print(
-        f"Wrote {out_path} ({out_path.stat().st_size:,} bytes, {len(files_data)} files)"
-    )
+    print(f"Wrote {out_path} ({out_path.stat().st_size:,} bytes, {len(files_data)} files)")
 
 
 if __name__ == "__main__":

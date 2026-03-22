@@ -50,8 +50,7 @@ def get_auth_token() -> str:
     except (subprocess.CalledProcessError, FileNotFoundError):
         pass
     print(
-        "ERROR: No GitHub auth found.\n"
-        "  Run `gh auth login` or set GITHUB_TOKEN env var.",
+        "ERROR: No GitHub auth found.\n  Run `gh auth login` or set GITHUB_TOKEN env var.",
         file=sys.stderr,
     )
     sys.exit(1)
@@ -169,9 +168,12 @@ def cmd_refresh(args: argparse.Namespace) -> None:
     base_branch = data.get("header", {}).get("baseBranch", "main")
     sys.argv = [
         "generate_diff_data.py",
-        "--base", base_branch,
-        "--head", head_branch,
-        "--output", diff_data_path,
+        "--base",
+        base_branch,
+        "--head",
+        head_branch,
+        "--output",
+        diff_data_path,
     ]
     try:
         generate_diff_data_main()
@@ -183,11 +185,16 @@ def cmd_refresh(args: argparse.Namespace) -> None:
     scaffold_cmd = [
         sys.executable,
         str(Path(__file__).parent / "scaffold_review_pack_data.py"),
-        "--pr", str(pr_number),
-        "--diff-data", diff_data_path,
-        "--existing", existing_json_path,
-        "--output", scaffold_output,
-        "--repo", repo_slug,
+        "--pr",
+        str(pr_number),
+        "--diff-data",
+        diff_data_path,
+        "--existing",
+        existing_json_path,
+        "--output",
+        scaffold_output,
+        "--repo",
+        repo_slug,
     ]
     subprocess.run(scaffold_cmd, check=True)
 
@@ -204,10 +211,14 @@ def cmd_refresh(args: argparse.Namespace) -> None:
     render_cmd = [
         sys.executable,
         str(Path(__file__).parent / "render_review_pack.py"),
-        "--data", scaffold_output,
-        "--output", html_path,
-        "--diff-data", diff_data_path,
-        "--template", template_version,
+        "--data",
+        scaffold_output,
+        "--output",
+        html_path,
+        "--diff-data",
+        diff_data_path,
+        "--template",
+        template_version,
     ]
     subprocess.run(render_cmd, check=True)
 
@@ -257,9 +268,17 @@ def cmd_merge(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     # Check HEAD SHA matches actual PR HEAD
-    actual_head = run_gh([
-        "pr", "view", str(pr_number), "--json", "headRefOid", "--jq", ".headRefOid",
-    ])
+    actual_head = run_gh(
+        [
+            "pr",
+            "view",
+            str(pr_number),
+            "--json",
+            "headRefOid",
+            "--jq",
+            ".headRefOid",
+        ]
+    )
     pack_head = data.get("headCommitSHA", "")
     if actual_head and pack_head and not actual_head.startswith(pack_head[:7]):
         print(
@@ -271,9 +290,7 @@ def cmd_merge(args: argparse.Namespace) -> None:
 
     # Check no unreplaced markers
     html_content = Path(html_path).read_text()
-    outside_scripts = re.sub(
-        r"<script\b[^>]*>.*?</script>", "", html_content, flags=re.DOTALL
-    )
+    outside_scripts = re.sub(r"<script\b[^>]*>.*?</script>", "", html_content, flags=re.DOTALL)
     if "<!-- INJECT:" in outside_scripts:
         print("  FAIL: Unreplaced INJECT markers found", file=sys.stderr)
         sys.exit(1)
@@ -287,13 +304,9 @@ def cmd_merge(args: argparse.Namespace) -> None:
     # HTML/JSON boundary, but the current specificity is sufficient.
     print("\n[Step 3/5] Snapshotting to merged mode...")
     html_content = Path(html_path).read_text()
-    html_content = html_content.replace(
-        'data-inspected="false"', 'data-inspected="true"'
-    )
+    html_content = html_content.replace('data-inspected="false"', 'data-inspected="true"')
     # Update packMode in embedded DATA
-    html_content = html_content.replace(
-        '"packMode": "live"', '"packMode": "merged"'
-    )
+    html_content = html_content.replace('"packMode": "live"', '"packMode": "merged"')
     Path(html_path).write_text(html_content)
     print("  Pack mode: merged, banner: dismissed")
 
@@ -339,9 +352,7 @@ def main() -> None:
     status_parser.add_argument("html_path", help="Path to review pack HTML")
 
     # refresh
-    refresh_parser = subparsers.add_parser(
-        "refresh", help="Refresh deterministic data"
-    )
+    refresh_parser = subparsers.add_parser("refresh", help="Refresh deterministic data")
     refresh_parser.add_argument("html_path", help="Path to review pack HTML")
 
     # merge

@@ -3,6 +3,7 @@
 Verifies that all grade classes, agent abbreviations, layer tag classes,
 health classes, category classes, and status styles are correctly defined.
 """
+
 from __future__ import annotations
 
 import sys
@@ -23,7 +24,6 @@ from render_review_pack import (
 
 
 class TestGradeClass:
-
     def test_grade_a(self):
         assert GRADE_CLASS["A"] == "a"
 
@@ -51,7 +51,6 @@ class TestGradeClass:
 
 
 class TestAgentAbbrev:
-
     def test_code_health(self):
         assert AGENT_ABBREV["code-health"] == "CH"
 
@@ -105,7 +104,6 @@ class TestAgentAbbrev:
 
 
 class TestLayerTagClass:
-
     def test_factory(self):
         assert layer_tag_class("factory") == "factory"
 
@@ -129,7 +127,6 @@ class TestLayerTagClass:
 
 
 class TestCategoryClass:
-
     def test_all_values(self):
         assert CATEGORY_CLASS["environment"] == "cat-environment"
         assert CATEGORY_CLASS["training"] == "cat-training"
@@ -145,7 +142,6 @@ class TestCategoryClass:
 
 
 class TestStatusStyle:
-
     def test_passing(self):
         color, icon, label = STATUS_STYLE["passing"]
         assert "green" in color

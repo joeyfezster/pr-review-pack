@@ -4,6 +4,7 @@ Tests pure helper functions that don't require git/gh CLI access:
 status computation, verdict (legacy), zone matching, health tagging,
 code diff building, category zone mapping, and scenario building.
 """
+
 from __future__ import annotations
 
 import sys
@@ -29,7 +30,6 @@ _HEALTHY_AA = {"overallHealth": "healthy"}
 
 
 class TestComputeVerdict:
-
     def test_ready_all_gates_passing_no_bad_grades(self):
         convergence = {
             "gates": [
@@ -46,7 +46,8 @@ class TestComputeVerdict:
             ],
         }
         result = compute_verdict(
-            convergence, agentic_review,
+            convergence,
+            agentic_review,
             architecture_assessment=_HEALTHY_AA,
         )
         assert result["status"] == "ready"
@@ -111,7 +112,8 @@ class TestComputeVerdict:
         }
         agentic_review = {"findings": []}
         result = compute_verdict(
-            convergence, agentic_review,
+            convergence,
+            agentic_review,
             architecture_assessment=_HEALTHY_AA,
         )
         assert result["status"] == "ready"
@@ -185,11 +187,13 @@ class TestComputeStatus:
     def test_needs_review_c_grade(self):
         result = compute_status(
             self._passing_convergence(),
-            {"findings": [
-                {"file": "src/a.py", "grade": "C"},
-                {"file": "src/b.py", "grade": "C"},
-                {"file": "src/c.py", "grade": "A"},
-            ]},
+            {
+                "findings": [
+                    {"file": "src/a.py", "grade": "C"},
+                    {"file": "src/b.py", "grade": "C"},
+                    {"file": "src/c.py", "grade": "A"},
+                ]
+            },
         )
         assert result["value"] == "needs-review"
         assert result["text"] == "NEEDS REVIEW"
@@ -199,12 +203,14 @@ class TestComputeStatus:
         """Multiple C-grade findings on the same file count as 1 file."""
         result = compute_status(
             self._passing_convergence(),
-            {"findings": [
-                {"file": "src/a.py", "agent": "code-health", "grade": "C"},
-                {"file": "src/a.py", "agent": "security", "grade": "C"},
-                {"file": "src/a.py", "agent": "adversarial", "grade": "C"},
-                {"file": "src/b.py", "agent": "code-health", "grade": "A"},
-            ]},
+            {
+                "findings": [
+                    {"file": "src/a.py", "agent": "code-health", "grade": "C"},
+                    {"file": "src/a.py", "agent": "security", "grade": "C"},
+                    {"file": "src/a.py", "agent": "adversarial", "grade": "C"},
+                    {"file": "src/b.py", "agent": "code-health", "grade": "A"},
+                ]
+            },
         )
         assert result["value"] == "needs-review"
         assert "1 file(s)" in result["reasons"][0]
@@ -286,7 +292,6 @@ class TestComputeStatus:
 
 
 class TestBuildCodeDiffs:
-
     def test_files_mapped_to_zones(self, sample_diff_data, sample_zone_registry):
         result = build_code_diffs(sample_diff_data, sample_zone_registry)
         assert len(result) == 2
@@ -325,7 +330,6 @@ class TestBuildCodeDiffs:
 
 
 class TestMatchFileToZones:
-
     def test_matches_by_fnmatch_pattern(self, sample_zone_registry):
         result = match_file_to_zones("src/alpha/core.py", sample_zone_registry)
         assert "zone-alpha" in result
@@ -357,7 +361,6 @@ class TestMatchFileToZones:
 
 
 class TestHealthTag:
-
     def test_normal_under_60s(self):
         assert health_tag(0) == "normal"
         assert health_tag(30) == "normal"
@@ -392,7 +395,6 @@ class TestHealthTag:
 
 
 class TestBuildCategoryZoneMap:
-
     def test_derives_mapping_from_zone_registry(self, sample_zone_registry):
         result = build_category_zone_map(sample_zone_registry)
         # Zone IDs map to themselves
@@ -416,7 +418,6 @@ class TestBuildCategoryZoneMap:
 
 
 class TestBuildScenarios:
-
     def test_with_category_map(self, sample_zone_registry):
         cat_map = build_category_zone_map(sample_zone_registry)
         scenario_data = {
@@ -514,7 +515,6 @@ class TestBuildScenarios:
 
 
 class TestBuildArchitectureUnzoned:
-
     def test_unzoned_files_tracked(self, sample_zone_registry):
         diff_data = {
             "files": {
@@ -582,7 +582,8 @@ class TestComputeVerdictNoScenarios:
         }
         agentic_review = {"findings": [{"grade": "A"}]}
         result = compute_verdict(
-            convergence, agentic_review,
+            convergence,
+            agentic_review,
             architecture_assessment=_HEALTHY_AA,
         )
         assert result["status"] == "ready"
@@ -614,7 +615,8 @@ class TestComputeVerdictNoScenarios:
         }
         agentic_review = {"findings": [{"grade": "A"}, {"grade": "B"}]}
         result = compute_verdict(
-            convergence, agentic_review,
+            convergence,
+            agentic_review,
             architecture_assessment=_HEALTHY_AA,
         )
         assert result["status"] == "ready"

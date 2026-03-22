@@ -10,6 +10,7 @@ Playwright tests (full HTML rendering). They have different lifecycles and
 different extension points. TODO: consider extracting a shared fixture
 module if the data structures diverge further.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -176,8 +177,7 @@ def sample_review_pack_data() -> dict:
         "whatChanged": {
             "defaultSummary": {
                 "infrastructure": (
-                    "<p>Updated deployment scripts for"
-                    " <strong>zone-gamma</strong>.</p>"
+                    "<p>Updated deployment scripts for <strong>zone-gamma</strong>.</p>"
                 ),
                 "product": "<p>Added feature X to zone-alpha with new API endpoints.</p>",
             },

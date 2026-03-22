@@ -1,34 +1,25 @@
 """Tests for ReviewConcept and SemanticOutput pydantic models."""
+
 from __future__ import annotations
 
 import json
+import sys
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
-import sys
-from pathlib import Path
-
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 from models import (
-    CodeSnippetRef,
-    ConceptLocation,
+    GRADE_SORT_ORDER,
     ConceptUpdate,
-    DecisionEntry,
-    DecisionFile,
-    FactoryEventEntry,
     FileReviewOutcome,
     FindingCategory,
     Grade,
-    GRADE_SORT_ORDER,
-    PostMergeEntry,
     ReviewConcept,
     SemanticOutput,
-    WhatChangedEntry,
-    ZoneDetail,
 )
-
 
 # ---------------------------------------------------------------------------
 # ReviewConcept
@@ -80,10 +71,12 @@ class TestReviewConcept:
         assert len(rc.locations) == 1
 
     def test_multiple_locations(self):
-        data = self._valid_concept(locations=[
-            {"file": "src/a.py", "zones": ["zone-alpha"]},
-            {"file": "src/b.py", "lines": "10-20", "zones": ["zone-beta"]},
-        ])
+        data = self._valid_concept(
+            locations=[
+                {"file": "src/a.py", "zones": ["zone-alpha"]},
+                {"file": "src/b.py", "lines": "10-20", "zones": ["zone-beta"]},
+            ]
+        )
         rc = ReviewConcept.model_validate(data)
         assert len(rc.locations) == 2
         assert rc.locations[1].lines == "10-20"
@@ -105,28 +98,28 @@ class TestReviewConcept:
         assert not hasattr(rc, "agent") or "agent" not in rc.model_fields
 
     def test_zone_id_validation_kebab_case(self):
-        rc = ReviewConcept.model_validate(self._valid_concept(
-            locations=[{"file": "a.py", "zones": ["rl-core", "review-pack"]}]
-        ))
+        rc = ReviewConcept.model_validate(
+            self._valid_concept(locations=[{"file": "a.py", "zones": ["rl-core", "review-pack"]}])
+        )
         assert rc.locations[0].zones == ["rl-core", "review-pack"]
 
     def test_zone_id_validation_rejects_camel_case(self):
         with pytest.raises(ValidationError):
-            ReviewConcept.model_validate(self._valid_concept(
-                locations=[{"file": "a.py", "zones": ["CamelCase"]}]
-            ))
+            ReviewConcept.model_validate(
+                self._valid_concept(locations=[{"file": "a.py", "zones": ["CamelCase"]}])
+            )
 
     def test_zone_id_validation_rejects_spaces(self):
         with pytest.raises(ValidationError):
-            ReviewConcept.model_validate(self._valid_concept(
-                locations=[{"file": "a.py", "zones": ["has spaces"]}]
-            ))
+            ReviewConcept.model_validate(
+                self._valid_concept(locations=[{"file": "a.py", "zones": ["has spaces"]}])
+            )
 
     def test_empty_zones_valid(self):
         """Empty zones array is valid (file may be unzoned)."""
-        rc = ReviewConcept.model_validate(self._valid_concept(
-            locations=[{"file": "README.md", "zones": []}]
-        ))
+        rc = ReviewConcept.model_validate(
+            self._valid_concept(locations=[{"file": "README.md", "zones": []}])
+        )
         assert rc.locations[0].zones == []
 
     def test_title_max_length(self):
@@ -144,21 +137,26 @@ class TestReviewConcept:
             ReviewConcept.model_validate(data)
 
     def test_all_categories(self):
-        for cat in ["code-health", "security", "test-integrity", "adversarial", "architecture", "cross-cutting"]:
+        for cat in [
+            "code-health",
+            "security",
+            "test-integrity",
+            "adversarial",
+            "architecture",
+            "cross-cutting",
+        ]:
             rc = ReviewConcept.model_validate(self._valid_concept(category=cat))
             assert rc.category.value == cat
 
     def test_location_with_comment(self):
-        data = self._valid_concept(locations=[
-            {"file": "a.py", "zones": ["zone-alpha"], "comment": "Important context"}
-        ])
+        data = self._valid_concept(
+            locations=[{"file": "a.py", "zones": ["zone-alpha"], "comment": "Important context"}]
+        )
         rc = ReviewConcept.model_validate(data)
         assert rc.locations[0].comment == "Important context"
 
     def test_location_lines_optional(self):
-        data = self._valid_concept(locations=[
-            {"file": "a.py", "zones": ["zone-alpha"]}
-        ])
+        data = self._valid_concept(locations=[{"file": "a.py", "zones": ["zone-alpha"]}])
         rc = ReviewConcept.model_validate(data)
         assert rc.locations[0].lines is None
 
@@ -177,7 +175,9 @@ class TestSemanticOutput:
             "what_changed": {
                 "layer": "product",
                 "summary": "Added feature X",
-                "zone_details": [{"zone_id": "zone-alpha", "title": "Zone Alpha", "description": "Changes"}],
+                "zone_details": [
+                    {"zone_id": "zone-alpha", "title": "Zone Alpha", "description": "Changes"}
+                ],
             },
         }
         so = SemanticOutput.model_validate(data)
@@ -389,24 +389,28 @@ class TestExampleJSONL:
 
 class TestFileReviewOutcome:
     def test_valid_file_review(self):
-        fro = FileReviewOutcome.model_validate({
-            "_type": "file_review",
-            "file": "src/main.py",
-            "grade": "A",
-            "summary": "Clean implementation",
-        })
+        fro = FileReviewOutcome.model_validate(
+            {
+                "_type": "file_review",
+                "file": "src/main.py",
+                "grade": "A",
+                "summary": "Clean implementation",
+            }
+        )
         assert fro.file == "src/main.py"
         assert fro.grade == Grade.A
         assert fro.reviewed is True
 
     def test_file_review_with_reviewed_false(self):
-        fro = FileReviewOutcome.model_validate({
-            "_type": "file_review",
-            "file": "data/config.yaml",
-            "grade": "A",
-            "summary": "Config file, not code-reviewed",
-            "reviewed": False,
-        })
+        fro = FileReviewOutcome.model_validate(
+            {
+                "_type": "file_review",
+                "file": "data/config.yaml",
+                "grade": "A",
+                "summary": "Config file, not code-reviewed",
+                "reviewed": False,
+            }
+        )
         assert fro.reviewed is False
 
     def test_file_review_type_discriminator(self):
@@ -416,29 +420,35 @@ class TestFileReviewOutcome:
 
     def test_file_review_missing_file_rejected(self):
         with pytest.raises(ValidationError):
-            FileReviewOutcome.model_validate({
-                "_type": "file_review",
-                "grade": "A",
-                "summary": "Missing file field",
-            })
+            FileReviewOutcome.model_validate(
+                {
+                    "_type": "file_review",
+                    "grade": "A",
+                    "summary": "Missing file field",
+                }
+            )
 
     def test_file_review_empty_summary_rejected(self):
         with pytest.raises(ValidationError):
-            FileReviewOutcome.model_validate({
-                "_type": "file_review",
-                "file": "a.py",
-                "grade": "A",
-                "summary": "",
-            })
+            FileReviewOutcome.model_validate(
+                {
+                    "_type": "file_review",
+                    "file": "a.py",
+                    "grade": "A",
+                    "summary": "",
+                }
+            )
 
     def test_file_review_invalid_grade_rejected(self):
         with pytest.raises(ValidationError):
-            FileReviewOutcome.model_validate({
-                "_type": "file_review",
-                "file": "a.py",
-                "grade": "N/A",
-                "summary": "ok",
-            })
+            FileReviewOutcome.model_validate(
+                {
+                    "_type": "file_review",
+                    "file": "a.py",
+                    "grade": "N/A",
+                    "summary": "ok",
+                }
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -448,12 +458,14 @@ class TestFileReviewOutcome:
 
 class TestConceptUpdate:
     def test_valid_concept_update(self):
-        cu = ConceptUpdate.model_validate({
-            "_type": "concept_update",
-            "concept_id": "security-1",
-            "grade": "B",
-            "title": "Updated finding",
-        })
+        cu = ConceptUpdate.model_validate(
+            {
+                "_type": "concept_update",
+                "concept_id": "security-1",
+                "grade": "B",
+                "title": "Updated finding",
+            }
+        )
         assert cu.concept_id == "security-1"
         assert cu.grade == Grade.B
         assert cu.title == "Updated finding"
@@ -465,10 +477,12 @@ class TestConceptUpdate:
         assert dumped["_type"] == "concept_update"
 
     def test_concept_update_all_fields_optional_except_id(self):
-        cu = ConceptUpdate.model_validate({
-            "_type": "concept_update",
-            "concept_id": "arch-1",
-        })
+        cu = ConceptUpdate.model_validate(
+            {
+                "_type": "concept_update",
+                "concept_id": "arch-1",
+            }
+        )
         assert cu.grade is None
         assert cu.title is None
         assert cu.summary is None
@@ -476,14 +490,18 @@ class TestConceptUpdate:
 
     def test_concept_update_invalid_id_rejected(self):
         with pytest.raises(ValidationError):
-            ConceptUpdate.model_validate({
-                "_type": "concept_update",
-                "concept_id": "Invalid ID With Spaces",
-            })
+            ConceptUpdate.model_validate(
+                {
+                    "_type": "concept_update",
+                    "concept_id": "Invalid ID With Spaces",
+                }
+            )
 
     def test_concept_update_missing_id_rejected(self):
         with pytest.raises(ValidationError):
-            ConceptUpdate.model_validate({
-                "_type": "concept_update",
-                "grade": "A",
-            })
+            ConceptUpdate.model_validate(
+                {
+                    "_type": "concept_update",
+                    "grade": "A",
+                }
+            )

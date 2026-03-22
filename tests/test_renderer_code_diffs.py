@@ -4,6 +4,7 @@ Exercises the Code Diffs file list renderer with various data shapes:
 file paths, +/- stats, status badges, zone tags, empty input, and
 files with no zones.
 """
+
 from __future__ import annotations
 
 import sys
@@ -18,7 +19,6 @@ from render_review_pack import render_code_diffs_list
 
 
 class TestCodeDiffsFilePaths:
-
     def test_file_paths_appear_in_output(self, sample_review_pack_data):
         result = render_code_diffs_list(sample_review_pack_data)
         assert "src/alpha/core.py" in result
@@ -39,7 +39,6 @@ class TestCodeDiffsFilePaths:
 
 
 class TestCodeDiffsStats:
-
     def test_additions_rendered(self, sample_review_pack_data):
         result = render_code_diffs_list(sample_review_pack_data)
         assert '<span class="cd-add">+30</span>' in result
@@ -71,7 +70,6 @@ class TestCodeDiffsStats:
 
 
 class TestCodeDiffsStatusBadges:
-
     def test_modified_status(self, sample_review_pack_data):
         result = render_code_diffs_list(sample_review_pack_data)
         assert '<span class="cd-file-status modified">modified</span>' in result
@@ -126,7 +124,6 @@ class TestCodeDiffsStatusBadges:
 
 
 class TestCodeDiffsZoneTags:
-
     def test_zone_tags_rendered(self, sample_review_pack_data):
         result = render_code_diffs_list(sample_review_pack_data)
         assert "zone-alpha" in result
@@ -163,7 +160,6 @@ class TestCodeDiffsZoneTags:
 
 
 class TestCodeDiffsEmpty:
-
     def test_empty_list_returns_no_files_message(self):
         data = {"codeDiffs": []}
         result = render_code_diffs_list(data)
@@ -179,7 +175,6 @@ class TestCodeDiffsEmpty:
 
 
 class TestCodeDiffsNoZones:
-
     def test_file_with_empty_zones_renders(self):
         data = {
             "codeDiffs": [

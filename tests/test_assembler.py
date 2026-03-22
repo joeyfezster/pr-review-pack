@@ -1,13 +1,11 @@
 """Tests for assemble_review_pack.py validation and transform logic."""
+
 from __future__ import annotations
 
 import json
+import sys
 import tempfile
 from pathlib import Path
-
-import pytest
-
-import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
@@ -30,7 +28,6 @@ from models import (
     SemanticOutput,
 )
 
-
 # ---------------------------------------------------------------------------
 # Filename parsing
 # ---------------------------------------------------------------------------
@@ -44,7 +41,9 @@ class TestFilenameParser:
         assert parse_agent_from_filename("pr5-synthesis-abc12345-def67890.jsonl") == "synthesis"
 
     def test_architecture_filename(self):
-        assert parse_agent_from_filename("pr5-architecture-abc12345-def67890.jsonl") == "architecture"
+        assert (
+            parse_agent_from_filename("pr5-architecture-abc12345-def67890.jsonl") == "architecture"
+        )
 
     def test_invalid_filename(self):
         assert parse_agent_from_filename("random_file.jsonl") is None
@@ -117,20 +116,24 @@ class TestTransformConcept:
             assert finding["gradeSortOrder"] == expected_order
 
     def test_multi_zone_locations(self):
-        rc = self._make_concept(locations=[
-            {"file": "src/main.py", "zones": ["zone-alpha", "zone-beta"]},
-            {"file": "src/other.py", "zones": ["zone-gamma"]},
-        ])
+        rc = self._make_concept(
+            locations=[
+                {"file": "src/main.py", "zones": ["zone-alpha", "zone-beta"]},
+                {"file": "src/other.py", "zones": ["zone-gamma"]},
+            ]
+        )
         finding = transform_concept_to_finding(rc, "test")
         assert "zone-alpha" in finding["zones"]
         assert "zone-beta" in finding["zones"]
         assert "zone-gamma" in finding["zones"]
 
     def test_zones_deduplicated(self):
-        rc = self._make_concept(locations=[
-            {"file": "src/a.py", "zones": ["zone-alpha"]},
-            {"file": "src/b.py", "zones": ["zone-alpha"]},
-        ])
+        rc = self._make_concept(
+            locations=[
+                {"file": "src/a.py", "zones": ["zone-alpha"]},
+                {"file": "src/b.py", "zones": ["zone-alpha"]},
+            ]
+        )
         finding = transform_concept_to_finding(rc, "test")
         assert finding["zones"] == "zone-alpha"  # not "zone-alpha zone-alpha"
 
@@ -139,16 +142,28 @@ class TestTransformConceptsToReview:
     def test_overall_grade_worst_finding(self):
         concepts = {
             "code-health": [
-                ReviewConcept.model_validate({
-                    "concept_id": "ch-1", "title": "Good", "grade": "A",
-                    "category": "code-health", "summary": "x", "detail_html": "x",
-                    "locations": [{"file": "a.py", "zones": []}],
-                }),
-                ReviewConcept.model_validate({
-                    "concept_id": "ch-2", "title": "Bad", "grade": "C",
-                    "category": "code-health", "summary": "x", "detail_html": "x",
-                    "locations": [{"file": "b.py", "zones": []}],
-                }),
+                ReviewConcept.model_validate(
+                    {
+                        "concept_id": "ch-1",
+                        "title": "Good",
+                        "grade": "A",
+                        "category": "code-health",
+                        "summary": "x",
+                        "detail_html": "x",
+                        "locations": [{"file": "a.py", "zones": []}],
+                    }
+                ),
+                ReviewConcept.model_validate(
+                    {
+                        "concept_id": "ch-2",
+                        "title": "Bad",
+                        "grade": "C",
+                        "category": "code-health",
+                        "summary": "x",
+                        "detail_html": "x",
+                        "locations": [{"file": "b.py", "zones": []}],
+                    }
+                ),
             ],
         }
         review = transform_concepts_to_review(concepts)
@@ -159,18 +174,30 @@ class TestTransformConceptsToReview:
         """F and C both have gradeSortOrder=0; overall grade must be F, not C."""
         concepts = {
             "adversarial": [
-                ReviewConcept.model_validate({
-                    "concept_id": "adv-1", "title": "Critical", "grade": "F",
-                    "category": "adversarial", "summary": "x", "detail_html": "x",
-                    "locations": [{"file": "a.py", "zones": []}],
-                }),
+                ReviewConcept.model_validate(
+                    {
+                        "concept_id": "adv-1",
+                        "title": "Critical",
+                        "grade": "F",
+                        "category": "adversarial",
+                        "summary": "x",
+                        "detail_html": "x",
+                        "locations": [{"file": "a.py", "zones": []}],
+                    }
+                ),
             ],
             "code-health": [
-                ReviewConcept.model_validate({
-                    "concept_id": "ch-1", "title": "Issue", "grade": "C",
-                    "category": "code-health", "summary": "x", "detail_html": "x",
-                    "locations": [{"file": "b.py", "zones": []}],
-                }),
+                ReviewConcept.model_validate(
+                    {
+                        "concept_id": "ch-1",
+                        "title": "Issue",
+                        "grade": "C",
+                        "category": "code-health",
+                        "summary": "x",
+                        "detail_html": "x",
+                        "locations": [{"file": "b.py", "zones": []}],
+                    }
+                ),
             ],
         }
         review = transform_concepts_to_review(concepts)
@@ -184,16 +211,28 @@ class TestTransformConceptsToReview:
     def test_findings_sorted_by_severity(self):
         concepts = {
             "test": [
-                ReviewConcept.model_validate({
-                    "concept_id": "t-1", "title": "Good", "grade": "A",
-                    "category": "code-health", "summary": "x", "detail_html": "x",
-                    "locations": [{"file": "a.py", "zones": []}],
-                }),
-                ReviewConcept.model_validate({
-                    "concept_id": "t-2", "title": "Critical", "grade": "F",
-                    "category": "code-health", "summary": "x", "detail_html": "x",
-                    "locations": [{"file": "b.py", "zones": []}],
-                }),
+                ReviewConcept.model_validate(
+                    {
+                        "concept_id": "t-1",
+                        "title": "Good",
+                        "grade": "A",
+                        "category": "code-health",
+                        "summary": "x",
+                        "detail_html": "x",
+                        "locations": [{"file": "a.py", "zones": []}],
+                    }
+                ),
+                ReviewConcept.model_validate(
+                    {
+                        "concept_id": "t-2",
+                        "title": "Critical",
+                        "grade": "F",
+                        "category": "code-health",
+                        "summary": "x",
+                        "detail_html": "x",
+                        "locations": [{"file": "b.py", "zones": []}],
+                    }
+                ),
             ],
         }
         review = transform_concepts_to_review(concepts)
@@ -209,14 +248,18 @@ class TestTransformConceptsToReview:
 class TestTransformSemanticOutputs:
     def test_what_changed(self):
         outputs = [
-            SemanticOutput.model_validate({
-                "output_type": "what_changed",
-                "what_changed": {"layer": "product", "summary": "Product changes"},
-            }),
-            SemanticOutput.model_validate({
-                "output_type": "what_changed",
-                "what_changed": {"layer": "infrastructure", "summary": "Infra changes"},
-            }),
+            SemanticOutput.model_validate(
+                {
+                    "output_type": "what_changed",
+                    "what_changed": {"layer": "product", "summary": "Product changes"},
+                }
+            ),
+            SemanticOutput.model_validate(
+                {
+                    "output_type": "what_changed",
+                    "what_changed": {"layer": "infrastructure", "summary": "Infra changes"},
+                }
+            ),
         ]
         wc, decisions, pmi, fh = transform_semantic_outputs(outputs)
         assert wc["defaultSummary"]["product"] == "Product changes"
@@ -224,14 +267,19 @@ class TestTransformSemanticOutputs:
 
     def test_decisions(self):
         outputs = [
-            SemanticOutput.model_validate({
-                "output_type": "decision",
-                "decision": {
-                    "number": 1, "title": "D1", "rationale": "R1",
-                    "body": "B1", "zones": ["zone-alpha"],
-                    "files": [{"path": "a.py", "change": "Changed"}],
-                },
-            }),
+            SemanticOutput.model_validate(
+                {
+                    "output_type": "decision",
+                    "decision": {
+                        "number": 1,
+                        "title": "D1",
+                        "rationale": "R1",
+                        "body": "B1",
+                        "zones": ["zone-alpha"],
+                        "files": [{"path": "a.py", "change": "Changed"}],
+                    },
+                }
+            ),
         ]
         _, decisions, _, _ = transform_semantic_outputs(outputs)
         assert len(decisions) == 1
@@ -240,14 +288,19 @@ class TestTransformSemanticOutputs:
 
     def test_post_merge_items(self):
         outputs = [
-            SemanticOutput.model_validate({
-                "output_type": "post_merge_item",
-                "post_merge_item": {
-                    "priority": "medium", "title": "Watch this",
-                    "description": "Context", "failure_scenario": "Bad",
-                    "success_scenario": "Good", "zones": ["zone-alpha"],
-                },
-            }),
+            SemanticOutput.model_validate(
+                {
+                    "output_type": "post_merge_item",
+                    "post_merge_item": {
+                        "priority": "medium",
+                        "title": "Watch this",
+                        "description": "Context",
+                        "failure_scenario": "Bad",
+                        "success_scenario": "Good",
+                        "zones": ["zone-alpha"],
+                    },
+                }
+            ),
         ]
         _, _, pmi, _ = transform_semantic_outputs(outputs)
         assert len(pmi) == 1
@@ -255,14 +308,20 @@ class TestTransformSemanticOutputs:
 
     def test_factory_history(self):
         outputs = [
-            SemanticOutput.model_validate({
-                "output_type": "factory_event",
-                "factory_event": {
-                    "title": "Iter 1", "detail": "First", "meta": "Commit: abc",
-                    "expanded_detail": "Details", "event_type": "automated",
-                    "agent_label": "CI", "agent_type": "automated",
-                },
-            }),
+            SemanticOutput.model_validate(
+                {
+                    "output_type": "factory_event",
+                    "factory_event": {
+                        "title": "Iter 1",
+                        "detail": "First",
+                        "meta": "Commit: abc",
+                        "expanded_detail": "Details",
+                        "event_type": "automated",
+                        "agent_label": "CI",
+                        "agent_type": "automated",
+                    },
+                }
+            ),
         ]
         _, _, _, fh = transform_semantic_outputs(outputs)
         assert fh is not None
@@ -283,11 +342,17 @@ class TestVerification:
         report = ValidationReport()
         concepts = {
             "code-health": [
-                ReviewConcept.model_validate({
-                    "concept_id": "ch-1", "title": "T", "grade": "A",
-                    "category": "code-health", "summary": "x", "detail_html": "x",
-                    "locations": [{"file": "nonexistent.py", "zones": ["zone-alpha"]}],
-                }),
+                ReviewConcept.model_validate(
+                    {
+                        "concept_id": "ch-1",
+                        "title": "T",
+                        "grade": "A",
+                        "category": "code-health",
+                        "summary": "x",
+                        "detail_html": "x",
+                        "locations": [{"file": "nonexistent.py", "zones": ["zone-alpha"]}],
+                    }
+                ),
             ],
         }
         diff_data = {"files": {"src/real.py": {}}}
@@ -299,11 +364,17 @@ class TestVerification:
         report = ValidationReport()
         concepts = {
             "code-health": [
-                ReviewConcept.model_validate({
-                    "concept_id": "ch-1", "title": "T", "grade": "A",
-                    "category": "code-health", "summary": "x", "detail_html": "x",
-                    "locations": [{"file": "src/a.py", "zones": ["nonexistent-zone"]}],
-                }),
+                ReviewConcept.model_validate(
+                    {
+                        "concept_id": "ch-1",
+                        "title": "T",
+                        "grade": "A",
+                        "category": "code-health",
+                        "summary": "x",
+                        "detail_html": "x",
+                        "locations": [{"file": "src/a.py", "zones": ["nonexistent-zone"]}],
+                    }
+                ),
             ],
         }
         diff_data = {"files": {"src/a.py": {}}}
@@ -316,11 +387,17 @@ class TestVerification:
         report = ValidationReport()
         concepts = {
             "architecture": [
-                ReviewConcept.model_validate({
-                    "concept_id": "arch-1", "title": "T", "grade": "B",
-                    "category": "architecture", "summary": "x", "detail_html": "x",
-                    "locations": [{"file": "src/a.py", "zones": []}],
-                }),
+                ReviewConcept.model_validate(
+                    {
+                        "concept_id": "arch-1",
+                        "title": "T",
+                        "grade": "B",
+                        "category": "architecture",
+                        "summary": "x",
+                        "detail_html": "x",
+                        "locations": [{"file": "src/a.py", "zones": []}],
+                    }
+                ),
             ],
         }
         diff_data = {"files": {"src/a.py": {}}}
@@ -334,16 +411,28 @@ class TestVerification:
         report = ValidationReport()
         concepts = {
             "test": [
-                ReviewConcept.model_validate({
-                    "concept_id": "test-1", "title": "T1", "grade": "A",
-                    "category": "code-health", "summary": "x", "detail_html": "x",
-                    "locations": [{"file": "a.py", "zones": []}],
-                }),
-                ReviewConcept.model_validate({
-                    "concept_id": "test-1", "title": "T2", "grade": "B",
-                    "category": "code-health", "summary": "x", "detail_html": "x",
-                    "locations": [{"file": "b.py", "zones": []}],
-                }),
+                ReviewConcept.model_validate(
+                    {
+                        "concept_id": "test-1",
+                        "title": "T1",
+                        "grade": "A",
+                        "category": "code-health",
+                        "summary": "x",
+                        "detail_html": "x",
+                        "locations": [{"file": "a.py", "zones": []}],
+                    }
+                ),
+                ReviewConcept.model_validate(
+                    {
+                        "concept_id": "test-1",
+                        "title": "T2",
+                        "grade": "B",
+                        "category": "code-health",
+                        "summary": "x",
+                        "detail_html": "x",
+                        "locations": [{"file": "b.py", "zones": []}],
+                    }
+                ),
             ],
         }
         verify_findings(concepts, [], {"files": {"a.py": {}, "b.py": {}}}, {}, report)
@@ -353,11 +442,17 @@ class TestVerification:
         report = ValidationReport()
         concepts = {
             "test": [
-                ReviewConcept.model_validate({
-                    "concept_id": "t-1", "title": "T", "grade": "A",
-                    "category": "code-health", "summary": "x", "detail_html": "x",
-                    "locations": [{"file": "src/covered.py", "zones": []}],
-                }),
+                ReviewConcept.model_validate(
+                    {
+                        "concept_id": "t-1",
+                        "title": "T",
+                        "grade": "A",
+                        "category": "code-health",
+                        "summary": "x",
+                        "detail_html": "x",
+                        "locations": [{"file": "src/covered.py", "zones": []}],
+                    }
+                ),
             ],
         }
         diff_data = {"files": {"src/covered.py": {}, "src/uncovered.py": {}}}
@@ -367,13 +462,18 @@ class TestVerification:
     def test_decision_zone_verification(self):
         report = ValidationReport()
         outputs = [
-            SemanticOutput.model_validate({
-                "output_type": "decision",
-                "decision": {
-                    "number": 1, "title": "D1", "rationale": "R1",
-                    "body": "B1", "zones": ["zone-alpha"],
-                },
-            }),
+            SemanticOutput.model_validate(
+                {
+                    "output_type": "decision",
+                    "decision": {
+                        "number": 1,
+                        "title": "D1",
+                        "rationale": "R1",
+                        "body": "B1",
+                        "zones": ["zone-alpha"],
+                    },
+                }
+            ),
         ]
         diff_data = {"files": {"src/unrelated.py": {}}}
         zone_registry = {"zone-alpha": {"paths": ["src/alpha/**"]}}
@@ -390,12 +490,20 @@ class TestReadJSONL:
     def test_read_valid_jsonl(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             p = Path(tmpdir) / "pr5-code-health-abcd1234-ef567890.jsonl"
-            p.write_text(json.dumps({
-                "concept_id": "code-health-1", "title": "Test",
-                "grade": "A", "category": "code-health",
-                "summary": "x", "detail_html": "x",
-                "locations": [{"file": "a.py", "zones": []}],
-            }) + "\n")
+            p.write_text(
+                json.dumps(
+                    {
+                        "concept_id": "code-health-1",
+                        "title": "Test",
+                        "grade": "A",
+                        "category": "code-health",
+                        "summary": "x",
+                        "detail_html": "x",
+                        "locations": [{"file": "a.py", "zones": []}],
+                    }
+                )
+                + "\n"
+            )
 
             report = ValidationReport()
             concepts, file_outcomes, semantics, arch = read_and_validate_jsonl(Path(tmpdir), report)
@@ -426,13 +534,24 @@ class TestReadJSONL:
         with tempfile.TemporaryDirectory() as tmpdir:
             p = Path(tmpdir) / "pr5-architecture-abcd1234-ef567890.jsonl"
             lines = [
-                json.dumps({
-                    "concept_id": "architecture-1", "title": "Unzoned files",
-                    "grade": "B", "category": "architecture",
-                    "summary": "x", "detail_html": "x",
-                    "locations": [{"file": "a.py", "zones": []}],
-                }),
-                json.dumps({"_type": "architecture_assessment", "overallHealth": "healthy", "summary": "All good"}),
+                json.dumps(
+                    {
+                        "concept_id": "architecture-1",
+                        "title": "Unzoned files",
+                        "grade": "B",
+                        "category": "architecture",
+                        "summary": "x",
+                        "detail_html": "x",
+                        "locations": [{"file": "a.py", "zones": []}],
+                    }
+                ),
+                json.dumps(
+                    {
+                        "_type": "architecture_assessment",
+                        "overallHealth": "healthy",
+                        "summary": "All good",
+                    }
+                ),
             ]
             p.write_text("\n".join(lines) + "\n")
 
@@ -466,10 +585,19 @@ class TestHybridJSONL:
 
     def test_file_review_outcomes_parsed(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            self._make_jsonl(tmpdir, "code-health", [
-                {"_type": "file_review", "file": "a.py", "grade": "A", "summary": "Clean file"},
-                {"_type": "file_review", "file": "b.py", "grade": "C", "summary": "Issues found"},
-            ])
+            self._make_jsonl(
+                tmpdir,
+                "code-health",
+                [
+                    {"_type": "file_review", "file": "a.py", "grade": "A", "summary": "Clean file"},
+                    {
+                        "_type": "file_review",
+                        "file": "b.py",
+                        "grade": "C",
+                        "summary": "Issues found",
+                    },
+                ],
+            )
             report = ValidationReport()
             concepts, file_outcomes, semantics, arch = read_and_validate_jsonl(Path(tmpdir), report)
             assert not report.has_errors
@@ -481,16 +609,28 @@ class TestHybridJSONL:
     def test_hybrid_file_review_and_concepts(self):
         """FileReviewOutcome and ReviewConcept in same .jsonl."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            self._make_jsonl(tmpdir, "security", [
-                {"_type": "file_review", "file": "a.py", "grade": "A", "summary": "Clean"},
-                {"_type": "file_review", "file": "b.py", "grade": "F", "summary": "SQL injection"},
-                {
-                    "concept_id": "security-1", "title": "SQL Injection in b.py",
-                    "grade": "F", "category": "security",
-                    "summary": "Raw SQL", "detail_html": "<p>Bad</p>",
-                    "locations": [{"file": "b.py", "zones": []}],
-                },
-            ])
+            self._make_jsonl(
+                tmpdir,
+                "security",
+                [
+                    {"_type": "file_review", "file": "a.py", "grade": "A", "summary": "Clean"},
+                    {
+                        "_type": "file_review",
+                        "file": "b.py",
+                        "grade": "F",
+                        "summary": "SQL injection",
+                    },
+                    {
+                        "concept_id": "security-1",
+                        "title": "SQL Injection in b.py",
+                        "grade": "F",
+                        "category": "security",
+                        "summary": "Raw SQL",
+                        "detail_html": "<p>Bad</p>",
+                        "locations": [{"file": "b.py", "zones": []}],
+                    },
+                ],
+            )
             report = ValidationReport()
             concepts, file_outcomes, _, _ = read_and_validate_jsonl(Path(tmpdir), report)
             assert not report.has_errors
@@ -501,18 +641,27 @@ class TestHybridJSONL:
     def test_concept_update_merging(self):
         """ConceptUpdate overrides fields on matching concept."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            self._make_jsonl(tmpdir, "code-health", [
-                {
-                    "concept_id": "code-health-1", "title": "Original title",
-                    "grade": "C", "category": "code-health",
-                    "summary": "Original summary", "detail_html": "<p>Original</p>",
-                    "locations": [{"file": "a.py", "zones": []}],
-                },
-                {
-                    "_type": "concept_update", "concept_id": "code-health-1",
-                    "grade": "B", "title": "Updated title",
-                },
-            ])
+            self._make_jsonl(
+                tmpdir,
+                "code-health",
+                [
+                    {
+                        "concept_id": "code-health-1",
+                        "title": "Original title",
+                        "grade": "C",
+                        "category": "code-health",
+                        "summary": "Original summary",
+                        "detail_html": "<p>Original</p>",
+                        "locations": [{"file": "a.py", "zones": []}],
+                    },
+                    {
+                        "_type": "concept_update",
+                        "concept_id": "code-health-1",
+                        "grade": "B",
+                        "title": "Updated title",
+                    },
+                ],
+            )
             report = ValidationReport()
             concepts, _, _, _ = read_and_validate_jsonl(Path(tmpdir), report)
             assert not report.has_errors
@@ -524,12 +673,17 @@ class TestHybridJSONL:
     def test_concept_update_missing_id_is_error(self):
         """ConceptUpdate referencing nonexistent concept_id is an error."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            self._make_jsonl(tmpdir, "code-health", [
-                {
-                    "_type": "concept_update", "concept_id": "nonexistent-1",
-                    "grade": "A",
-                },
-            ])
+            self._make_jsonl(
+                tmpdir,
+                "code-health",
+                [
+                    {
+                        "_type": "concept_update",
+                        "concept_id": "nonexistent-1",
+                        "grade": "A",
+                    },
+                ],
+            )
             report = ValidationReport()
             read_and_validate_jsonl(Path(tmpdir), report)
             assert report.has_errors
@@ -584,8 +738,12 @@ class TestCascadingValidation:
         concepts = {
             "code-health": [
                 ReviewConcept(
-                    concept_id="ch-1", title="Issue", grade=Grade.C,
-                    category="code-health", summary="x", detail_html="x",
+                    concept_id="ch-1",
+                    title="Issue",
+                    grade=Grade.C,
+                    category="code-health",
+                    summary="x",
+                    detail_html="x",
                     locations=[{"file": "b.py", "zones": []}],
                 ),
             ],
@@ -673,10 +831,16 @@ class TestArchAssessmentDegradation:
 
     def test_valid_assessment_no_warnings(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            self._make_jsonl(tmpdir, [
-                {"_type": "architecture_assessment", "overallHealth": "healthy",
-                 "summary": "All zones are covered."},
-            ])
+            self._make_jsonl(
+                tmpdir,
+                [
+                    {
+                        "_type": "architecture_assessment",
+                        "overallHealth": "healthy",
+                        "summary": "All zones are covered.",
+                    },
+                ],
+            )
             report = ValidationReport()
             _, _, _, arch = read_and_validate_jsonl(Path(tmpdir), report)
             assert arch is not None
@@ -688,14 +852,17 @@ class TestArchAssessmentDegradation:
     def test_partial_degradation_keeps_health_and_summary(self):
         """If full validation fails but overallHealth + summary exist, keep them."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            self._make_jsonl(tmpdir, [
-                {
-                    "_type": "architecture_assessment",
-                    "overallHealth": "needs-attention",
-                    "summary": "<p>Some gaps found</p>",
-                    "zoneChanges": "INVALID_NOT_A_LIST",  # will fail validation
-                },
-            ])
+            self._make_jsonl(
+                tmpdir,
+                [
+                    {
+                        "_type": "architecture_assessment",
+                        "overallHealth": "needs-attention",
+                        "summary": "<p>Some gaps found</p>",
+                        "zoneChanges": "INVALID_NOT_A_LIST",  # will fail validation
+                    },
+                ],
+            )
             report = ValidationReport()
             _, _, _, arch = read_and_validate_jsonl(Path(tmpdir), report)
             assert arch is not None
@@ -706,9 +873,12 @@ class TestArchAssessmentDegradation:
     def test_full_degradation_when_no_health_or_summary(self):
         """If even overallHealth/summary are missing, fully degrade."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            self._make_jsonl(tmpdir, [
-                {"_type": "architecture_assessment", "zoneChanges": "INVALID"},
-            ])
+            self._make_jsonl(
+                tmpdir,
+                [
+                    {"_type": "architecture_assessment", "zoneChanges": "INVALID"},
+                ],
+            )
             report = ValidationReport()
             _, _, _, arch = read_and_validate_jsonl(Path(tmpdir), report)
             assert arch is not None
@@ -718,13 +888,16 @@ class TestArchAssessmentDegradation:
     def test_consistency_warning_negative_health_positive_summary(self):
         """Warn when overallHealth is bad but summary starts positively."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            self._make_jsonl(tmpdir, [
-                {
-                    "_type": "architecture_assessment",
-                    "overallHealth": "needs-attention",
-                    "summary": "Good shape overall, minor gaps.",
-                },
-            ])
+            self._make_jsonl(
+                tmpdir,
+                [
+                    {
+                        "_type": "architecture_assessment",
+                        "overallHealth": "needs-attention",
+                        "summary": "Good shape overall, minor gaps.",
+                    },
+                ],
+            )
             report = ValidationReport()
             read_and_validate_jsonl(Path(tmpdir), report)
             assert any("inconsistency" in w["message"].lower() for w in report.warnings)
@@ -732,13 +905,16 @@ class TestArchAssessmentDegradation:
     def test_no_consistency_warning_when_healthy(self):
         """No consistency warning for healthy + positive summary."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            self._make_jsonl(tmpdir, [
-                {
-                    "_type": "architecture_assessment",
-                    "overallHealth": "healthy",
-                    "summary": "Good shape, all zones covered.",
-                },
-            ])
+            self._make_jsonl(
+                tmpdir,
+                [
+                    {
+                        "_type": "architecture_assessment",
+                        "overallHealth": "healthy",
+                        "summary": "Good shape, all zones covered.",
+                    },
+                ],
+            )
             report = ValidationReport()
             read_and_validate_jsonl(Path(tmpdir), report)
             assert not any("inconsistency" in w["message"].lower() for w in report.warnings)

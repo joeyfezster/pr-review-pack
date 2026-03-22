@@ -4,6 +4,7 @@ Calls render() end-to-end with real fixture data and both template versions,
 then validates the output HTML: no unreplaced markers, sidebar components,
 code diffs section, and factory history conditional rendering.
 """
+
 from __future__ import annotations
 
 import json
@@ -67,11 +68,13 @@ def _unreplaced_markers_outside_scripts(
 
 # v1 factory history markers are conditionally unreplaced when
 # factoryHistory is None — they live inside a hidden tab.
-V1_FACTORY_HISTORY_MARKERS = frozenset({
-    "<!-- INJECT: iteration count + satisfaction trajectory cards -->",
-    "<!-- INJECT: factory history events from DATA.factoryHistory.timeline -->",
-    "<!-- INJECT: gate finding rows from DATA.factoryHistory.gateFindings -->",
-})
+V1_FACTORY_HISTORY_MARKERS = frozenset(
+    {
+        "<!-- INJECT: iteration count + satisfaction trajectory cards -->",
+        "<!-- INJECT: factory history events from DATA.factoryHistory.timeline -->",
+        "<!-- INJECT: gate finding rows from DATA.factoryHistory.gateFindings -->",
+    }
+)
 
 
 # ── Template availability guards ──────────────────────────────────
@@ -92,13 +95,10 @@ v2_available = pytest.mark.skipif(
 
 @v1_available
 class TestV1Render:
-
     def test_no_unreplaced_markers(self, tmp_path, sample_review_pack_data):
         """No unreplaced markers except v1 factory history (conditionally hidden)."""
         html = _render_to_html(tmp_path, sample_review_pack_data, "v1")
-        leftover = _unreplaced_markers_outside_scripts(
-            html, exclude=V1_FACTORY_HISTORY_MARKERS
-        )
+        leftover = _unreplaced_markers_outside_scripts(html, exclude=V1_FACTORY_HISTORY_MARKERS)
         assert leftover == [], f"Unreplaced markers in v1 output: {leftover}"
 
     def test_no_unreplaced_markers_with_factory_history(
@@ -156,7 +156,6 @@ class TestV1Render:
 
 @v2_available
 class TestV2Render:
-
     def test_no_unreplaced_markers(self, tmp_path, sample_review_pack_data):
         html = _render_to_html(tmp_path, sample_review_pack_data, "v2")
         leftover = _unreplaced_markers_outside_scripts(html)
@@ -218,9 +217,7 @@ class TestV2Render:
 
     # ── Factory history section ────────────────────────────────────
 
-    def test_factory_history_absent_when_null(
-        self, tmp_path, sample_review_pack_data
-    ):
+    def test_factory_history_absent_when_null(self, tmp_path, sample_review_pack_data):
         assert sample_review_pack_data["factoryHistory"] is None
         html = _render_to_html(tmp_path, sample_review_pack_data, "v2")
         # The factory history section wrapper exists in the template, but
@@ -259,10 +256,7 @@ class TestV2Render:
 @v1_available
 @v2_available
 class TestCrossTemplateCompat:
-
-    def test_same_data_works_for_both_templates(
-        self, tmp_path, sample_review_pack_data
-    ):
+    def test_same_data_works_for_both_templates(self, tmp_path, sample_review_pack_data):
         """The same ReviewPackData dict renders successfully with both templates."""
         v1_html = _render_to_html(tmp_path, sample_review_pack_data, "v1")
         # Use a different subdir so output files don't collide
@@ -276,9 +270,7 @@ class TestCrossTemplateCompat:
         assert "Add feature X to zone-alpha" in v1_html
         assert "Add feature X to zone-alpha" in v2_html
 
-    def test_no_unreplaced_markers_in_either(
-        self, tmp_path, sample_review_pack_data
-    ):
+    def test_no_unreplaced_markers_in_either(self, tmp_path, sample_review_pack_data):
         v1_html = _render_to_html(tmp_path, sample_review_pack_data, "v1")
         v2_dir = tmp_path / "v2"
         v2_dir.mkdir()

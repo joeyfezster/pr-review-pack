@@ -1,4 +1,5 @@
 """Tests for ViewBox calculation edge cases in _calculate_viewbox."""
+
 from __future__ import annotations
 
 import sys
@@ -11,7 +12,6 @@ from render_review_pack import _calculate_viewbox
 
 
 class TestViewBox:
-
     def test_default_fallback_empty_arch(self):
         """Empty architecture dict returns the fallback viewBox."""
         assert _calculate_viewbox({}) == "0 0 780 360"

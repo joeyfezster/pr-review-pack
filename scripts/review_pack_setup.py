@@ -16,6 +16,7 @@ Usage:
     python review_pack_setup.py --pr 35 --base main
     python review_pack_setup.py --pr 35 --base master --skip-prereqs
 """
+
 from __future__ import annotations
 
 import argparse
@@ -75,7 +76,10 @@ def check_prerequisites(pr_number: int, repo_slug: str, skip: bool = False) -> b
             print(f"  CI pending: {', '.join(pending)}")
         if skipped:
             print(f"  CI skipped/neutral: {', '.join(skipped)}")
-        print(f"  CI: {len(passing)} passing, {len(skipped)} skipped, {len(pending)} pending, {len(failing)} failing")
+        print(
+            f"  CI: {len(passing)} passing, {len(skipped)} skipped, "
+            f"{len(pending)} pending, {len(failing)} failing"
+        )
     else:
         issues.append("Could not fetch CI status (gh pr checks failed)")
 
@@ -91,13 +95,21 @@ def check_prerequisites(pr_number: int, repo_slug: str, skip: bool = False) -> b
             }}
           }}
         }}'''
-        comment_raw = _run([
-            "gh", "api", "graphql", "-f", f"query={query}",
-            "--jq", """{
+        comment_raw = _run(
+            [
+                "gh",
+                "api",
+                "graphql",
+                "-f",
+                f"query={query}",
+                "--jq",
+                """{
   total: (.data.repository.pullRequest.reviewThreads.nodes | length),
-  unresolved: ([.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length)
-}"""
-        ])
+  unresolved: ([.data.repository.pullRequest.reviewThreads.nodes[]
+    | select(.isResolved == false)] | length)
+}""",
+            ]
+        )
         if comment_raw.returncode == 0 and comment_raw.stdout.strip():
             counts = json.loads(comment_raw.stdout)
             unresolved = counts.get("unresolved", 0)
@@ -200,7 +212,10 @@ def find_zone_registry(repo: Path) -> Path | None:
     for p in candidates:
         if p.exists():
             return p
-    print("WARNING: zone-registry.yaml not found. The architecture agent should generate one.", file=sys.stderr)
+    print(
+        "WARNING: zone-registry.yaml not found. The architecture agent should generate one.",
+        file=sys.stderr,
+    )
     return None
 
 
@@ -223,14 +238,25 @@ def get_repo_slug(repo: Path) -> str:
     return slug.removesuffix(".git")
 
 
-def pre_create_jsonl_files(pr_number: int, base_short: str, head_short: str, output_dir: Path) -> list[Path]:
+def pre_create_jsonl_files(
+    pr_number: int, base_short: str, head_short: str, output_dir: Path
+) -> list[Path]:
     """Pre-create .jsonl files with meta header so agents can Read-then-Write."""
-    agents = ["code-health", "security", "test-integrity", "adversarial", "architecture", "synthesis"]
+    agents = [
+        "code-health",
+        "security",
+        "test-integrity",
+        "adversarial",
+        "architecture",
+        "synthesis",
+    ]
     created = []
     for agent in agents:
         path = output_dir / f"pr{pr_number}-{agent}-{base_short}-{head_short}.jsonl"
         if not path.exists():
-            header = json.dumps({"_type": "meta", "agent": agent, "pr": pr_number, "created": "setup"})
+            header = json.dumps(
+                {"_type": "meta", "agent": agent, "pr": pr_number, "created": "setup"}
+            )
             path.write_text(header + "\n")
             created.append(path)
     return created
@@ -262,10 +288,13 @@ def main() -> None:
         description="Review Pack Setup — prerequisites + Pass 1 + scaffold"
     )
     parser.add_argument("--pr", type=int, required=True, help="PR number")
-    parser.add_argument("--base", required=True, help="Base branch (detect via: gh pr view N --json baseRefName -q .baseRefName)")
+    parser.add_argument(
+        "--base",
+        required=True,
+        help="Base branch (detect via: gh pr view N --json baseRefName -q .baseRefName)",
+    )
     parser.add_argument("--head", default="HEAD", help="Head ref (default: HEAD)")
-    parser.add_argument("--skip-prereqs", action="store_true",
-                        help="Skip prerequisite checks")
+    parser.add_argument("--skip-prereqs", action="store_true", help="Skip prerequisite checks")
     parser.add_argument("--repo", default=None, help="Repository root path")
     args = parser.parse_args()
 
@@ -286,9 +315,7 @@ def main() -> None:
     print(f"\nOutput directory: {output_dir}")
 
     # Step 3: Generate diff data (Pass 1)
-    diff_data_path = generate_diff_data(
-        args.pr, args.base, args.head, repo, output_dir
-    )
+    diff_data_path = generate_diff_data(args.pr, args.base, args.head, repo, output_dir)
 
     # Step 4: Scaffold (Pass 2a)
     print("\nPass 2a: Scaffolding review pack data")
@@ -300,12 +327,8 @@ def main() -> None:
         pr_number=args.pr,
         diff_data_path=str(diff_data_path),
         zone_registry_path=zone_registry_path,
-        scenario_results_path=find_optional_file(
-            repo, "artifacts/factory/scenario_results.json"
-        ),
-        gate0_results_path=find_optional_file(
-            repo, "artifacts/factory/gate0_results.json"
-        ),
+        scenario_results_path=find_optional_file(repo, "artifacts/factory/scenario_results.json"),
+        gate0_results_path=find_optional_file(repo, "artifacts/factory/gate0_results.json"),
         existing_path=None,  # Fresh scaffold
         output_path=str(scaffold_output),
         repo_slug=repo_slug,
@@ -324,7 +347,7 @@ def main() -> None:
             print(f"  {p.name}")
 
     # Summary
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Setup complete for PR #{args.pr}")
     print(f"  Diff data:  {diff_data_path.name}")
     print(f"  Scaffold:   {scaffold_output.name}")

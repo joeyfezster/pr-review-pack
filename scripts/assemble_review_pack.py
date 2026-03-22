@@ -10,6 +10,7 @@ Usage:
     python assemble_review_pack.py --pr 35
     python assemble_review_pack.py --pr 35 --reviews-dir docs/reviews/pr35
 """
+
 from __future__ import annotations
 
 import fnmatch
@@ -27,25 +28,22 @@ _SCRIPT_DIR = Path(__file__).parent
 sys.path.insert(0, str(_SCRIPT_DIR))
 
 from models import (  # noqa: E402
+    GRADE_SORT_ORDER,
+    LEGACY_GRADE_SORT_ORDER,
     ArchitectureAssessmentOutput,
     ConceptUpdate,
     FileReviewOutcome,
     Grade,
-    GRADE_SORT_ORDER,
-    LEGACY_GRADE_SORT_ORDER,
     ReviewConcept,
     SemanticOutput,
 )
-
 
 # ---------------------------------------------------------------------------
 # Filename parsing
 # ---------------------------------------------------------------------------
 
 # Expected: pr{N}-{agent}-{base8}-{head8}.jsonl
-_JSONL_PATTERN = re.compile(
-    r"^pr\d+-(?P<agent>[a-z][a-z0-9-]*)-[a-f0-9]{8}-[a-f0-9]{8}\.jsonl$"
-)
+_JSONL_PATTERN = re.compile(r"^pr\d+-(?P<agent>[a-z][a-z0-9-]*)-[a-f0-9]{8}-[a-f0-9]{8}\.jsonl$")
 
 
 def parse_agent_from_filename(filename: str) -> str | None:
@@ -134,7 +132,8 @@ def read_and_validate_jsonl(
         if agent_name is None:
             report.add_warning(
                 jsonl_path.name,
-                f"Filename doesn't match expected pattern pr{{N}}-{{agent}}-{{base8}}-{{head8}}.jsonl — skipping"
+                "Filename doesn't match expected pattern "
+                "pr{N}-{agent}-{base8}-{head8}.jsonl — skipping",
             )
             continue
 
@@ -182,9 +181,7 @@ def read_and_validate_jsonl(
                                 "overallHealth": overall_health,
                                 "summary": summary,
                                 "_partial": True,
-                                "_validation_errors": [
-                                    err["msg"] for err in e.errors()[:5]
-                                ],
+                                "_validation_errors": [err["msg"] for err in e.errors()[:5]],
                             }
                             report.add_warning(
                                 jsonl_path.name,
@@ -201,9 +198,7 @@ def read_and_validate_jsonl(
                                     "file for details.</p>"
                                 ),
                                 "_partial": True,
-                                "_validation_errors": [
-                                    err["msg"] for err in e.errors()[:5]
-                                ],
+                                "_validation_errors": [err["msg"] for err in e.errors()[:5]],
                             }
                             report.add_warning(
                                 jsonl_path.name,
@@ -217,8 +212,12 @@ def read_and_validate_jsonl(
                         summ = architecture_assessment.get("summary", "")
                         if health in ("needs-attention", "action-required"):
                             positive_starts = (
-                                "good shape", "healthy", "all good",
-                                "no issues", "clean", "well-structured",
+                                "good shape",
+                                "healthy",
+                                "all good",
+                                "no issues",
+                                "clean",
+                                "well-structured",
                             )
                             summ_lower = summ.lower().lstrip("<p>").lstrip()
                             if any(summ_lower.startswith(p) for p in positive_starts):
@@ -236,8 +235,10 @@ def read_and_validate_jsonl(
                         file_outcomes.append(fro)
                     except ValidationError as e:
                         report.add_error(
-                            jsonl_path.name, line_num,
-                            f"FileReviewOutcome validation failed: {e.error_count()} error(s) — {e.errors()[0]['msg']}",
+                            jsonl_path.name,
+                            line_num,
+                            f"FileReviewOutcome validation failed: "
+                            f"{e.error_count()} error(s) — {e.errors()[0]['msg']}",
                             line,
                         )
                     continue
@@ -248,8 +249,10 @@ def read_and_validate_jsonl(
                         concept_updates.append(cu)
                     except ValidationError as e:
                         report.add_error(
-                            jsonl_path.name, line_num,
-                            f"ConceptUpdate validation failed: {e.error_count()} error(s) — {e.errors()[0]['msg']}",
+                            jsonl_path.name,
+                            line_num,
+                            f"ConceptUpdate validation failed: "
+                            f"{e.error_count()} error(s) — {e.errors()[0]['msg']}",
                             line,
                         )
                     continue
@@ -261,8 +264,10 @@ def read_and_validate_jsonl(
                         semantic_outputs.append(so)
                     except ValidationError as e:
                         report.add_error(
-                            jsonl_path.name, line_num,
-                            f"SemanticOutput validation failed: {e.error_count()} error(s) — {e.errors()[0]['msg']}",
+                            jsonl_path.name,
+                            line_num,
+                            f"SemanticOutput validation failed: "
+                            f"{e.error_count()} error(s) — {e.errors()[0]['msg']}",
                             line,
                         )
                     continue
@@ -273,8 +278,10 @@ def read_and_validate_jsonl(
                     concepts.append(rc)
                 except ValidationError as e:
                     report.add_error(
-                        jsonl_path.name, line_num,
-                        f"ReviewConcept validation failed: {e.error_count()} error(s) — {e.errors()[0]['msg']}",
+                        jsonl_path.name,
+                        line_num,
+                        f"ReviewConcept validation failed: "
+                        f"{e.error_count()} error(s) — {e.errors()[0]['msg']}",
                         line,
                     )
 
@@ -284,7 +291,8 @@ def read_and_validate_jsonl(
             for cu in concept_updates:
                 if cu.concept_id not in concept_by_id:
                     report.add_error(
-                        jsonl_path.name, 0,
+                        jsonl_path.name,
+                        0,
                         f"ConceptUpdate references concept_id '{cu.concept_id}' "
                         f"which does not exist in this agent's output",
                     )
@@ -299,8 +307,9 @@ def read_and_validate_jsonl(
                     merged = original.model_copy(update=update_data)
                     concept_by_id[cu.concept_id] = merged
             # Rebuild list preserving order
-            concepts = [concept_by_id[rc.concept_id] for rc in concepts
-                        if rc.concept_id in concept_by_id]
+            concepts = [
+                concept_by_id[rc.concept_id] for rc in concepts if rc.concept_id in concept_by_id
+            ]
 
         if concepts:
             agent_concepts[agent_name] = concepts
@@ -344,10 +353,11 @@ def validate_file_coverage(
         missing = diff_files - covered_files
         if missing:
             report.add_error(
-                f"{agent_name}.jsonl", 0,
+                f"{agent_name}.jsonl",
+                0,
                 f"Missing FileReviewOutcome for {len(missing)} file(s): "
                 f"{', '.join(sorted(missing)[:5])}"
-                + (f" (+{len(missing)-5} more)" if len(missing) > 5 else ""),
+                + (f" (+{len(missing) - 5} more)" if len(missing) > 5 else ""),
             )
 
 
@@ -376,7 +386,8 @@ def validate_concept_backing(
         for fro in outcomes:
             if fro.grade != Grade.A and fro.file not in concept_files:
                 report.add_error(
-                    f"{agent_name}.jsonl", 0,
+                    f"{agent_name}.jsonl",
+                    0,
                     f"File '{fro.file}' graded {fro.grade.value} but not mentioned "
                     f"in any ReviewConcept — non-A grades require a backing concept",
                 )
@@ -409,17 +420,15 @@ def verify_findings(
         for rc in concepts:
             # Concept ID uniqueness per agent
             if rc.concept_id in concept_ids:
-                report.add_warning(
-                    f"{agent_name}.jsonl",
-                    f"Duplicate concept_id '{rc.concept_id}'"
-                )
+                report.add_warning(f"{agent_name}.jsonl", f"Duplicate concept_id '{rc.concept_id}'")
             concept_ids.add(rc.concept_id)
 
             # Grade validity (already enforced by pydantic, but double-check)
             if rc.grade not in Grade:
                 report.add_error(
-                    f"{agent_name}.jsonl", 0,
-                    f"Invalid grade '{rc.grade}' in concept {rc.concept_id}"
+                    f"{agent_name}.jsonl",
+                    0,
+                    f"Invalid grade '{rc.grade}' in concept {rc.concept_id}",
                 )
 
             for loc in rc.locations:
@@ -429,7 +438,7 @@ def verify_findings(
                 if loc.file not in diff_files:
                     report.add_warning(
                         f"{agent_name}.jsonl",
-                        f"File '{loc.file}' in concept {rc.concept_id} not found in diff data"
+                        f"File '{loc.file}' in concept {rc.concept_id} not found in diff data",
                     )
 
                 # Zone verification
@@ -439,7 +448,7 @@ def verify_findings(
                         if agent_name != "architecture":
                             report.add_warning(
                                 f"{agent_name}.jsonl",
-                                f"Zone '{zone_id}' in concept {rc.concept_id} not in zone registry"
+                                f"Zone '{zone_id}' in concept {rc.concept_id} not in zone registry",
                             )
 
         all_concept_ids[agent_name] = concept_ids
@@ -450,7 +459,8 @@ def verify_findings(
         # Filter out common non-reviewable files
         non_reviewable = {".gitignore", "requirements.txt", "requirements.in"}
         meaningful_uncovered = {
-            f for f in uncovered
+            f
+            for f in uncovered
             if not any(f.endswith(ext) for ext in (".lock", ".sum"))
             and Path(f).name not in non_reviewable
         }
@@ -459,7 +469,11 @@ def verify_findings(
                 "coverage",
                 f"{len(meaningful_uncovered)} file(s) in diff not mentioned by any agent: "
                 f"{', '.join(sorted(meaningful_uncovered)[:5])}"
-                + (f" (+{len(meaningful_uncovered)-5} more)" if len(meaningful_uncovered) > 5 else "")
+                + (
+                    f" (+{len(meaningful_uncovered) - 5} more)"
+                    if len(meaningful_uncovered) > 5
+                    else ""
+                ),
             )
 
     # -- SemanticOutput checks --
@@ -470,20 +484,19 @@ def verify_findings(
                 if zone_id not in valid_zones:
                     report.add_warning(
                         "synthesis.jsonl",
-                        f"Decision #{so.decision.number} claims zone '{zone_id}' not in registry"
+                        f"Decision #{so.decision.number} claims zone '{zone_id}' not in registry",
                     )
                 else:
                     # Check that ≥1 file in diff touches this zone's paths
                     zone_paths = zone_registry[zone_id].get("paths", [])
                     has_file_in_zone = any(
-                        any(fnmatch.fnmatch(f, p) for p in zone_paths)
-                        for f in diff_files
+                        any(fnmatch.fnmatch(f, p) for p in zone_paths) for f in diff_files
                     )
                     if not has_file_in_zone:
                         report.add_warning(
                             "synthesis.jsonl",
                             f"Decision #{so.decision.number} claims zone '{zone_id}' "
-                            f"but no diff files match that zone's paths"
+                            f"but no diff files match that zone's paths",
                         )
 
         if so.output_type == "post_merge_item" and so.post_merge_item:
@@ -492,15 +505,14 @@ def verify_findings(
             if snippet and snippet.file not in diff_files:
                 report.add_warning(
                     "synthesis.jsonl",
-                    f"Post-merge item code snippet references '{snippet.file}' not in diff"
+                    f"Post-merge item code snippet references '{snippet.file}' not in diff",
                 )
 
             # Zone verification
             for zone_id in so.post_merge_item.zones:
                 if zone_id not in valid_zones:
                     report.add_warning(
-                        "synthesis.jsonl",
-                        f"Post-merge item zone '{zone_id}' not in registry"
+                        "synthesis.jsonl", f"Post-merge item zone '{zone_id}' not in registry"
                     )
 
     # what_changed: 1-2 entries expected (at least 1 required; both if PR spans infra + product)
@@ -508,12 +520,11 @@ def verify_findings(
     if len(wc_entries) == 0:
         report.add_warning(
             "synthesis.jsonl",
-            "Expected at least 1 what_changed entry (infrastructure and/or product), got 0"
+            "Expected at least 1 what_changed entry (infrastructure and/or product), got 0",
         )
     elif len(wc_entries) > 2:
         report.add_warning(
-            "synthesis.jsonl",
-            f"Expected 1-2 what_changed entries, got {len(wc_entries)}"
+            "synthesis.jsonl", f"Expected 1-2 what_changed entries, got {len(wc_entries)}"
         )
     else:
         layers = {so.what_changed.layer for so in wc_entries if so.what_changed}
@@ -521,7 +532,7 @@ def verify_findings(
         if not layers.issubset(valid_layers):
             report.add_warning(
                 "synthesis.jsonl",
-                f"what_changed layers should be subset of {valid_layers}, got {layers}"
+                f"what_changed layers should be subset of {valid_layers}, got {layers}",
             )
 
 
@@ -636,23 +647,27 @@ def transform_semantic_outputs(
                 what_changed["defaultSummary"]["product"] = wc.summary
 
             for zd in wc.zone_details:
-                what_changed["zoneDetails"].append({
-                    "zoneId": zd.zone_id,
-                    "title": zd.title,
-                    "description": zd.description,
-                })
+                what_changed["zoneDetails"].append(
+                    {
+                        "zoneId": zd.zone_id,
+                        "title": zd.title,
+                        "description": zd.description,
+                    }
+                )
 
         elif so.output_type == "decision" and so.decision:
             d = so.decision
-            decisions.append({
-                "number": d.number,
-                "title": d.title,
-                "rationale": d.rationale,
-                "body": d.body,
-                "zones": " ".join(d.zones),
-                "files": [{"path": f.path, "change": f.change} for f in d.files],
-                "verified": True,  # Will be updated by verification checks
-            })
+            decisions.append(
+                {
+                    "number": d.number,
+                    "title": d.title,
+                    "rationale": d.rationale,
+                    "body": d.body,
+                    "zones": " ".join(d.zones),
+                    "files": [{"path": f.path, "change": f.change} for f in d.files],
+                    "verified": True,  # Will be updated by verification checks
+                }
+            )
 
         elif so.output_type == "post_merge_item" and so.post_merge_item:
             pmi = so.post_merge_item
@@ -675,17 +690,19 @@ def transform_semantic_outputs(
 
         elif so.output_type == "factory_event" and so.factory_event:
             fe = so.factory_event
-            factory_events.append({
-                "title": fe.title,
-                "detail": fe.detail,
-                "meta": fe.meta,
-                "expandedDetail": fe.expanded_detail,
-                "type": fe.event_type,
-                "agent": {
-                    "label": fe.agent_label,
-                    "type": fe.agent_type,
-                },
-            })
+            factory_events.append(
+                {
+                    "title": fe.title,
+                    "detail": fe.detail,
+                    "meta": fe.meta,
+                    "expandedDetail": fe.expanded_detail,
+                    "type": fe.event_type,
+                    "agent": {
+                        "label": fe.agent_label,
+                        "type": fe.agent_type,
+                    },
+                }
+            )
 
     factory_history: dict | None = None
     if factory_events:
@@ -761,13 +778,15 @@ def transform_file_outcomes_to_coverage(
                 worst_grade = g.value
                 break
 
-        files.append({
-            "file": file_path,
-            "grades": grades,
-            "summaries": summaries,
-            "worstGrade": worst_grade,
-            "worstGradeSortOrder": worst_sort,
-        })
+        files.append(
+            {
+                "file": file_path,
+                "grades": grades,
+                "summaries": summaries,
+                "worstGrade": worst_grade,
+                "worstGradeSortOrder": worst_sort,
+            }
+        )
 
     # Sort by worst grade (most severe first)
     files.sort(key=lambda f: f["worstGradeSortOrder"])
@@ -832,7 +851,7 @@ def assemble(
     )
 
     if report.has_errors:
-        print(f"\nSchema validation errors found:")
+        print("\nSchema validation errors found:")
         print(report.summary())
 
     # Step 2: Cascading validation — the enforcement chokepoint
@@ -871,8 +890,8 @@ def assemble(
 
     # Step 6: Transform SemanticOutput → sections
     print("Transforming SemanticOutputs → review pack sections...")
-    what_changed, decisions, post_merge_items, factory_history = (
-        transform_semantic_outputs(semantic_outputs)
+    what_changed, decisions, post_merge_items, factory_history = transform_semantic_outputs(
+        semantic_outputs
     )
 
     # Step 7: Handle architecture assessment
@@ -910,28 +929,37 @@ def main() -> None:
 
     from generate_diff_data import find_repo_root  # noqa: E402
 
-    parser = argparse.ArgumentParser(
-        description="Assemble review pack from .jsonl files"
-    )
+    parser = argparse.ArgumentParser(description="Assemble review pack from .jsonl files")
     parser.add_argument("--pr", type=int, required=True, help="PR number")
-    parser.add_argument("--reviews-dir", default=None,
-                        help="Reviews directory (default: docs/reviews/pr{N})")
+    parser.add_argument(
+        "--reviews-dir", default=None, help="Reviews directory (default: docs/reviews/pr{N})"
+    )
     parser.add_argument("--repo", default=None, help="Repository root path")
-    parser.add_argument("--output", default=None,
-                        help="Output JSON path (default: {reviews_dir}/pr{N}_review_pack_data.json)")
-    parser.add_argument("--render", action="store_true",
-                        help="Also render the HTML review pack")
-    parser.add_argument("--strict", action="store_true",
-                        help="Exit with error if validation warnings exist")
-    parser.add_argument("--validate-only", action="store_true",
-                        help="Run schema + cascading validation only, no assembly. "
-                        "Exit 0 if valid, exit 1 if errors. This is the enforcement "
-                        "chokepoint — no valid JSONL = no assembly = no HTML.")
+    parser.add_argument(
+        "--output",
+        default=None,
+        help="Output JSON path (default: {reviews_dir}/pr{N}_review_pack_data.json)",
+    )
+    parser.add_argument("--render", action="store_true", help="Also render the HTML review pack")
+    parser.add_argument(
+        "--strict", action="store_true", help="Exit with error if validation warnings exist"
+    )
+    parser.add_argument(
+        "--validate-only",
+        action="store_true",
+        help="Run schema + cascading validation only, no assembly. "
+        "Exit 0 if valid, exit 1 if errors. This is the enforcement "
+        "chokepoint — no valid JSONL = no assembly = no HTML.",
+    )
     args = parser.parse_args()
 
     repo = Path(args.repo) if args.repo else find_repo_root()
-    reviews_dir = Path(args.reviews_dir) if args.reviews_dir else repo / "docs" / "reviews" / f"pr{args.pr}"
-    output_path = Path(args.output) if args.output else reviews_dir / f"pr{args.pr}_review_pack_data.json"
+    reviews_dir = (
+        Path(args.reviews_dir) if args.reviews_dir else repo / "docs" / "reviews" / f"pr{args.pr}"
+    )
+    output_path = (
+        Path(args.output) if args.output else reviews_dir / f"pr{args.pr}_review_pack_data.json"
+    )
 
     if args.validate_only:
         print(f"Validating .jsonl files for PR #{args.pr}")
@@ -941,12 +969,15 @@ def main() -> None:
     print(f"  Repository:  {repo}")
 
     assembled_data, report = assemble(
-        args.pr, reviews_dir, repo, validate_only=args.validate_only,
+        args.pr,
+        reviews_dir,
+        repo,
+        validate_only=args.validate_only,
     )
 
     if args.validate_only:
         if report.has_errors:
-            print(f"\nValidation FAILED:")
+            print("\nValidation FAILED:")
             print(report.summary())
             sys.exit(1)
         else:
@@ -984,7 +1015,11 @@ def main() -> None:
 
     # Render if requested
     if args.render:
-        diff_data_path = diff_files[0] if (diff_files := list(reviews_dir.glob(f"pr{args.pr}_diff_data_*.json"))) else None
+        diff_data_path = (
+            diff_files[0]
+            if (diff_files := list(reviews_dir.glob(f"pr{args.pr}_diff_data_*.json")))
+            else None
+        )
         if diff_data_path is None:
             print("\nCannot render: no diff data file found")
             sys.exit(1)

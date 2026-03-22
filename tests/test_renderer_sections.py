@@ -4,6 +4,7 @@ Each test exercises a specific render function with real fixture data
 and checks for concrete HTML output: class names, data attributes,
 content strings, and structural elements.
 """
+
 from __future__ import annotations
 
 import sys
@@ -39,7 +40,6 @@ from render_review_pack import (
 
 
 class TestRenderStatItems:
-
     def test_additions_green(self, sample_review_pack_data):
         header = sample_review_pack_data["header"]
         result = render_stat_items(header)
@@ -73,7 +73,6 @@ class TestRenderStatItems:
 
 
 class TestRenderStatusBadges:
-
     def test_badge_type_class(self, sample_review_pack_data):
         header = sample_review_pack_data["header"]
         result = render_status_badges(header)
@@ -100,7 +99,6 @@ class TestRenderStatusBadges:
 
 
 class TestRenderFactoryHistoryTabButton:
-
     def test_present_when_factory_history_exists(self, sample_factory_history):
         data = {"factoryHistory": sample_factory_history}
         result = render_factory_history_tab_button(data)
@@ -121,7 +119,6 @@ class TestRenderFactoryHistoryTabButton:
 
 
 class TestRenderArchitectureSvg:
-
     def test_zone_box_elements(self, sample_review_pack_data):
         arch = sample_review_pack_data["architecture"]
         result = render_architecture_svg(arch)
@@ -141,7 +138,7 @@ class TestRenderArchitectureSvg:
         arch = sample_review_pack_data["architecture"]
         result = render_architecture_svg(arch)
         assert "marker-end" in result
-        assert 'url(#arrowhead)' in result
+        assert "url(#arrowhead)" in result
 
     def test_file_count_badges(self, sample_review_pack_data):
         arch = sample_review_pack_data["architecture"]
@@ -190,7 +187,6 @@ class TestRenderArchitectureSvg:
 
 
 class TestRenderSpecList:
-
     def test_file_path_links(self, sample_review_pack_data):
         specs = sample_review_pack_data["specs"]
         result = render_spec_list(specs)
@@ -218,7 +214,6 @@ class TestRenderSpecList:
 
 
 class TestRenderScenarioLegend:
-
     def test_category_classes_rendered(self, sample_review_pack_data):
         scenarios = sample_review_pack_data["scenarios"]
         result = render_scenario_legend(scenarios)
@@ -238,7 +233,6 @@ class TestRenderScenarioLegend:
 
 
 class TestRenderScenarioCards:
-
     def test_status_icons(self, sample_review_pack_data):
         scenarios = sample_review_pack_data["scenarios"]
         result = render_scenario_cards(scenarios)
@@ -289,7 +283,6 @@ class TestRenderScenarioCards:
 
 
 class TestRenderWhatChangedDefault:
-
     def test_infrastructure_rendered_as_div(self, sample_review_pack_data):
         wc = sample_review_pack_data["whatChanged"]
         result = render_what_changed_default(wc)
@@ -325,7 +318,6 @@ class TestRenderWhatChangedDefault:
 
 
 class TestRenderWhatChangedZones:
-
     def test_zone_detail_divs(self, sample_review_pack_data):
         wc = sample_review_pack_data["whatChanged"]
         result = render_what_changed_zones(wc)
@@ -363,7 +355,6 @@ class TestRenderWhatChangedZones:
 
 
 class TestRenderAgenticMethodBadge:
-
     def test_agent_teams_badge(self, sample_review_pack_data):
         review = sample_review_pack_data["agenticReview"]
         result = render_agentic_method_badge(review)
@@ -387,7 +378,6 @@ class TestRenderAgenticMethodBadge:
 
 
 class TestRenderAgenticLegend:
-
     def test_four_agent_abbreviations(self):
         result = render_agentic_legend()
         assert "CH" in result
@@ -417,7 +407,6 @@ class TestRenderAgenticLegend:
 
 
 class TestRenderAgenticRows:
-
     def test_grouped_by_file(self, sample_review_pack_data):
         review = sample_review_pack_data["agenticReview"]
         result = render_agentic_rows(review)
@@ -466,7 +455,6 @@ class TestRenderAgenticRows:
 
 
 class TestRenderCiRows:
-
     def test_expandable_rows(self, sample_review_pack_data):
         ci = sample_review_pack_data["ciPerformance"]
         result = render_ci_rows(ci)
@@ -530,7 +518,6 @@ class TestRenderCiRows:
 
 
 class TestRenderDecisionCards:
-
     def test_decision_card_structure(self, sample_review_pack_data):
         decisions = sample_review_pack_data["decisions"]
         result = render_decision_cards(decisions)
@@ -588,7 +575,6 @@ class TestRenderDecisionCards:
 
 
 class TestRenderConvergenceGrid:
-
     def test_conv_card_elements(self, sample_review_pack_data):
         convergence = sample_review_pack_data["convergence"]
         result = render_convergence_grid(convergence)
@@ -640,7 +626,6 @@ class TestRenderConvergenceGrid:
 
 
 class TestRenderPostMergeItems:
-
     def test_pm_item_structure(self, sample_review_pack_data):
         items = sample_review_pack_data["postMergeItems"]
         result = render_post_merge_items(items)
@@ -700,7 +685,6 @@ class TestRenderPostMergeItems:
 
 
 class TestRenderHistorySummaryCards:
-
     def test_iteration_count(self, sample_factory_history):
         result = render_history_summary_cards(sample_factory_history)
         assert "Iterations" in result
@@ -726,7 +710,6 @@ class TestRenderHistorySummaryCards:
 
 
 class TestRenderHistoryTimeline:
-
     def test_timeline_events(self, sample_factory_history):
         events = sample_factory_history["timeline"]
         result = render_history_timeline(events)
@@ -762,7 +745,6 @@ class TestRenderHistoryTimeline:
 
 
 class TestRenderGateFindingsRows:
-
     def test_gate_table_rows(self, sample_factory_history):
         findings = sample_factory_history["gateFindings"]
         result = render_gate_findings_rows(findings)
@@ -808,7 +790,6 @@ class TestRenderGateFindingsRows:
 
 
 class TestRenderReviewGatesCards:
-
     def test_gate_cards_rendered(self, sample_review_pack_data):
         convergence = sample_review_pack_data["convergence"]
         result = render_review_gates_cards(convergence)
@@ -833,8 +814,13 @@ class TestRenderReviewGatesCards:
     def test_failing_status_class(self):
         convergence = {
             "gates": [
-                {"name": "Gate 1", "status": "failing", "statusText": "FAILING",
-                 "summary": "Errors.", "detail": ""},
+                {
+                    "name": "Gate 1",
+                    "status": "failing",
+                    "statusText": "FAILING",
+                    "summary": "Errors.",
+                    "detail": "",
+                },
             ],
         }
         result = render_review_gates_cards(convergence)
@@ -843,8 +829,13 @@ class TestRenderReviewGatesCards:
     def test_summary_escaped(self):
         convergence = {
             "gates": [
-                {"name": "G", "status": "passing", "statusText": "OK",
-                 "summary": "<script>alert(1)</script>", "detail": ""},
+                {
+                    "name": "G",
+                    "status": "passing",
+                    "statusText": "OK",
+                    "summary": "<script>alert(1)</script>",
+                    "detail": "",
+                },
             ],
         }
         result = render_review_gates_cards(convergence)
