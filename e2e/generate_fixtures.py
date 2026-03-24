@@ -5,7 +5,7 @@ Renders four variants of a review pack (READY, GAP, BLOCKED, NO_FACTORY)
 using the v2 template and abstract fixture data.
 
 Usage:
-    cd packages/pr-review-pack && python3 e2e/generate_fixtures.py
+    cd . && python3 e2e/generate_fixtures.py
 """
 
 from __future__ import annotations

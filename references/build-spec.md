@@ -245,11 +245,11 @@ Pass 2b spawns five specialized review agents in parallel. Each reviews the diff
 
 | Agent ID | Abbrev | Paradigm Prompt | Focus |
 |----------|--------|----------------|-------|
-| `code-health-reviewer` | CH | `packages/review-prompts/code_health_review.md` | Code quality, complexity, dead code, maintainability |
-| `security-reviewer` | SE | `packages/review-prompts/security_review.md` | Security vulnerabilities, unsafe deserialization, injection |
-| `test-integrity-reviewer` | TI | `packages/review-prompts/test_integrity_review.md` | Test quality, anti-vacuous rules, coverage gaps |
-| `adversarial-reviewer` | AD | `packages/review-prompts/adversarial_review.md` | Gaming, spec violations, architectural dishonesty |
-| `architecture-reviewer` | AR | `packages/review-prompts/architecture_review.md` | Zone coverage, coupling, structural changes, architecture docs |
+| `code-health-reviewer` | CH | `review-prompts/code_health_review.md` | Code quality, complexity, dead code, maintainability |
+| `security-reviewer` | SE | `review-prompts/security_review.md` | Security vulnerabilities, unsafe deserialization, injection |
+| `test-integrity-reviewer` | TI | `review-prompts/test_integrity_review.md` | Test quality, anti-vacuous rules, coverage gaps |
+| `adversarial-reviewer` | AD | `review-prompts/adversarial_review.md` | Gaming, spec violations, architectural dishonesty |
+| `architecture-reviewer` | AR | `review-prompts/architecture_review.md` | Zone coverage, coupling, structural changes, architecture docs |
 
 ### Parallel Execution
 
@@ -1021,7 +1021,7 @@ All visual validation is automated via the Playwright test suite. No manual Chro
 
 ```bash
 # Generate fixtures (if needed after template changes)
-cd packages/pr-review-pack && python3 e2e/generate_fixtures.py
+cd . && python3 e2e/generate_fixtures.py
 
 # Run full suite (baseline + PR-specific)
 npx playwright test e2e/
