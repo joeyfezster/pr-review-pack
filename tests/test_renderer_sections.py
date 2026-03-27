@@ -26,6 +26,7 @@ from render_review_pack import (
     render_gate_findings_rows,
     render_history_summary_cards,
     render_history_timeline,
+    render_key_findings,
     render_post_merge_items,
     render_review_gates_cards,
     render_scenario_cards,
@@ -908,3 +909,67 @@ class TestArchitectureLegend:
         zones = [{"id": "z1", "category": "product", "label": "P"}]
         result = render_architecture_legend(zones)
         assert "Click zone to filter" in result
+
+
+# ── render_key_findings agent legend ─────────────────────────────────
+
+
+class TestKeyFindingsAgentLegend:
+    """Key findings section must include the agent team legend."""
+
+    def test_key_findings_has_agent_legend(self):
+        """Legend with all agent abbreviations appears in key findings output."""
+        data = {
+            "agenticReview": {
+                "overallGrade": "B+",
+                "reviewMethod": "agent-teams",
+                "findings": [
+                    {
+                        "file": "a.py",
+                        "grade": "A",
+                        "zones": "zone-a",
+                        "notable": "Clean",
+                        "detail": "Good",
+                        "gradeSortOrder": 3,
+                        "agent": "code-health",
+                    },
+                    {
+                        "file": "b.py",
+                        "grade": "B",
+                        "zones": "zone-a",
+                        "notable": "Warning",
+                        "detail": "Minor",
+                        "gradeSortOrder": 1,
+                        "agent": "rbe",
+                    },
+                ],
+            },
+            "architecture": {"zones": [{"id": "zone-a", "category": "product"}]},
+        }
+        result = render_key_findings(data)
+        assert "agent-legend" in result
+        assert "CH" in result  # Code Health in legend
+        assert "RB" in result  # RBE in legend
+
+    def test_key_findings_legend_includes_all_agents(self):
+        """Legend includes all 6 agent abbreviations regardless of which agents have findings."""
+        data = {
+            "agenticReview": {
+                "overallGrade": "A",
+                "findings": [
+                    {
+                        "file": "x.py",
+                        "grade": "A",
+                        "zones": "z",
+                        "notable": "Ok",
+                        "detail": "Fine",
+                        "gradeSortOrder": 4,
+                        "agent": "security",
+                    },
+                ],
+            },
+            "architecture": {"zones": [{"id": "z", "category": "product"}]},
+        }
+        result = render_key_findings(data)
+        for abbrev in ("CH", "SE", "TI", "AD", "AR", "RB"):
+            assert abbrev in result, f"Agent abbreviation {abbrev} missing from legend"

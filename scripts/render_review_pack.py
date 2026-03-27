@@ -62,6 +62,8 @@ AGENT_ABBREV = {
     "architecture-reviewer": "AR",
     "main": "MA",
     "main-agent": "MA",
+    "rbe": "RB",
+    "rbe-reviewer": "RB",
 }
 
 GRADE_SORT = {"F": 0, "C": 1, "B": 2, "B+": 3, "A": 4, "N/A": 5}
@@ -599,6 +601,7 @@ def render_agentic_legend() -> str:
         ("TI", "Test Integrity", "test quality beyond AST scanner"),
         ("AD", "Adversarial", "gaming, spec violations, architecture"),
         ("AR", "Architecture", "zone coverage, coupling, structural changes"),
+        ("RB", "RBE", "responsibility boundaries, naming, type clarity"),
     ]
     items = []
     for abbrev, name, desc in entries:
@@ -1492,6 +1495,7 @@ AGENT_PARADIGM_DESC = {
     "AD": "Adversarial: gaming, spec violations, architecture",
     "AR": "Architecture: zone coverage, coupling, structural changes",
     "MA": "Main Agent: primary review agent",
+    "RB": "RBE: responsibility boundaries, naming, type clarity",
 }
 
 AGENT_SHORT_NAME = {
@@ -1501,6 +1505,7 @@ AGENT_SHORT_NAME = {
     "AD": "Adversarial",
     "AR": "Architecture",
     "MA": "Main Agent",
+    "RB": "RBE",
 }
 
 
@@ -1617,6 +1622,9 @@ def render_key_findings(data: dict) -> str:
         )
     pills += "</div>"
     parts.append(pills)
+
+    # Agent team legend
+    parts.append(render_agentic_legend())
 
     # No match message
     parts.append(
