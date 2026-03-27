@@ -291,10 +291,10 @@ Each agent (CH, SE, TI, AD, RB) produces:
 
 ### Merging Agent Outputs
 
-After all five agents complete:
+After all six agents complete:
 
-1. Collect all findings from all five agents into a single `findings[]` array.
-2. Group by file. Multiple agents may have findings for the same file — keep all of them. The renderer shows per-agent grade badges (CH:A SE:B TI:A AD:B+ AR:A).
+1. Collect all findings from all six agents into a single `findings[]` array.
+2. Group by file. Multiple agents may have findings for the same file — keep all of them. The renderer shows per-agent grade badges (CH:A SE:B TI:A AD:B+ AR:A RB:A).
 3. Compute per-file aggregate grade: worst grade across all agents.
 4. Compute `overallGrade`: any F = overall F, any C (no F) = overall C, majority B or worse = B, majority B+ or better = B+, all A/N/A = A.
 5. Set `reviewMethod` to `"agent-teams"`.
@@ -674,8 +674,8 @@ Rendered by the Pass 3 renderer. All data comes from the scaffold JSON.
 - **INJECT marker:** `agenticReview`
 - **Render function:** `render_agentic_review()`
 - **Data:** `agenticReview.overallGrade`, `agenticReview.reviewMethod`, `agenticReview.findings[]`
-- **Pass:** 2b (Workstream A — 5 agents)
-- **Visual:** Per-file table with compact agent grade badges (CH:A SE:B TI:A AD:B+ AR:A). Expandable detail per file showing per-agent findings. Sorted by severity (worst first). Zone filtering dims/hides non-matching rows.
+- **Pass:** 2b (Workstream A — 6 agents)
+- **Visual:** Per-file table with compact agent grade badges (CH:A SE:B TI:A AD:B+ AR:A RB:A). Expandable detail per file showing per-agent findings. Sorted by severity (worst first). Zone filtering dims/hides non-matching rows.
 
 #### CI Performance
 - **INJECT marker:** `ciPerformance`

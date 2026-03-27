@@ -18,7 +18,7 @@ Every field produced by Pass 1 and Pass 2a (scaffold) must be present and non-em
 - [ ] `header.headBranch` / `header.baseBranch` — non-empty strings
 - [ ] `header.headSha` — 7+ character SHA
 - [ ] `header.additions` / `header.deletions` / `header.filesChanged` / `header.commits` — non-negative integers
-- [ ] `header.statusBadges` — array with at least CI, Scenarios, and Comments badges
+- [ ] `header.statusBadges` — array with at least Scenarios and Comments badges (CI is not included — covered by Gate 1 pill)
 - [ ] `header.generatedAt` — valid ISO 8601 timestamp
 - [ ] `architecture.zones[]` — at least one zone; each has id, label, sublabel, category, fileCount, position, isModified
 - [ ] `architecture.arrows[]` — array (may be empty for simple projects)
@@ -289,6 +289,37 @@ Frozen snapshots archived after merge. No interactive actions.
 - [ ] `data-inspected="true"` is set (pack was validated before merge)
 - [ ] `reviewedCommitSHA === headCommitSHA` (no gap at merge time)
 - [ ] `commitGap === 0`
+
+---
+
+## v2 Behavioral Checks
+
+These checks verify behaviors introduced or changed in the v2 review pack improvements.
+
+### Gate Pills and Sidebar
+- [ ] Gate pills show descriptive names (e.g., "Gate 1 CI", "Gate 2 NFR") not raw gate names
+- [ ] Gate pills have tooltips explaining the gate's purpose
+- [ ] No Gate 0 badge appears in non-factory packs (Gate 0 pill only renders when Gate 0 data exists)
+- [ ] No CI badge appears in `header.statusBadges` (CI coverage is handled by the Gate 1 pill)
+
+### Architecture
+- [ ] Architecture legend is data-driven — only shows category swatches for categories present in the zone data
+- [ ] Architecture legend matches zone categories from `architecture.zones[].category`
+- [ ] Baseline/Update toggle is hidden (`display: none`)
+- [ ] Architecture row labels are dynamically generated from zone data (not hardcoded)
+
+### Agentic Review
+- [ ] Agent legend shows all 6 agents: CH (Code Health), SE (Security), TI (Test Integrity), AD (Adversarial), AR (Architecture), RB (Responsibility Boundaries)
+- [ ] Agent legend appears in the key findings section header area
+
+### Convergence
+- [ ] Gate 3/4 states are never "Pending" when gate data exists — they show actual status from the data
+- [ ] Gate cards expand on click to show detail content when `detail` field is non-empty
+- [ ] Overall convergence card includes detail content
+
+### Architecture Assessment
+- [ ] "Needs attention" pill only shows when `architectureAssessment.coreIssuesNeedAttention` is `true`
+- [ ] When `coreIssuesNeedAttention` is `false`, no attention pill renders even if `overallHealth` is `needs-attention`
 
 ---
 

@@ -111,9 +111,9 @@ The sidebar renders inside two mirror blocks in the template (one for desktop, o
 
 ---
 
-### Status Badges (CI/Scenarios/Comments)
+### Status Badges (Scenarios/Comments)
 
-**What it shows:** Compact inline badges for CI pass rate, scenario pass rate, and comment resolution status.
+**What it shows:** Compact inline badges for scenario pass rate and comment resolution status. CI status is not included as a status badge — it is covered by the Gate 1 pill in the Gates Summary section.
 
 | Property | Value |
 |----------|-------|
@@ -132,14 +132,21 @@ The sidebar renders inside two mirror blocks in the template (one for desktop, o
 
 ### Gates Summary
 
-**What it shows:** Compact pass/fail rows for each convergence gate. Clicking any row scrolls to the Convergence section in the main pane.
+**What it shows:** Compact pill-style rows for each convergence gate with descriptive names (e.g., "Gate 0 Review", "Gate 1 CI", "Gate 2 NFR", "Gate 3 Scenarios") and tooltips showing the gate's full description. Clicking any row scrolls to the Convergence section in the main pane. Gate 0 is only shown when present in the data (factory repos only).
 
 | Property | Value |
 |----------|-------|
 | Data fields | `convergence.gates[]` — each with `name`, `status` |
 | INJECT marker | `<!-- INJECT: sidebar.gatesStatus -->` |
 | Render function | `render_sidebar_gates(convergence)` |
-| HTML output | `.sb-gate-row` divs with name + pass/fail icon |
+| HTML output | `.sb-gate-row` divs with descriptive name pill + pass/fail icon + tooltip |
+
+**Gate name mapping:** The renderer maps gate names to descriptive labels with tooltips:
+- Gate 0 -> "Gate 0 Review" (tooltip: "Adversarial code review")
+- Gate 1 -> "Gate 1 CI" (tooltip: "Lint, typecheck, tests")
+- Gate 2 -> "Gate 2 NFR" (tooltip: "Non-functional requirements")
+- Gate 3 -> "Gate 3 Scenarios" (tooltip: "Behavioral scenario evaluation")
+- Gate 4 -> "Gate 4 Judge" (tooltip: "LLM-as-judge evaluation")
 
 **Interactive behavior:** Each row calls `scrollToSection('section-convergence')` on click.
 
@@ -246,7 +253,7 @@ The sidebar renders inside two mirror blocks in the template (one for desktop, o
 | `infra` | `#f3e8ff` | `#8b5cf6` | `#6d28d9` |
 
 **Controls (template-defined, not injected):**
-- Update/Baseline toggle buttons: `.arch-toggle` buttons calling `setArchView('update'|'baseline', this)`
+- Update/Baseline toggle buttons: `.arch-toggle` buttons calling `setArchView('update'|'baseline', this)` — **hidden by default** (`display: none`). The toggle is available in the template for future use but currently hidden because a single architecture view is sufficient.
 - Zoom controls: `archZoom(-1)`, `archZoom(0)` (fit), `archZoom(1)`
 
 **Dynamic viewBox:** `_calculate_viewbox(arch)` computes SVG `viewBox` from zone positions, arrows, and row labels. Reserves 120px left margin for row label text. Fallback: `"0 0 780 360"`.
@@ -256,7 +263,7 @@ The sidebar renders inside two mirror blocks in the template (one for desktop, o
 - **Baseline/Update toggle:** Baseline sets all zone boxes to opacity 0.25. Update restores full rendering.
 - **Zone filter info:** `#zone-filter-info` div shows active zone filter name when filtering is active.
 
-**Legend (template-defined):** `.arch-legend` shows color swatches for Factory, Product, Infrastructure categories plus a count badge explanation.
+**Legend (data-driven):** `.arch-legend` is dynamically generated from the zone categories present in the data. The renderer emits color swatches only for categories that appear in the architecture zones (e.g., if no factory zones exist, no factory swatch is shown). Includes a count badge explanation.
 
 **Validation rules:**
 - Every zone in the registry must appear in the SVG
@@ -282,7 +289,7 @@ The sidebar renders inside two mirror blocks in the template (one for desktop, o
 
 **Sub-sections (rendered in order, each conditional on non-empty data):**
 
-1. **Health Badge:** `.arch-health-badge.{passing|warning|failing}` — maps `overallHealth` to CSS: `healthy`->`passing`, `needs-attention`->`warning`, `action-required`->`failing`
+1. **Health Badge:** `.arch-health-badge.{passing|warning|failing}` — maps `overallHealth` to CSS: `healthy`->`passing`, `needs-attention`->`warning`, `action-required`->`failing`. A "needs attention" pill is shown only when `coreIssuesNeedAttention` is `true` — this boolean distinguishes substantive architectural concerns from routine informational notes.
 2. **Summary:** HTML-safe one-paragraph summary from `summary`
 3. **Diagram Narrative:** `.arch-narrative` div from `diagramNarrative` — describes what changed architecturally
 4. **Unzoned Files Table:** `.arch-warning-section` with table (File | Suggested Zone | Reason) from `unzonedFiles[]`
@@ -399,7 +406,7 @@ The sidebar renders inside two mirror blocks in the template (one for desktop, o
 
 **Section ID:** `section-agentic-review`
 
-**What it shows:** Per-file grouped review findings from 5 specialized agents (CH, SE, TI, AD, AR), with compact grade badges per agent per file, and expandable per-agent detail breakdowns.
+**What it shows:** Per-file grouped review findings from 6 specialized agents (CH, SE, TI, AD, AR, RB), with compact grade badges per agent per file, and expandable per-agent detail breakdowns.
 
 | Property | Value |
 |----------|-------|
@@ -421,6 +428,7 @@ The sidebar renders inside two mirror blocks in the template (one for desktop, o
 | TI | Test Integrity | test quality beyond AST scanner |
 | AD | Adversarial | gaming, spec violations, architecture |
 | AR | Architecture | zone coverage, coupling, structural changes |
+| RB | Responsibility Boundaries | naming clarity, type annotations, scope creep |
 
 **Agent abbreviation mapping** (from `AGENT_ABBREV` constant):
 - `code-health` / `code-health-reviewer` -> CH
@@ -428,10 +436,11 @@ The sidebar renders inside two mirror blocks in the template (one for desktop, o
 - `test-integrity` / `test-integrity-reviewer` -> TI
 - `adversarial` / `adversarial-reviewer` -> AD
 - `architecture` / `architecture-reviewer` -> AR
+- `rbe` / `rbe-reviewer` -> RB
 - `main` / `main-agent` -> MA
 
 **Row structure (grouped by file):**
-- Master row (`tr.adv-row[data-zones][data-grade-sort]`): file path (clickable, opens file modal) | compact agent grade badges (e.g., `CH:A SE:B TI:A AD:B+`) | zone tag | notable finding (from worst-graded agent)
+- Master row (`tr.adv-row[data-zones][data-grade-sort]`): file path (clickable, opens file modal) | compact agent grade badges (e.g., `CH:A SE:B TI:A AD:B+ RB:A`) | zone tag | notable finding (from worst-graded agent)
 - Detail row (`tr.adv-detail-row[data-zones]`): per-agent `.agent-detail-entry` with abbrev, grade, agent name, and detail body
 
 **Grade rendering:**
@@ -512,7 +521,7 @@ The sidebar renders inside two mirror blocks in the template (one for desktop, o
 - `.conv-name`: gate name (e.g., "Gate 1 -- Deterministic")
 - `.conv-status.{passing|warning|failing}`: large status text (e.g., "PASSING", "4 FINDINGS")
 - `.conv-detail`: one-line summary
-- `.conv-card-detail`: hidden drill-down with full detail (may contain HTML)
+- `.conv-card-detail`: hidden drill-down with full detail content (may contain HTML). Shows when card is expanded via click.
 
 The overall card is appended after all gate cards with name "Overall".
 
@@ -521,7 +530,7 @@ The overall card is appended after all gate cards with name "Overall".
 - `warning`: yellow
 - `failing`: red
 
-**Interactive behavior:** Card click toggles `.open` class, revealing `.conv-card-detail`.
+**Interactive behavior:** Card click toggles `.open` class, revealing `.conv-card-detail` with full detail content. Gate cards with non-empty `detail` fields show a visual expand affordance. The detail content can include structured HTML (lists, code blocks, etc.) providing deeper context about the gate's findings.
 
 **Validation rules:**
 - Overall status must be consistent with individual gate statuses
