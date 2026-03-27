@@ -124,8 +124,9 @@ def build_header(
     repo_slug: str = "",
 ) -> dict:
     """Build the header section from deterministic sources."""
-    # Gate 0 badge
-    if gate0_data:
+    # Gate 0 badge — factory-only, omit entirely for non-factory repos
+    g0_badge = None
+    if gate0_data is not None:
         summary = gate0_data.get("summary", {})
         has_critical = summary.get("has_critical", False)
         g0_type = "fail" if has_critical else "pass"
@@ -133,10 +134,7 @@ def build_header(
         warn = summary.get("warning_findings", 0)
         g0_label = f"Gate 0: {crit} critical, {warn} warn"
         g0_icon = "\u2717" if has_critical else "\u2713"
-    else:
-        g0_type = "warn"
-        g0_label = "Gate 0 NOT RUN"
-        g0_icon = "\u26a0"
+        g0_badge = {"label": g0_label, "type": g0_type, "icon": g0_icon}
 
     # CI badge
     ci_total = len(ci_checks)
@@ -179,8 +177,8 @@ def build_header(
         "deletions": diff_data.get("total_deletions", pr_meta.get("deletions", 0)),
         "filesChanged": diff_data.get("total_files", pr_meta.get("changedFiles", 0)),
         "commits": num_commits,
-        "statusBadges": [
-            {"label": g0_label, "type": g0_type, "icon": g0_icon},
+        "statusBadges": [b for b in [
+            g0_badge,
             {
                 "label": f"CI {ci_pass}/{ci_total}",
                 "type": ci_type,
@@ -198,7 +196,7 @@ def build_header(
                 "type": cm_type,
                 "icon": "\u2713" if cm_type == "pass" else "\u26a0",
             },
-        ],
+        ] if b is not None],
         "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "generatedBy": "dark factory review agent",
     }
