@@ -21,6 +21,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import html as html_mod
 import json
 import subprocess
 import sys
@@ -546,6 +547,20 @@ def build_convergence(
         gate1_pass = False
         gate1_text = "No CI checks found"
 
+    # Build Gate 1 detail: list CI check names + link to CI section
+    if ci_checks:
+        ci_names = [html_mod.escape(c.get("name", "unknown")) for c in ci_checks]
+        gate1_detail = (
+            '<div class="gate-detail-content">'
+            '<p><a onclick="scrollToSection(\'section-ci-performance\')" '
+            'style="cursor:pointer;color:var(--blue);text-decoration:underline">'
+            "View full CI details below</a></p>"
+            "<ul>" + "".join(f"<li>{n}</li>" for n in ci_names) + "</ul>"
+            "</div>"
+        )
+    else:
+        gate1_detail = "<p>No CI checks found.</p>"
+
     # --- Gate 2: Deterministic Review ---
     if deterministic_review_data:
         det_status = deterministic_review_data.get("overall_status", "pass")
@@ -563,13 +578,38 @@ def build_convergence(
         gate2_detail = "Run: python run_deterministic_review.py --repo ."
         gate2_tool_results = []
 
+    # Build Gate 2 detail: describe static analysis tools
+    gate2_detail_html = (
+        '<div class="gate-detail-content">'
+        "<p>Static analysis tools: vulture (dead code), bandit (security), "
+        "ruff (lint), mypy (types), test quality scanner.</p>"
+        "<p>" + html_mod.escape(gate2_detail) + "</p>"
+        "<p>Run <code>python run_deterministic_review.py --repo .</code> "
+        "to execute locally.</p>"
+        "</div>"
+    )
+
     # --- Gate 3: Agentic Review (placeholder — filled by assembler) ---
     gate3_pass = True  # assembler updates this based on reviewer grades
     gate3_text = "Pending"
+    gate3_detail = (
+        '<div class="gate-detail-content">'
+        "<p>6 specialized review agents analyze the diff in parallel.</p>"
+        '<p><a onclick="scrollToSection(\'section-agentic-review\')" '
+        'style="cursor:pointer;color:var(--blue);text-decoration:underline">'
+        "View review findings below</a></p>"
+        "</div>"
+    )
 
     # --- Gate 4: PR Comments (placeholder — filled by prerequisite check) ---
     gate4_pass = True  # prerequisite check updates this
     gate4_text = "Pending"
+    gate4_detail = (
+        '<div class="gate-detail-content">'
+        "<p>All PR review threads must be resolved before merge.</p>"
+        "<p>Check the PR page on GitHub for unresolved threads.</p>"
+        "</div>"
+    )
 
     # Universal gates (always present)
     gates = [
@@ -578,28 +618,30 @@ def build_convergence(
             "status": "passing" if gate1_pass else "failing",
             "statusText": gate1_text,
             "summary": "Repo CI checks on PR HEAD",
-            "detail": "",
+            "detail": gate1_detail,
         },
         {
             "name": "Gate 2 \u2014 Deterministic",
             "status": "passing" if gate2_pass else "failing",
             "statusText": gate2_text,
             "summary": gate2_detail,
-            "detail": json.dumps(gate2_tool_results) if gate2_tool_results else "",
+            "detail": (
+                json.dumps(gate2_tool_results) if gate2_tool_results else gate2_detail_html
+            ),
         },
         {
             "name": "Gate 3 \u2014 Agentic Review",
             "status": "passing" if gate3_pass else "failing",
             "statusText": gate3_text,
             "summary": "5 reviewers + synthesis",
-            "detail": "",
+            "detail": gate3_detail,
         },
         {
             "name": "Gate 4 \u2014 Comments",
             "status": "passing" if gate4_pass else "failing",
             "statusText": gate4_text,
             "summary": "All PR review threads resolved",
-            "detail": "",
+            "detail": gate4_detail,
         },
     ]
 

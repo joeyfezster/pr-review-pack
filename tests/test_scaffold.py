@@ -17,6 +17,7 @@ from scaffold_review_pack_data import (
     build_architecture,
     build_category_zone_map,
     build_code_diffs,
+    build_convergence,
     build_header,
     build_scenarios,
     compute_status,
@@ -722,3 +723,74 @@ class TestBuildHeaderGate0Badge:
         badge_labels = [b["label"] for b in header["statusBadges"]]
         assert any("Gate 0" in label for label in badge_labels), \
             f"Gate 0 badge should appear for factory repos, got: {badge_labels}"
+
+
+# ── Gate detail content ──────────────────────────────────────────────
+
+
+class TestGateDetailContent:
+    def test_gate1_has_ci_detail(self):
+        """Gate 1 detail should contain CI check names and link to CI section."""
+        ci_checks = [
+            {
+                "state": "SUCCESS",
+                "name": "lint",
+                "startedAt": "2026-01-01T00:00:00Z",
+                "completedAt": "2026-01-01T00:01:00Z",
+            },
+            {
+                "state": "SUCCESS",
+                "name": "test",
+                "startedAt": "2026-01-01T00:00:00Z",
+                "completedAt": "2026-01-01T00:02:00Z",
+            },
+        ]
+        result = build_convergence(None, ci_checks, None)
+        gate1 = result["gates"][0]
+        assert gate1["detail"], "Gate 1 should have detail content"
+        assert "lint" in gate1["detail"]
+        assert "test" in gate1["detail"]
+        assert "section-ci-performance" in gate1["detail"]  # link to CI section
+
+    def test_gate1_no_checks_has_detail(self):
+        """Gate 1 detail should note missing checks when none provided."""
+        result = build_convergence(None, [], None)
+        gate1 = result["gates"][0]
+        assert gate1["detail"], "Gate 1 should have detail even with no checks"
+        assert "No CI checks" in gate1["detail"]
+
+    def test_gate2_has_deterministic_detail(self):
+        """Gate 2 detail should explain what deterministic checks do."""
+        result = build_convergence(None, [], None)
+        gate2 = result["gates"][1]
+        assert gate2["detail"], "Gate 2 should have detail content"
+        assert "vulture" in gate2["detail"] or "static analysis" in gate2["detail"].lower()
+
+    def test_gate3_has_agentic_detail(self):
+        """Gate 3 detail should link to agentic review section."""
+        result = build_convergence(None, [], None)
+        gate3 = result["gates"][2]
+        assert gate3["detail"], "Gate 3 should have detail content"
+        assert "section-agentic-review" in gate3["detail"]
+
+    def test_gate4_has_comments_detail(self):
+        """Gate 4 detail should describe comment resolution requirement."""
+        result = build_convergence(None, [], None)
+        gate4 = result["gates"][3]
+        assert gate4["detail"], "Gate 4 should have detail content"
+        assert "resolved" in gate4["detail"].lower()
+
+    def test_gate1_escapes_check_names(self):
+        """Gate 1 should HTML-escape CI check names to prevent XSS."""
+        ci_checks = [
+            {
+                "state": "SUCCESS",
+                "name": '<script>alert("xss")</script>',
+                "startedAt": "2026-01-01T00:00:00Z",
+                "completedAt": "2026-01-01T00:01:00Z",
+            },
+        ]
+        result = build_convergence(None, ci_checks, None)
+        gate1 = result["gates"][0]
+        assert "<script>" not in gate1["detail"]
+        assert "&lt;script&gt;" in gate1["detail"]
