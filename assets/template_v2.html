@@ -911,8 +911,9 @@
         </div>
         <div class="section-body">
           <div class="arch-controls">
-            <button class="arch-toggle active" onclick="setArchView('update',this)">Update (this PR)</button>
-            <button class="arch-toggle" onclick="setArchView('baseline',this)">Baseline (before merge)</button>
+            <!-- Baseline/Update toggle hidden: no meaningful differentiation yet. Remove style="display:none" to re-enable. -->
+            <button class="arch-toggle active" onclick="setArchView('update',this)" style="display:none">Update (this PR)</button>
+            <button class="arch-toggle" onclick="setArchView('baseline',this)" style="display:none">Baseline (before merge)</button>
             <span style="margin-left:auto;display:inline-flex;gap:4px;align-items:center">
               <button class="arch-toggle" onclick="archZoom(-1)" title="Zoom out">&minus;</button>
               <button class="arch-toggle" onclick="archZoom(0)" title="Fit to content">Fit</button>
