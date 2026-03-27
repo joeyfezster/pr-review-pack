@@ -1875,6 +1875,7 @@ def render_code_review_list(data: dict) -> str:
         ("TI", "test-integrity", "Test Integrity"),
         ("AD", "adversarial", "Adversarial"),
         ("AR", "architecture", "Architecture"),
+        ("RB", "rbe", "Rules-Based Evaluation"),
     ]
 
     # Map agent keys in fileCoverage to abbreviations
@@ -1884,6 +1885,7 @@ def render_code_review_list(data: dict) -> str:
         "test-integrity": "TI",
         "adversarial": "AD",
         "architecture": "AR",
+        "rbe": "RB",
     }
 
     # Build findings lookup by file path (for detail expansion)

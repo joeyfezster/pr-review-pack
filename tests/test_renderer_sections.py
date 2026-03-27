@@ -412,9 +412,10 @@ class TestRenderAgenticRows:
     def test_grouped_by_file(self, sample_review_pack_data):
         review = sample_review_pack_data["agenticReview"]
         result = render_agentic_rows(review)
-        # Both findings are for the same file, so one master row
-        assert result.count('class="adv-row"') == 1
+        # Two files have findings: src/alpha/core.py (CH, SE) and src/models.py (RB)
+        assert result.count('class="adv-row"') == 2
         assert "src/alpha/core.py" in result
+        assert "src/models.py" in result
 
     def test_agent_badges(self, sample_review_pack_data):
         review = sample_review_pack_data["agenticReview"]
@@ -600,12 +601,13 @@ class TestRenderConvergenceGrid:
         assert "Gate 1" in result
         assert "Gate 2" in result
         assert "Gate 3" in result
+        assert "Gate 4" in result
 
     def test_gate_count(self, sample_review_pack_data):
         convergence = sample_review_pack_data["convergence"]
         result = render_convergence_grid(convergence)
-        # 4 gates + 1 overall = 5 conv-card elements
-        assert result.count('class="conv-card"') == 5
+        # 5 gates + 1 overall = 6 conv-card elements
+        assert result.count('class="conv-card"') == 6
 
     def test_failing_gate(self):
         convergence = {
@@ -795,7 +797,7 @@ class TestRenderReviewGatesCards:
     def test_gate_cards_rendered(self, sample_review_pack_data):
         convergence = sample_review_pack_data["convergence"]
         result = render_review_gates_cards(convergence)
-        assert result.count('class="gate-review-card"') == 4
+        assert result.count('class="gate-review-card"') == 5
 
     def test_gate_names(self, sample_review_pack_data):
         convergence = sample_review_pack_data["convergence"]

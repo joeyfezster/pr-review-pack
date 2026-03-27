@@ -332,7 +332,7 @@ class TestRenderSidebarGatePills:
     def test_pills_rendered(self, sample_review_pack_data):
         convergence = sample_review_pack_data["convergence"]
         result = render_sidebar_gate_pills(convergence)
-        assert result.count('class="sb-gate-pill ') == 4
+        assert result.count('class="sb-gate-pill ') == 5
 
     def test_passing_pill_class(self, sample_review_pack_data):
         convergence = sample_review_pack_data["convergence"]
