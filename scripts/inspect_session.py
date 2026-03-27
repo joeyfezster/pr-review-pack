@@ -519,24 +519,55 @@ def check_subagent_writes(session_dir: Path, session_id: str) -> dict:
 
 
 def check_permission_denials(entries: list[dict]) -> dict:
-    """Check for permission denials in the session."""
+    """Check for permission denials in the session.
+
+    Ignores denials for platform infrastructure paths (.claude/teams/,
+    .claude/skills/) — the orchestrator sometimes touches these when
+    managing Agent Teams lifecycle. These are platform behavior, not
+    skill bugs.
+    """
+    # Paths that are platform infrastructure, not skill-managed
+    PLATFORM_PATHS = [".claude/teams/", ".claude/skills/"]
+
     denials = []
+    ignored = []
     for entry in entries:
         # Check tool results for is_error
         if entry.get("type") == "user":
             msg = entry.get("message", {})
-            content = msg.get("content", []) if isinstance(msg.get("content"), list) else []
+            content = (
+                msg.get("content", [])
+                if isinstance(msg.get("content"), list)
+                else []
+            )
             for block in content:
                 if isinstance(block, dict) and block.get("is_error"):
                     content_text = str(block.get("content", ""))
-                    if "permission" in content_text.lower() or "denied" in content_text.lower():
-                        denials.append(content_text[:200])
+                    if (
+                        "permission" in content_text.lower()
+                        or "denied" in content_text.lower()
+                    ):
+                        # Check if denial is for a platform path
+                        if any(
+                            p in content_text for p in PLATFORM_PATHS
+                        ):
+                            ignored.append(content_text[:200])
+                        else:
+                            denials.append(content_text[:200])
+
+    detail = f"{len(denials)} permission denial(s)"
+    if denials:
+        detail += f": {denials[0][:100]}..."
+    if ignored:
+        detail += (
+            f" ({len(ignored)} platform-path denial(s) ignored)"
+        )
 
     return {
         "pass": len(denials) == 0,
-        "detail": f"{len(denials)} permission denial(s)"
-        + (f": {denials[0][:100]}..." if denials else ""),
+        "detail": detail,
         "denials": denials,
+        "ignored_denials": ignored,
     }
 
 
