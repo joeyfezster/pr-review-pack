@@ -64,6 +64,7 @@ class FindingCategory(StrEnum):
     ADVERSARIAL = "adversarial"
     ARCHITECTURE = "architecture"
     CROSS_CUTTING = "cross-cutting"  # synthesis agent
+    RBE = "rbe"
 
 
 # ---------------------------------------------------------------------------

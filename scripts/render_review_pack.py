@@ -15,6 +15,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
 import re
@@ -42,7 +43,7 @@ def _category_colors(category: str) -> dict[str, str]:
     if category in LAYER_COLORS:
         return LAYER_COLORS[category]
     # Deterministic colors from category name hash
-    h = hash(category) % 360
+    h = int(hashlib.md5(category.encode()).hexdigest()[:8], 16) % 360
     return {
         "fill": f"hsl({h}, 70%, 92%)",
         "stroke": f"hsl({h}, 60%, 50%)",

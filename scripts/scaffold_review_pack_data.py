@@ -633,7 +633,7 @@ def build_convergence(
             "name": "Gate 3 \u2014 Agentic Review",
             "status": "passing" if gate3_pass else "failing",
             "statusText": gate3_text,
-            "summary": "5 reviewers + synthesis",
+            "summary": "6 reviewers + synthesis",
             "detail": gate3_detail,
         },
         {
