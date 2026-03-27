@@ -248,6 +248,7 @@ def pre_create_jsonl_files(
         "test-integrity",
         "adversarial",
         "architecture",
+        "rbe",
         "synthesis",
     ]
     created = []
@@ -353,7 +354,7 @@ def main() -> None:
     print(f"  Scaffold:   {scaffold_output.name}")
     print(f"  Output dir: {output_dir}")
     print(f"  HTML target: docs/pr{args.pr}_review_pack_{base_short}-{head_short}.html")
-    print(f"\nNext: Run 5 review agents + synthesis agent, writing .jsonl to {output_dir}/")
+    print(f"\nNext: Run 6 review agents + synthesis agent, writing .jsonl to {output_dir}/")
     print(f"Then: Run assemble_review_pack.py --pr {args.pr}")
 
 
