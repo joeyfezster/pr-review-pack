@@ -306,8 +306,6 @@ def render_architecture_assessment(data: dict) -> str:
     has_core = bool(narrative or unverified)
 
     if has_core:
-        pill_css = "failing" if health == "action-required" else "warning"
-        pill_label = "Action Required" if health == "action-required" else "Needs Attention"
         core_body: list[str] = []
         if narrative:
             core_body.append(f'<div class="arch-narrative">{narrative}</div>')
@@ -320,12 +318,29 @@ def render_architecture_assessment(data: dict) -> str:
                     f"zones {esc(', '.join(v.get('claimedZones', [])))} "
                     f"&mdash; {esc(v.get('reason', ''))}</div>"
                 )
+
+        # Use explicit boolean flag; fall back to health inference for legacy data
+        needs_attention = assessment.get("coreIssuesNeedAttention")
+        if needs_attention is None:
+            needs_attention = health in ("needs-attention", "action-required") or bool(
+                unverified
+            )
+
+        pill_html = ""
+        if needs_attention:
+            pill_css = "failing" if health == "action-required" else "warning"
+            pill_label = (
+                "Action Required" if health == "action-required" else "Needs Attention"
+            )
+            pill_html = (
+                f'<span class="arch-issue-pill {pill_css}">{esc(pill_label)}</span>'
+            )
+
         parts.append(
             '<div class="arch-section collapsed">'
             '<div class="arch-section-header" '
             "onclick=\"this.parentElement.classList.toggle('collapsed')\">"
-            f'<h4>Core Issues <span class="arch-issue-pill {pill_css}">'
-            f"{esc(pill_label)}</span></h4>"
+            f"<h4>Core Issues {pill_html}</h4>"
             '<span class="chevron">&#x25BC;</span>'
             "</div>"
             '<div class="arch-section-body">' + "\n".join(core_body) + "</div></div>"

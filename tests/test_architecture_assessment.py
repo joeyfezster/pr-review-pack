@@ -287,6 +287,63 @@ class TestDecisionVerification:
         assert "arch-verification-item" not in html
 
 
+# ── Needs-attention pill (coreIssuesNeedAttention flag) ─────────────
+
+
+class TestNeedsAttentionPill:
+    def test_no_needs_attention_pill_when_healthy_and_flag_false(self):
+        """When coreIssuesNeedAttention is False, no needs-attention pill should render."""
+        data = {
+            "architectureAssessment": {
+                "overallHealth": "healthy",
+                "summary": "Architecturally clean PR.",
+                "diagramNarrative": "No architectural changes.",
+                "coreIssuesNeedAttention": False,
+                "decisionZoneVerification": [],
+                "zoneChanges": [],
+                "couplingWarnings": [],
+                "registryWarnings": [],
+                "unzonedFiles": [],
+                "docRecommendations": [],
+            }
+        }
+        result = render_architecture_assessment(data)
+        assert "arch-issue-pill" not in result
+
+    def test_needs_attention_pill_when_flag_true(self):
+        """When coreIssuesNeedAttention is True, the pill should render."""
+        data = {
+            "architectureAssessment": {
+                "overallHealth": "needs-attention",
+                "summary": "Minor gaps found.",
+                "diagramNarrative": "Some unzoned files detected.",
+                "coreIssuesNeedAttention": True,
+                "decisionZoneVerification": [],
+                "zoneChanges": [],
+                "couplingWarnings": [],
+                "registryWarnings": [],
+                "unzonedFiles": [],
+                "docRecommendations": [],
+            }
+        }
+        result = render_architecture_assessment(data)
+        assert "arch-issue-pill" in result
+        assert "Needs Attention" in result
+
+    def test_legacy_data_without_flag_infers_from_health(self):
+        """When coreIssuesNeedAttention is absent, fall back to health inference."""
+        data = {
+            "architectureAssessment": {
+                "overallHealth": "needs-attention",
+                "summary": "Minor gaps.",
+                "diagramNarrative": "Some issues.",
+                "decisionZoneVerification": [],
+            }
+        }
+        result = render_architecture_assessment(data)
+        assert "arch-issue-pill" in result
+
+
 # ── Full fixture integration ────────────────────────────────────────
 
 

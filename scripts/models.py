@@ -567,6 +567,12 @@ class ArchitectureAssessmentOutput(BaseModel):
         alias="decisionZoneVerification",
     )
 
+    core_issues_need_attention: bool = Field(
+        default=False,
+        alias="coreIssuesNeedAttention",
+        description="Explicit flag controlling the 'Needs Attention' pill in Core Issues",
+    )
+
     overall_health: Literal["healthy", "needs-attention", "action-required"] = Field(
         alias="overallHealth",
     )
