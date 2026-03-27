@@ -55,7 +55,7 @@ USER: /pr-review-pack {PR-URL}
  │       └──▶ docs/reviews/pr{N}/pr{N}_scaffold.json
  │
  ╔══════════════════════════════════════════════════════════════════════════╗
- ║  PHASE 2: REVIEW (agentic — 5 parallel reviewers + synthesis)         ║
+ ║  PHASE 2: REVIEW (agentic — 6 parallel reviewers + synthesis)         ║
  ╚══════════════════════════════════════════════════════════════════════════╝
  │
  ├─ Discover quality standards
@@ -64,41 +64,41 @@ USER: /pr-review-pack {PR-URL}
  ├─ Step 0: TeamCreate { "team_name": "pr-review-{N}" }
  │   └─ MUST use Agent Teams (not plain subagents) — team agents get own context
  │
- ├─ Step 1: Spawn 5 Review Agents into team ───── ALL PARALLEL ──────────┐
+ ├─ Step 1: Spawn 6 Review Agents into team ───── ALL PARALLEL ──────────┐
  │                                                                        │
  │   Each agent: team_name="pr-review-{N}", model=opus, mode=acceptEdits
  │   Tools: [Read,Write,Glob,Grep]
  │   Each reads: diff_data.json + zone-registry.yaml + quality standards  │
  │   Each writes: .jsonl with HYBRID output                               │
  │                                                                        │
- │  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
- │  │ code-health  │ │  security    │ │test-integrity│ │ adversarial  │ │ architecture │
- │  │              │ │              │ │              │ │              │ │              │
- │  │ Dead code,   │ │ Vulns beyond │ │ Test quality │ │ Gaming,      │ │ Zone coverage│
- │  │ complexity,  │ │ bandit, API  │ │ beyond AST,  │ │ spec abuse,  │ │ coupling,    │
- │  │ cross-module │ │ misuse,      │ │ mocking,     │ │ feedback     │ │ structural   │
- │  │ health       │ │ resource     │ │ stub asserts,│ │ optimization,│ │ impact       │
- │  │              │ │ leaks        │ │ coverage     │ │ dishonesty   │ │              │
- │  ├──────────────┤ ├──────────────┤ ├──────────────┤ ├──────────────┤ ├──────────────┤
- │  │ OUTPUT:      │ │ OUTPUT:      │ │ OUTPUT:      │ │ OUTPUT:      │ │ OUTPUT:      │
- │  │ 1. FileRev-  │ │ 1. FileRev-  │ │ 1. FileRev-  │ │ 1. FileRev-  │ │ 1. FileRev-  │
- │  │    iewOutcome│ │    iewOutcome│ │    iewOutcome│ │    iewOutcome│ │    iewOutcome│
- │  │    (1/file)  │ │    (1/file)  │ │    (1/file)  │ │    (1/file)  │ │    (1/file)  │
- │  │ 2. Review-   │ │ 2. Review-   │ │ 2. Review-   │ │ 2. Review-   │ │ 2. Review-   │
- │  │    Concept   │ │    Concept   │ │    Concept   │ │    Concept   │ │    Concept   │
- │  │    (notable) │ │    (notable) │ │    (notable) │ │    (notable) │ │    (notable) │
- │  │              │ │              │ │              │ │ 3. Arch-     │ │              │
- │  │              │ │              │ │              │ │    Assessment│ │              │
- │  │              │ │              │ │              │ │    (last ln) │ │              │
- │  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
- │        │                │                │                │                │
- │        │          SAVE AGENT IDs — needed for RESUME in validation loop   │
- │        └────────────────┴────────────────┴────────────────┴────────────────┘
+ │  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+ │  │ code-health  │ │  security    │ │test-integrity│ │ adversarial  │ │ architecture │ │     rbe      │
+ │  │              │ │              │ │              │ │              │ │              │ │              │
+ │  │ Dead code,   │ │ Vulns beyond │ │ Test quality │ │ Gaming,      │ │ Zone coverage│ │ Responsibility│
+ │  │ complexity,  │ │ bandit, API  │ │ beyond AST,  │ │ spec abuse,  │ │ coupling,    │ │ boundaries,  │
+ │  │ cross-module │ │ misuse,      │ │ mocking,     │ │ feedback     │ │ structural   │ │ naming,      │
+ │  │ health       │ │ resource     │ │ stub asserts,│ │ optimization,│ │ impact       │ │ type clarity │
+ │  │              │ │ leaks        │ │ coverage     │ │ dishonesty   │ │              │ │              │
+ │  ├──────────────┤ ├──────────────┤ ├──────────────┤ ├──────────────┤ ├──────────────┤ ├──────────────┤
+ │  │ OUTPUT:      │ │ OUTPUT:      │ │ OUTPUT:      │ │ OUTPUT:      │ │ OUTPUT:      │ │ OUTPUT:      │
+ │  │ 1. FileRev-  │ │ 1. FileRev-  │ │ 1. FileRev-  │ │ 1. FileRev-  │ │ 1. FileRev-  │ │ 1. FileRev-  │
+ │  │    iewOutcome│ │    iewOutcome│ │    iewOutcome│ │    iewOutcome│ │    iewOutcome│ │    iewOutcome│
+ │  │    (1/file)  │ │    (1/file)  │ │    (1/file)  │ │    (1/file)  │ │    (1/file)  │ │    (1/file)  │
+ │  │ 2. Review-   │ │ 2. Review-   │ │ 2. Review-   │ │ 2. Review-   │ │ 2. Review-   │ │ 2. Review-   │
+ │  │    Concept   │ │    Concept   │ │    Concept   │ │    Concept   │ │    Concept   │ │    Concept   │
+ │  │    (notable) │ │    (notable) │ │    (notable) │ │    (notable) │ │    (notable) │ │    (notable) │
+ │  │              │ │              │ │              │ │ 3. Arch-     │ │              │ │              │
+ │  │              │ │              │ │              │ │    Assessment│ │              │ │              │
+ │  │              │ │              │ │              │ │    (last ln) │ │              │ │              │
+ │  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+ │        │                │                │                │                │                │
+ │        │          SAVE AGENT IDs — needed for RESUME in validation loop                    │
+ │        └────────────────┴────────────────┴────────────────┴────────────────┴────────────────┘
  │                                          │
  │                                          ▼
  ├─ Step 1b: VALIDATION FEEDBACK LOOP (non-negotiable)
  │   │
- │   │  FOR each of the 5 reviewer agents:
+ │   │  FOR each of the 6 reviewer agents:
  │   │   ┌─────────────────────────────────────────────────┐
  │   │   │  assemble_review_pack.py --validate-only --pr N │
  │   │   └──────────────────┬──────────────────────────────┘
@@ -138,12 +138,12 @@ USER: /pr-review-pack {PR-URL}
  │   │   ✓ Zone IDs exist in registry
  │   │   ✓ Concept IDs unique per agent
  │   │
- ├─ Step 2: Synthesis Agent (AFTER all 5 pass validation)
+ ├─ Step 2: Synthesis Agent (AFTER all 6 pass validation)
  │   │
  │   │  ┌──────────────────────────────────────────────┐
  │   │  │  Synthesis Agent (opus, acceptEdits)          │
  │   │  │                                               │
- │   │  │  Reads: all 5 .jsonl + diff + scaffold        │
+ │   │  │  Reads: all 6 .jsonl + diff + scaffold        │
  │   │  │                                               │
  │   │  │  Writes: pr{N}-synthesis-{base8}-{head8}.jsonl│
  │   │  │   ├─ what_changed (1-2 entries):              │
@@ -328,6 +328,7 @@ USER: /pr-review-pack {PR-URL}
  │   ├─ pr{N}-test-integrity-{base8}-{head8}.jsonl ◄── Phase 2 (agent)  │
  │   ├─ pr{N}-adversarial-{base8}-{head8}.jsonl    ◄── Phase 2 (agent)  │
  │   ├─ pr{N}-architecture-{base8}-{head8}.jsonl   ◄── Phase 2 (agent)  │
+ │   ├─ pr{N}-rbe-{base8}-{head8}.jsonl            ◄── Phase 2 (agent)  │
  │   ├─ pr{N}-synthesis-{base8}-{head8}.jsonl      ◄── Phase 2 (agent)  │
  │   └─ pr{N}_review_pack_data.json                ◄── Phase 3 (det.)   │
  │                                                                        │

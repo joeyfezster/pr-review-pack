@@ -32,7 +32,7 @@ Every review pack evaluates 4 gates. Factory-specific gates only appear when fac
 |------|------|--------|------------|
 | 1 | CI | `gh pr checks` — repo's own CI must pass on HEAD | Red |
 | 2 | Deterministic Review | `run_deterministic_review.py` — vulture, bandit, ruff (if config), mypy (if config), test quality scanner | Red/Yellow |
-| 3 | Agentic Review | 5 reviewers + synthesis complete. C-grade → yellow, F-grade → red | Yellow/Red |
+| 3 | Agentic Review | 6 reviewers + synthesis complete. C-grade → yellow, F-grade → red | Yellow/Red |
 | 4 | PR Comments | All review threads resolved | Red |
 
 Gate 2 tool outputs are visible on click-to-expand in the review gates card. Factory gates (Gate 0 Two-Tier, scenario gates) only render when factory artifacts (`packages/dark-factory/`) exist in the repo.
@@ -172,14 +172,14 @@ If `gate0_tier2` files exist for the current HEAD, the setup script converts the
 TeamCreate { "team_name": "pr-review-{N}" }
 ```
 
-Then spawn 6 review agents into this team. Each agent gets **Read + Write tools only** — no Bash. All agents use `model: "opus"` and **`mode: "acceptEdits"`** (required — without this, agents cannot write files and the main agent will be forced to ghost-write, breaking the independent-reviewer trust model).
+Then spawn 7 review agents into this team. Each agent gets **Read + Write tools only** — no Bash. All agents use `model: "opus"` and **`mode: "acceptEdits"`** (required — without this, agents cannot write files and the main agent will be forced to ghost-write, breaking the independent-reviewer trust model).
 
 **After all agents complete (Phase 2 + 2b), clean up the team:**
 ```
 TeamDelete { "team_name": "pr-review-{N}" }
 ```
 
-The setup script pre-creates all 6 `.jsonl` files with a meta header line. This allows agents to Read the file first (satisfying Claude Code's Read-before-Write requirement) and then append their output.
+The setup script pre-creates all 7 `.jsonl` files with a meta header line. This allows agents to Read the file first (satisfying Claude Code's Read-before-Write requirement) and then append their output.
 
 ### Quality Standards Discovery
 
@@ -190,9 +190,9 @@ Before spawning agents, identify quality standards files for inclusion in agent 
 
 Agents treat these as useful context, not infallible rules.
 
-### Step 1: Spawn 5 Review Agents (Parallel)
+### Step 1: Spawn 6 Review Agents (Parallel)
 
-All 5 run simultaneously. Each writes a `.jsonl` file with **hybrid output**:
+All 6 run simultaneously. Each writes a `.jsonl` file with **hybrid output**:
 1. **First**: one `FileReviewOutcome` per file in the diff (exhaustive per-file coverage)
 2. **Then**: `ReviewConcept` objects for notable findings (B or lower grade, or A-grade insights worth calling out)
 
@@ -203,6 +203,7 @@ All 5 run simultaneously. Each writes a `.jsonl` file with **hybrid output**:
 | test-integrity | `${CLAUDE_SKILL_DIR}/review-prompts/test_integrity_review.md` | `pr{N}-test-integrity-{base8}-{head8}.jsonl` |
 | adversarial | `${CLAUDE_SKILL_DIR}/review-prompts/adversarial_review.md` | `pr{N}-adversarial-{base8}-{head8}.jsonl` |
 | architecture | `${CLAUDE_SKILL_DIR}/review-prompts/architecture_review.md` | `pr{N}-architecture-{base8}-{head8}.jsonl` |
+| rbe | `${CLAUDE_SKILL_DIR}/review-prompts/rbe_review.md` | `pr{N}-rbe-{base8}-{head8}.jsonl` |
 
 **Agent spawn parameters:**
 - `team_name: "pr-review-{N}"` — **non-negotiable, agents MUST be team members**
@@ -253,7 +254,7 @@ The **architecture reviewer** additionally writes a special `_type: "architectur
 
 **DO NOT batch validation to the end. DO NOT fix errors yourself. The reviewer agent has context you don't.**
 
-After all 5 reviewers complete, execute this loop **for each reviewer agent**.
+After all 6 reviewers complete, execute this loop **for each reviewer agent**.
 
 **Save each agent's return ID when spawning it.** The validation loop should ideally RESUME the original agent. If resume is not possible, spawn a new correction agent with the errors — this is acceptable as long as an AGENT handles the fix, not the main agent.
 
@@ -285,7 +286,7 @@ Agent(
 **What is NEVER acceptable:** The main agent writing .jsonl content itself. That is ghost-writing. An agent must produce the corrections.
 
 ```
-FOR each reviewer agent (code-health, security, test-integrity, adversarial, architecture):
+FOR each reviewer agent (code-health, security, test-integrity, adversarial, architecture, rbe):
 
   ── STEP 1: VALIDATE ──
   Run: python3 "${CLAUDE_SKILL_DIR}/scripts/assemble_review_pack.py" --validate-only --pr {N}
@@ -308,11 +309,11 @@ FOR each reviewer agent (code-health, security, test-integrity, adversarial, arc
      DO NOT ghost-write, DO NOT proceed to Phase 4.
 ```
 
-**Why use an agent instead of fixing it yourself?** The reviewer agent has the full context of its analysis — why it graded a file the way it did, what it found, what it considered. When you edit its .jsonl file, you're substituting your surface-level understanding for its deep analysis. The result is a review pack that claims to represent 5 independent perspectives but actually represents yours.
+**Why use an agent instead of fixing it yourself?** The reviewer agent has the full context of its analysis — why it graded a file the way it did, what it found, what it considered. When you edit its .jsonl file, you're substituting your surface-level understanding for its deep analysis. The result is a review pack that claims to represent 6 independent perspectives but actually represents yours.
 
 ### Step 2: Spawn Synthesis Agent (After Step 1)
 
-The synthesis agent runs **after** all 5 reviewers complete. It reads their .jsonl outputs (including FileReviewOutcome data) and produces cross-cutting analysis. Use `model: "opus"`.
+The synthesis agent runs **after** all 6 reviewers complete. It reads their .jsonl outputs (including FileReviewOutcome data) and produces cross-cutting analysis. Use `model: "opus"`.
 
 ```
 You are the synthesis reviewer. Read and follow your paradigm prompt at
@@ -320,7 +321,7 @@ ${CLAUDE_SKILL_DIR}/review-prompts/synthesis_review.md.
 Model: opus
 
 Context files to read:
-- All 5 reviewer .jsonl files in docs/reviews/pr{N}/
+- All 6 reviewer .jsonl files in docs/reviews/pr{N}/
 - Diff data: docs/reviews/pr{N}/pr{N}_diff_data_{base8}-{head8}.json
 - Scaffold: docs/reviews/pr{N}/pr{N}_scaffold.json
 - Zone registry: zone-registry.yaml (or .claude/zone-registry.yaml)
@@ -340,7 +341,7 @@ flagged by multiple agents — and note corroboration in your output.
 
 | Agent | Schema | File |
 |-------|--------|------|
-| 5 reviewers | `FileReviewOutcome` + `ReviewConcept` | `${CLAUDE_SKILL_DIR}/scripts/models.py` |
+| 6 reviewers | `FileReviewOutcome` + `ReviewConcept` | `${CLAUDE_SKILL_DIR}/scripts/models.py` |
 | synthesis | `SemanticOutput` | `${CLAUDE_SKILL_DIR}/scripts/models.py` |
 | architecture (assessment line) | `ArchitectureAssessmentOutput` | `${CLAUDE_SKILL_DIR}/scripts/models.py` |
 | correction lines | `ConceptUpdate` | `${CLAUDE_SKILL_DIR}/scripts/models.py` |

@@ -205,7 +205,7 @@ interface AgenticFinding {
   notable: string;                  // one-line summary of finding
   detail: string;                   // full explanation (HTML-safe)
   gradeSortOrder: number;           // 0=N/A, 1=B, 2=B+, 3=A (for severity sort)
-  agent: string;                    // which agent produced this finding (e.g. "code-health", "security", "test-integrity", "adversarial", "architecture")
+  agent: string;                    // which agent produced this finding (e.g. "code-health", "security", "test-integrity", "adversarial", "architecture", "rbe")
 }
 ```
 
