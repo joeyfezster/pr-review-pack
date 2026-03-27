@@ -17,6 +17,7 @@ from render_review_pack import (
     render_agentic_legend,
     render_agentic_method_badge,
     render_agentic_rows,
+    render_architecture_legend,
     render_architecture_svg,
     render_ci_rows,
     render_convergence_grid,
@@ -849,3 +850,61 @@ class TestRenderReviewGatesCards:
     def test_empty_gates(self):
         result = render_review_gates_cards({"gates": []})
         assert result == ""
+
+
+# ── render_architecture_legend ──────────────────────────────────────
+
+
+class TestArchitectureLegend:
+    def test_legend_uses_data_categories(self):
+        """Architecture legend should render categories from zone data, not hardcoded."""
+        zones = [
+            {"id": "z1", "category": "backend", "label": "API", "isModified": True},
+            {"id": "z2", "category": "frontend", "label": "UI", "isModified": False},
+        ]
+        result = render_architecture_legend(zones)
+        assert "Backend" in result
+        assert "Frontend" in result
+        assert "Factory" not in result
+
+    def test_legend_no_duplicates(self):
+        """Each category should appear once in the legend."""
+        zones = [
+            {"id": "z1", "category": "product", "label": "A"},
+            {"id": "z2", "category": "product", "label": "B"},
+            {"id": "z3", "category": "infra", "label": "C"},
+        ]
+        result = render_architecture_legend(zones)
+        # "Product" should appear exactly once in legend items
+        assert result.count("Product") == 1
+
+    def test_legend_known_categories_use_fixed_colors(self):
+        """Known categories (factory, product, infra) use predefined colors."""
+        zones = [
+            {"id": "z1", "category": "factory", "label": "F"},
+            {"id": "z2", "category": "product", "label": "P"},
+        ]
+        result = render_architecture_legend(zones)
+        assert "#dbeafe" in result  # factory fill
+        assert "#dcfce7" in result  # product fill
+
+    def test_legend_unknown_category_gets_hsl_color(self):
+        """Unknown categories get deterministic HSL-based colors."""
+        zones = [
+            {"id": "z1", "category": "custom-layer", "label": "C"},
+        ]
+        result = render_architecture_legend(zones)
+        assert "Custom Layer" in result
+        assert "hsl(" in result
+
+    def test_legend_empty_zones(self):
+        """Empty zone list produces legend with only the circle hint."""
+        result = render_architecture_legend([])
+        assert "Blue circle" in result
+        assert "arch-legend-swatch" not in result
+
+    def test_legend_contains_click_hint(self):
+        """Legend always includes the click-to-filter hint."""
+        zones = [{"id": "z1", "category": "product", "label": "P"}]
+        result = render_architecture_legend(zones)
+        assert "Click zone to filter" in result

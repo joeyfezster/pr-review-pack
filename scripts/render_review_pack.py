@@ -33,6 +33,19 @@ LAYER_COLORS = {
     "infra": {"fill": "#f3e8ff", "stroke": "#8b5cf6", "text": "#6d28d9"},
 }
 
+
+def _category_colors(category: str) -> dict[str, str]:
+    """Return fill/stroke/text colors for a category, with sensible defaults for unknown categories."""
+    if category in LAYER_COLORS:
+        return LAYER_COLORS[category]
+    # Deterministic colors from category name hash
+    h = hash(category) % 360
+    return {
+        "fill": f"hsl({h}, 70%, 92%)",
+        "stroke": f"hsl({h}, 60%, 50%)",
+        "text": f"hsl({h}, 60%, 30%)",
+    }
+
 GRADE_CLASS = {"A": "a", "B+": "b", "B": "b", "C": "c", "F": "f", "N/A": "na"}
 
 # Agent abbreviations for compact badges
@@ -170,7 +183,7 @@ def render_architecture_svg(arch: dict) -> str:
     for zone in arch.get("zones", []):
         pos = zone["position"]
         cat = zone.get("category", "product")
-        colors = LAYER_COLORS.get(cat, LAYER_COLORS["product"])
+        colors = _category_colors(cat)
         x, y, w, h = pos["x"], pos["y"], pos["width"], pos["height"]
         cx = x + w / 2
         opacity = "1" if zone.get("isModified") else "0.6"
@@ -259,6 +272,35 @@ def render_architecture_svg(arch: dict) -> str:
         )
 
     return "\n          ".join(parts)
+
+
+def render_architecture_legend(zones: list[dict]) -> str:
+    """Render architecture legend from zone categories in the data."""
+    seen: list[str] = []
+    for z in zones:
+        cat = z.get("category", "product")
+        if cat not in seen:
+            seen.append(cat)
+
+    items: list[str] = []
+    items.append(
+        '<div class="arch-legend-item">'
+        '<div class="arch-legend-circle" style="background:#3b82f6">3</div> '
+        "Blue circle = files changed in zone</div>"
+    )
+    for cat in seen:
+        colors = _category_colors(cat)
+        label = cat.replace("-", " ").replace("_", " ").title()
+        items.append(
+            f'<div class="arch-legend-item">'
+            f'<div class="arch-legend-swatch" style="background:{colors["fill"]};'
+            f'border-color:{colors["stroke"]}"></div> {esc(label)}</div>'
+        )
+    items.append(
+        '<div class="arch-legend-item" style="margin-left:auto;font-style:italic">'
+        "Click zone to filter &bull; click background to reset</div>"
+    )
+    return "\n          ".join(items)
 
 
 def render_architecture_assessment(data: dict) -> str:
@@ -2153,6 +2195,9 @@ def render(
         ),
         "<!-- INJECT: architecture zones, labels, arrows from DATA.architecture -->": (
             render_architecture_svg(data.get("architecture", {}))
+        ),
+        "<!-- INJECT: architecture.legend -->": render_architecture_legend(
+            data.get("architecture", {}).get("zones", [])
         ),
         "<!-- INJECT: specification items from DATA.specs -->": render_spec_list(
             data.get("specs", [])
