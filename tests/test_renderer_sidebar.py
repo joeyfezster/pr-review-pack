@@ -637,7 +637,11 @@ class TestSidebarPillDedup:
         """Gate pills should include the descriptor, not just 'Gate 1'."""
         convergence = {
             "gates": [
-                {"name": "Gate 1 \u2014 CI", "status": "passing", "statusText": "4/4 checks passing"},
+                {
+                    "name": "Gate 1 \u2014 CI",
+                    "status": "passing",
+                    "statusText": "4/4 checks passing",
+                },
                 {
                     "name": "Gate 2 \u2014 Deterministic",
                     "status": "passing",
@@ -653,7 +657,11 @@ class TestSidebarPillDedup:
         """Gate pills should have title attribute with gate name and status text."""
         convergence = {
             "gates": [
-                {"name": "Gate 1 \u2014 CI", "status": "passing", "statusText": "4/4 checks passing"},
+                {
+                    "name": "Gate 1 \u2014 CI",
+                    "status": "passing",
+                    "statusText": "4/4 checks passing",
+                },
             ]
         }
         result = render_sidebar_gate_pills(convergence)

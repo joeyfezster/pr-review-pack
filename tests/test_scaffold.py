@@ -696,28 +696,68 @@ class TestBuildHeaderGate0Badge:
         """Gate 0 badge must not appear when gate0_data is None (non-factory repo)."""
         header = build_header(
             pr_number=42,
-            diff_data={"total_additions": 10, "total_deletions": 5, "total_files": 2, "head_sha": "abc1234"},
-            pr_meta={"title": "Test PR", "headRefOid": "abc1234def5678", "commits": [{"oid": "a"}]},
+            diff_data={
+                "total_additions": 10,
+                "total_deletions": 5,
+                "total_files": 2,
+                "head_sha": "abc1234",
+            },
+            pr_meta={
+                "title": "Test PR",
+                "headRefOid": "abc1234def5678",
+                "commits": [{"oid": "a"}],
+            },
             scenario_data=None,
-            ci_checks=[{"state": "SUCCESS", "name": "test", "startedAt": "", "completedAt": ""}],
+            ci_checks=[{
+                "state": "SUCCESS",
+                "name": "test",
+                "startedAt": "",
+                "completedAt": "",
+            }],
             comment_counts={"total": 0, "unresolved": 0},
             gate0_data=None,
             repo_slug="test/repo",
         )
-        badge_labels = [b["label"] for b in header["statusBadges"]]
-        assert not any("Gate 0" in label for label in badge_labels), \
-            f"Gate 0 badge should not appear for non-factory repos, got: {badge_labels}"
+        badge_labels = [
+            b["label"] for b in header["statusBadges"]
+        ]
+        assert not any(
+            "Gate 0" in label for label in badge_labels
+        ), (
+            "Gate 0 badge should not appear"
+            f" for non-factory repos, got: {badge_labels}"
+        )
 
     def test_gate0_badge_present_for_factory(self):
         """Gate 0 badge must appear when gate0_data is provided (factory repo)."""
         header = build_header(
             pr_number=42,
-            diff_data={"total_additions": 10, "total_deletions": 5, "total_files": 2, "head_sha": "abc1234"},
-            pr_meta={"title": "Test PR", "headRefOid": "abc1234def5678", "commits": [{"oid": "a"}]},
+            diff_data={
+                "total_additions": 10,
+                "total_deletions": 5,
+                "total_files": 2,
+                "head_sha": "abc1234",
+            },
+            pr_meta={
+                "title": "Test PR",
+                "headRefOid": "abc1234def5678",
+                "commits": [{"oid": "a"}],
+            },
             scenario_data=None,
-            ci_checks=[{"state": "SUCCESS", "name": "test", "startedAt": "", "completedAt": ""}],
+            ci_checks=[{
+                "state": "SUCCESS",
+                "name": "test",
+                "startedAt": "",
+                "completedAt": "",
+            }],
             comment_counts={"total": 0, "unresolved": 0},
-            gate0_data={"summary": {"has_critical": False, "critical_findings": 0, "warning_findings": 2}},
+            gate0_data={
+                "summary": {
+                    "has_critical": False,
+                    "critical_findings": 0,
+                    "warning_findings": 2,
+                },
+            },
             repo_slug="test/repo",
         )
         badge_labels = [b["label"] for b in header["statusBadges"]]

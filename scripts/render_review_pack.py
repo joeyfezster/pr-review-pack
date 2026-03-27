@@ -35,7 +35,10 @@ LAYER_COLORS = {
 
 
 def _category_colors(category: str) -> dict[str, str]:
-    """Return fill/stroke/text colors for a category, with sensible defaults for unknown categories."""
+    """Return fill/stroke/text colors for a category.
+
+    Provides sensible defaults for unknown categories.
+    """
     if category in LAYER_COLORS:
         return LAYER_COLORS[category]
     # Deterministic colors from category name hash

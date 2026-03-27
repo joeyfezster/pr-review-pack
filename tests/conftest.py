@@ -285,14 +285,24 @@ def sample_review_pack_data() -> dict:
                     "status": "passing",
                     "statusText": "Tier 1: 5/5 checks, 0 critical, 2 warn",
                     "summary": "All deterministic checks passed.",
-                    "detail": "<p>Tier 1 ran 5 deterministic tool checks. Tier 2 ran 6 LLM review agents. No critical findings.</p>",
+                    "detail": (
+                        "<p>Tier 1 ran 5 deterministic"
+                        " tool checks. Tier 2 ran 6 LLM"
+                        " review agents. No critical"
+                        " findings.</p>"
+                    ),
                 },
                 {
                     "name": "Gate 1 \u2014 CI",
                     "status": "passing",
                     "statusText": "4/4 checks green",
                     "summary": "Lint, type, test all green.",
-                    "detail": '<p>All CI checks passed. See <a href="#section-ci-performance">CI Performance</a> for details.</p>',
+                    "detail": (
+                        '<p>All CI checks passed. See '
+                        '<a href="#section-ci-performance">'
+                        "CI Performance</a> for"
+                        " details.</p>"
+                    ),
                 },
                 {
                     "name": "Gate 2 \u2014 Deterministic Tools",
@@ -306,7 +316,11 @@ def sample_review_pack_data() -> dict:
                     "status": "passing",
                     "statusText": "6 reviewers, all clear",
                     "summary": "6 LLM review agents found no critical issues.",
-                    "detail": '<p>6 agents reviewed the diff. See <a href="#section-key-findings">Key Findings</a> for details.</p>',
+                    "detail": (
+                        "<p>6 agents reviewed the diff."
+                        ' See <a href="#section-key-findings">'
+                        "Key Findings</a> for details.</p>"
+                    ),
                 },
                 {
                     "name": "Gate 4 \u2014 Comments",
