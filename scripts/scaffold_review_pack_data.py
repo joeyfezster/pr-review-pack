@@ -47,12 +47,9 @@ def _get_repo_slug(override: str | None = None) -> str:
 
 # ── Zone position layout ────────────────────────────────────────────
 # Deterministic: category → row, sequential x within row.
-ROW_Y = {"factory": 30, "product": 160, "infra": 290}
-ROW_LABELS = [
-    {"text": "INFRASTRUCTURE", "position": {"x": -95, "y": ROW_Y["factory"] + 5}},
-    {"text": "PRODUCT CODE", "position": {"x": -95, "y": ROW_Y["product"] + 5}},
-    {"text": "INFRA", "position": {"x": -95, "y": ROW_Y["infra"] + 5}},
-]
+# Row Y positions and labels are derived dynamically from zone registry categories.
+ROW_HEIGHT_SPACING = 130
+ROW_START_Y = 30
 ZONE_WIDTH = 120
 ZONE_HEIGHT = 70
 ZONE_GAP = 10
@@ -224,13 +221,31 @@ def build_architecture(zones_registry: dict, diff_data: dict) -> dict:
         for f in unzoned_files:
             print(f"  - {f}", file=sys.stderr)
 
+    # Discover distinct categories in order of first appearance
+    seen_categories: list[str] = []
+    for zone_def in zones_registry.values():
+        cat = zone_def.get("category", "product")
+        if cat not in seen_categories:
+            seen_categories.append(cat)
+
+    # Build dynamic row_y mapping and row_labels from categories
+    row_y: dict[str, int] = {}
+    row_labels: list[dict] = []
+    for idx, cat in enumerate(seen_categories):
+        y = ROW_START_Y + idx * ROW_HEIGHT_SPACING
+        row_y[cat] = y
+        label_text = cat.upper().replace("-", " ").replace("_", " ")
+        row_labels.append(
+            {"text": label_text, "position": {"x": -95, "y": y + 5}}
+        )
+
     # Layout: group by category row, sequential x placement
     category_x: dict[str, int] = {}
     arch_zones = []
     for zone_id, zone_def in zones_registry.items():
         cat = zone_def.get("category", "product")
         x = category_x.get(cat, X_START)
-        y = ROW_Y.get(cat, ROW_Y["product"])
+        y = row_y.get(cat, ROW_START_Y)
         arch_zones.append(
             {
                 "id": zone_id,
@@ -245,34 +260,24 @@ def build_architecture(zones_registry: dict, diff_data: dict) -> dict:
         )
         category_x[cat] = x + ZONE_WIDTH + ZONE_GAP
 
-    # Simple arrow: factory → first product zone (if both exist)
+    # Chain zones left-to-right within each category row
     arrows = []
-    factory_zones = [z for z in arch_zones if z["category"] == "factory"]
-    product_zones = [z for z in arch_zones if z["category"] == "product"]
-    if factory_zones and product_zones:
-        fz = factory_zones[0]["position"]
-        pz = product_zones[0]["position"]
-        arrows.append(
-            {
-                "from": {"x": fz["x"] + fz["width"] // 2, "y": fz["y"] + fz["height"]},
-                "to": {"x": pz["x"] + pz["width"] // 2, "y": pz["y"]},
-            }
-        )
-    # Chain product zones left-to-right
-    for i in range(len(product_zones) - 1):
-        p1 = product_zones[i]["position"]
-        p2 = product_zones[i + 1]["position"]
-        arrows.append(
-            {
-                "from": {"x": p1["x"] + p1["width"], "y": p1["y"] + p1["height"] // 2},
-                "to": {"x": p2["x"], "y": p2["y"] + p2["height"] // 2},
-            }
-        )
+    for cat in seen_categories:
+        cat_zones = [z for z in arch_zones if z["category"] == cat]
+        for i in range(len(cat_zones) - 1):
+            p1 = cat_zones[i]["position"]
+            p2 = cat_zones[i + 1]["position"]
+            arrows.append(
+                {
+                    "from": {"x": p1["x"] + p1["width"], "y": p1["y"] + p1["height"] // 2},
+                    "to": {"x": p2["x"], "y": p2["y"] + p2["height"] // 2},
+                }
+            )
 
     return {
         "zones": arch_zones,
         "arrows": arrows,
-        "rowLabels": ROW_LABELS,
+        "rowLabels": row_labels,
         "unzonedFiles": unzoned_files,
     }
 

@@ -135,6 +135,55 @@ class TestComputeVerdict:
         assert result["status"] == "blocked"
 
 
+# ── Dynamic row labels ───────────────────────────────────────────────
+
+
+class TestDynamicRowLabels:
+    def test_dynamic_row_labels_from_zone_registry(self):
+        """Row labels should come from zone registry categories, not hardcoded."""
+        zones_registry = {
+            "api-routes": {
+                "paths": ["src/api/**"],
+                "category": "backend",
+                "label": "API",
+                "sublabel": "routes",
+            },
+            "ui-components": {
+                "paths": ["src/ui/**"],
+                "category": "frontend",
+                "label": "UI",
+                "sublabel": "React",
+            },
+            "database": {
+                "paths": ["src/db/**"],
+                "category": "data",
+                "label": "Database",
+                "sublabel": "models",
+            },
+        }
+        diff_data = {"files": {"src/api/routes.py": {}, "src/ui/App.tsx": {}}}
+        arch = build_architecture(zones_registry, diff_data)
+
+        row_texts = [r["text"] for r in arch["rowLabels"]]
+        assert "BACKEND" in row_texts
+        assert "FRONTEND" in row_texts
+        assert "DATA" in row_texts
+        assert "INFRASTRUCTURE" not in row_texts
+
+    def test_no_duplicate_row_labels(self):
+        """Each category should produce exactly one row label."""
+        zones_registry = {
+            "z1": {"paths": ["a/**"], "category": "product", "label": "Z1", "sublabel": ""},
+            "z2": {"paths": ["b/**"], "category": "product", "label": "Z2", "sublabel": ""},
+            "z3": {"paths": ["c/**"], "category": "infra", "label": "Z3", "sublabel": ""},
+        }
+        diff_data = {"files": {}}
+        arch = build_architecture(zones_registry, diff_data)
+        row_texts = [r["text"] for r in arch["rowLabels"]]
+        assert len(row_texts) == len(set(row_texts)), f"Duplicate row labels: {row_texts}"
+        assert len(row_texts) == 2  # product and infra
+
+
 # ── compute_status ───────────────────────────────────────────────────
 
 
