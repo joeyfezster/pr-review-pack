@@ -394,6 +394,55 @@ def validate_concept_backing(
 
 
 # ---------------------------------------------------------------------------
+# Gate status updates
+# ---------------------------------------------------------------------------
+
+
+def update_gate_statuses(data: dict) -> None:
+    """Update Gate 3 and Gate 4 statuses from actual data (not placeholders).
+
+    Gate 3 (Agentic Review): derives status from agenticReview.findings grades.
+    Gate 4 (Comments): derives status from header.statusBadges comment badge.
+
+    Called after agentic review and header data are merged into the scaffold.
+    """
+    gates = data.get("convergence", {}).get("gates", [])
+    for gate in gates:
+        name = gate.get("name", "")
+        if "Gate 3" in name:
+            findings = data.get("agenticReview", {}).get("findings", [])
+            if findings:
+                grades = [f.get("grade", "A") for f in findings]
+                has_f = "F" in grades
+                has_c = "C" in grades
+                agent_count = len({f.get("agent") for f in findings})
+                if has_f:
+                    gate["status"] = "failing"
+                    f_count = sum(1 for g in grades if g == "F")
+                    gate["statusText"] = f"{f_count} critical finding(s)"
+                elif has_c:
+                    gate["status"] = "failing"
+                    c_count = sum(1 for g in grades if g == "C")
+                    gate["statusText"] = f"{agent_count} reviewers, {c_count} C-grade"
+                else:
+                    gate["status"] = "passing"
+                    gate["statusText"] = f"{agent_count} reviewers, all clear"
+                gate["summary"] = f"{len(findings)} finding(s) from {agent_count} reviewer(s)"
+        elif "Gate 4" in name:
+            badges = data.get("header", {}).get("statusBadges", [])
+            for badge in badges:
+                if "comment" in badge.get("label", "").lower():
+                    gate["status"] = "passing" if badge["type"] == "pass" else "failing"
+                    gate["statusText"] = badge["label"]
+                    gate["summary"] = (
+                        "All PR review threads resolved"
+                        if badge["type"] == "pass"
+                        else "Unresolved comments exist"
+                    )
+                    break
+
+
+# ---------------------------------------------------------------------------
 # Verification checks
 # ---------------------------------------------------------------------------
 
@@ -909,7 +958,10 @@ def assemble(
     if factory_history is not None:
         scaffold_data["factoryHistory"] = factory_history
 
-    # Step 9: Recompute status with new data
+    # Step 9: Update gate statuses from actual data
+    update_gate_statuses(scaffold_data)
+
+    # Step 10: Recompute status with new data
     from scaffold_review_pack_data import compute_status  # noqa: E402
 
     scaffold_data["status"] = compute_status(

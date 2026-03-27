@@ -17,6 +17,7 @@ from assemble_review_pack import (
     transform_concepts_to_review,
     transform_file_outcomes_to_coverage,
     transform_semantic_outputs,
+    update_gate_statuses,
     validate_concept_backing,
     validate_file_coverage,
     verify_findings,
@@ -918,3 +919,129 @@ class TestArchAssessmentDegradation:
             report = ValidationReport()
             read_and_validate_jsonl(Path(tmpdir), report)
             assert not any("inconsistency" in w["message"].lower() for w in report.warnings)
+
+
+# ---------------------------------------------------------------------------
+# Gate status updates
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateGateStatuses:
+    def _make_gate(
+        self, name: str, status_text: str, summary: str = ""
+    ) -> dict:
+        return {
+            "name": name,
+            "status": "passing",
+            "statusText": status_text,
+            "summary": summary,
+            "detail": "",
+        }
+
+    def _make_data(
+        self,
+        findings: list[dict] | None = None,
+        badges: list[dict] | None = None,
+    ) -> dict:
+        return {
+            "convergence": {
+                "gates": [
+                    self._make_gate("Gate 1 — CI", "2/2"),
+                    self._make_gate("Gate 2 — Deterministic", "Not run"),
+                    self._make_gate(
+                        "Gate 3 — Agentic Review",
+                        "Pending",
+                        "5 reviewers + synthesis",
+                    ),
+                    self._make_gate("Gate 4 — Comments", "Pending"),
+                ],
+                "overall": {
+                    "status": "passing",
+                    "statusText": "READY",
+                    "summary": "",
+                    "detail": "",
+                },
+            },
+            "agenticReview": {
+                "findings": findings or [],
+            },
+            "header": {
+                "statusBadges": badges or [],
+            },
+        }
+
+    def test_gate3_updated_from_findings(self):
+        """Gate 3 should reflect agentic review findings, not say Pending."""
+        data = self._make_data(
+            findings=[
+                {"grade": "A", "agent": "code-health", "file": "a.py", "notable": "clean"},
+                {"grade": "C", "agent": "test-integrity", "file": "b.py", "notable": "issue"},
+            ],
+        )
+        update_gate_statuses(data)
+        gate3 = data["convergence"]["gates"][2]
+        assert gate3["statusText"] != "Pending"
+        assert "C-grade" in gate3["statusText"] or "2 reviewer" in gate3["statusText"]
+
+    def test_gate3_failing_on_critical(self):
+        """Gate 3 should be failing when F-grade findings exist."""
+        data = self._make_data(
+            findings=[
+                {"grade": "F", "agent": "security", "file": "a.py", "notable": "vuln"},
+            ],
+        )
+        update_gate_statuses(data)
+        gate3 = data["convergence"]["gates"][2]
+        assert gate3["status"] == "failing"
+        assert "critical" in gate3["statusText"].lower()
+
+    def test_gate3_passing_all_clear(self):
+        """Gate 3 should be passing when all findings are A or B+."""
+        data = self._make_data(
+            findings=[
+                {"grade": "A", "agent": "code-health", "file": "a.py", "notable": "clean"},
+                {"grade": "B+", "agent": "security", "file": "b.py", "notable": "minor"},
+            ],
+        )
+        update_gate_statuses(data)
+        gate3 = data["convergence"]["gates"][2]
+        assert gate3["status"] == "passing"
+        assert "all clear" in gate3["statusText"].lower()
+
+    def test_gate3_no_findings_stays_pending(self):
+        """Gate 3 with no findings keeps Pending (no data to update from)."""
+        data = self._make_data(findings=[])
+        update_gate_statuses(data)
+        gate3 = data["convergence"]["gates"][2]
+        assert gate3["statusText"] == "Pending"
+
+    def test_gate4_updated_from_comments(self):
+        """Gate 4 should reflect comment resolution status."""
+        data = self._make_data(
+            badges=[
+                {"label": "2/2 comments resolved", "type": "pass", "icon": "✓"},
+            ],
+        )
+        update_gate_statuses(data)
+        gate4 = data["convergence"]["gates"][3]
+        assert gate4["statusText"] != "Pending"
+        assert "comment" in gate4["statusText"].lower() or "2/2" in gate4["statusText"]
+
+    def test_gate4_failing_on_unresolved(self):
+        """Gate 4 should be failing when comments are unresolved."""
+        data = self._make_data(
+            badges=[
+                {"label": "1/3 comments resolved", "type": "fail", "icon": "✗"},
+            ],
+        )
+        update_gate_statuses(data)
+        gate4 = data["convergence"]["gates"][3]
+        assert gate4["status"] == "failing"
+        assert "1/3" in gate4["statusText"]
+
+    def test_gate4_no_badge_stays_pending(self):
+        """Gate 4 with no comment badges keeps Pending."""
+        data = self._make_data(badges=[{"label": "CI passing", "type": "pass", "icon": "✓"}])
+        update_gate_statuses(data)
+        gate4 = data["convergence"]["gates"][3]
+        assert gate4["statusText"] == "Pending"
