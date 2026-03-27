@@ -123,7 +123,11 @@ class TestRenderSidebarStatusBadges:
         header = sample_review_pack_data["header"]
         result = render_sidebar_status_badges(header)
         for badge in header.get("statusBadges", []):
-            assert badge["label"] in result
+            label = badge["label"]
+            # CI and Gate 0 badges are filtered (covered by gate pills)
+            if label.startswith("CI") or "Gate 0" in label:
+                continue
+            assert label in result
 
     def test_badge_types(self, sample_review_pack_data):
         header = sample_review_pack_data["header"]
@@ -599,3 +603,59 @@ class TestRenderSidebarSectionNav:
         result = render_sidebar_section_nav(data)
         # 3 iterations → count badge with "3"
         assert ">3<" in result
+
+
+# ── Sidebar pill dedup, tooltips, descriptive names ────────────────
+
+
+class TestSidebarPillDedup:
+    def test_no_ci_in_status_badges(self):
+        """CI badge should NOT appear in status badges — covered by Gate 1 pill."""
+        header = {
+            "statusBadges": [
+                {"label": "CI 4/4", "type": "pass", "icon": "✓"},
+                {"label": "3/3 comments resolved", "type": "pass", "icon": "✓"},
+            ]
+        }
+        result = render_sidebar_status_badges(header)
+        assert "CI 4/4" not in result
+        assert "comments resolved" in result
+
+    def test_no_gate0_in_status_badges(self):
+        """Gate 0 badge should NOT appear in status badges — covered by Gate 0 pill."""
+        header = {
+            "statusBadges": [
+                {"label": "Gate 0: 0 critical, 2 warn", "type": "pass", "icon": "✓"},
+                {"label": "CI 4/4", "type": "pass", "icon": "✓"},
+                {"label": "3/3 comments resolved", "type": "pass", "icon": "✓"},
+            ]
+        }
+        result = render_sidebar_status_badges(header)
+        assert "Gate 0" not in result
+
+    def test_gate_pills_have_descriptive_names(self):
+        """Gate pills should include the descriptor, not just 'Gate 1'."""
+        convergence = {
+            "gates": [
+                {"name": "Gate 1 \u2014 CI", "status": "passing", "statusText": "4/4 checks passing"},
+                {
+                    "name": "Gate 2 \u2014 Deterministic",
+                    "status": "passing",
+                    "statusText": "Not run",
+                },
+            ]
+        }
+        result = render_sidebar_gate_pills(convergence)
+        assert "CI" in result
+        assert "Deterministic" in result
+
+    def test_gate_pills_have_tooltips_with_status(self):
+        """Gate pills should have title attribute with gate name and status text."""
+        convergence = {
+            "gates": [
+                {"name": "Gate 1 \u2014 CI", "status": "passing", "statusText": "4/4 checks passing"},
+            ]
+        }
+        result = render_sidebar_gate_pills(convergence)
+        assert "title=" in result
+        assert "4/4 checks passing" in result

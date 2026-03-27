@@ -1049,6 +1049,12 @@ def render_sidebar_status_badges(header: dict, has_scenarios: bool = True) -> st
         # Skip scenario badge when there are no scenarios
         if not has_scenarios and "scenario" in label.lower():
             continue
+        # Skip CI badge — covered by Gate 1 pill
+        if label.startswith("CI"):
+            continue
+        # Skip Gate 0 badge — covered by Gate 0 pill
+        if "Gate 0" in label:
+            continue
         icon = b.get("icon", "")
         badge_type = b.get("type", "info")
         badges.append(
@@ -1216,12 +1222,19 @@ def render_sidebar_gate_pills(convergence: dict, has_scenarios: bool = True) -> 
         st = gate.get("status", "failing")
         pill_class = "pass" if st == "passing" else "fail"
         icon = "&#x2713;" if st == "passing" else "&#x2717;"
-        # Short label: extract gate number or use full name
-        short = name.split("\u2014")[0].strip() if "\u2014" in name else name
+        # Short label: "Gate 1 — CI" → "Gate 1 CI", include descriptor
+        if "\u2014" in name:
+            parts = name.split("\u2014", 1)
+            short = f"{parts[0].strip()} {parts[1].strip()}"
+        else:
+            short = name
+        # Tooltip: full gate name + status text (e.g. "Gate 1 — CI: 4/4 checks passing")
+        status_text = gate.get("statusText", "")
+        tooltip = f"{name}: {status_text}" if status_text else name
         pills.append(
             f'<span class="sb-gate-pill {pill_class}" '
             f"onclick=\"scrollToGate('{esc(name)}')\" "
-            f'title="{esc(name)}">'
+            f'title="{esc(tooltip)}">'
             f"{icon} {esc(short)}</span>"
         )
     if not pills:
