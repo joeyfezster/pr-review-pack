@@ -240,6 +240,8 @@
   [data-theme="dark"] .sb-arch-chip.infra { background: #2e1065; color: #c4b5fd; border-color: #5b21b6; }
   .sb-arch-chip.unzoned { background: #fef2f2; color: #991b1b; border-color: #fca5a5; }
   [data-theme="dark"] .sb-arch-chip.unzoned { background: #7f1d1d; color: #fca5a5; border-color: #991b1b; }
+  .sb-arch-chip.unzoned-info { background: #fefce8; color: #854d0e; border-color: #fde68a; }
+  [data-theme="dark"] .sb-arch-chip.unzoned-info { background: #422006; color: #fde68a; border-color: #854d0e; }
   .sb-arch-chip:hover { filter: brightness(0.92); }
   .sb-arch-chip.modified { font-weight: 700; }
   .sb-arch-chip.dimmed { opacity: 0.3; }
@@ -2118,10 +2120,13 @@ function renderMiniArchGrid() {
             '</div>';
   });
   // Add unzoned chip if there are unzoned files
+  // Use info/yellow when architecture assessment is healthy, red otherwise
   var assessment = DATA.architectureAssessment;
   var unzonedFiles = assessment && assessment.unzonedFiles ? assessment.unzonedFiles : [];
   if (unzonedFiles.length > 0) {
-    html += '<div class="sb-arch-chip unzoned" ' +
+    var health = assessment && assessment.overallHealth ? assessment.overallHealth : '';
+    var unzonedClass = health === 'healthy' ? 'unzoned-info' : 'unzoned';
+    html += '<div class="sb-arch-chip ' + unzonedClass + '" ' +
             'onclick="scrollToSection(\'section-arch-assessment\')" ' +
             'title="' + unzonedFiles.length + ' file(s) not in any zone">' +
             '<span class="sb-arch-chip-label">&#x26A0; Unzoned</span>' +

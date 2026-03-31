@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 from render_review_pack import (
+    render_architecture_svg,
     render_sidebar_commit_scope,
     render_sidebar_gate_pills,
     render_sidebar_merge_button,
@@ -667,3 +668,97 @@ class TestSidebarPillDedup:
         result = render_sidebar_gate_pills(convergence)
         assert "title=" in result
         assert "4/4 checks passing" in result
+
+
+# ── Unzoned file signal reconciliation with architecture assessment ──
+
+
+class TestUnzonedSignalReconciliation:
+    """When the architecture assessment says 'healthy' but unzoned files exist,
+    the SVG warning should render in amber (#d97706) instead of red (#ef4444).
+    The sidebar chip class is handled in template JS, tested here via SVG proxy.
+    """
+
+    _ARCH_WITH_UNZONED = {
+        "zones": [
+            {
+                "id": "core",
+                "category": "product",
+                "label": "Core",
+                "sublabel": "Core module",
+                "isModified": True,
+                "fileCount": 3,
+                "position": {"x": 10, "y": 10, "width": 120, "height": 50},
+            },
+        ],
+        "unzonedFiles": ["zone-registry.yaml"],
+        "arrows": [],
+    }
+
+    def test_unzoned_svg_amber_when_healthy(self):
+        """SVG unzoned warning uses amber color when assessment is healthy."""
+        result = render_architecture_svg(
+            self._ARCH_WITH_UNZONED, assessment_health="healthy"
+        )
+        assert "1 file(s) not in any zone" in result
+        assert 'fill="#d97706"' in result
+        assert 'fill="#ef4444"' not in result
+
+    def test_unzoned_svg_red_when_needs_attention(self):
+        """SVG unzoned warning uses red color when assessment needs attention."""
+        result = render_architecture_svg(
+            self._ARCH_WITH_UNZONED, assessment_health="needs-attention"
+        )
+        assert "1 file(s) not in any zone" in result
+        assert 'fill="#ef4444"' in result
+        assert 'fill="#d97706"' not in result
+
+    def test_unzoned_svg_red_when_action_required(self):
+        """SVG unzoned warning uses red color when assessment is action-required."""
+        result = render_architecture_svg(
+            self._ARCH_WITH_UNZONED, assessment_health="action-required"
+        )
+        assert 'fill="#ef4444"' in result
+
+    def test_unzoned_svg_red_when_no_assessment(self):
+        """SVG unzoned warning defaults to red when no assessment provided."""
+        result = render_architecture_svg(self._ARCH_WITH_UNZONED)
+        assert 'fill="#ef4444"' in result
+
+    def test_no_unzoned_no_warning_regardless_of_health(self):
+        """No unzoned files means no warning text at all."""
+        arch = {
+            "zones": [
+                {
+                    "id": "core",
+                    "category": "product",
+                    "label": "Core",
+                    "sublabel": "Core module",
+                    "isModified": True,
+                    "fileCount": 3,
+                    "position": {"x": 10, "y": 10, "width": 120, "height": 50},
+                },
+            ],
+            "unzonedFiles": [],
+            "arrows": [],
+        }
+        result = render_architecture_svg(arch, assessment_health="healthy")
+        assert "not in any zone" not in result
+
+    def test_template_has_unzoned_info_css_class(self):
+        """The v2 template includes the unzoned-info CSS class for healthy state."""
+        template_path = (
+            Path(__file__).parent.parent / "assets" / "template_v2.html"
+        )
+        content = template_path.read_text()
+        assert ".sb-arch-chip.unzoned-info" in content
+
+    def test_template_js_checks_overall_health(self):
+        """The v2 template JS selects unzoned-info class when health is healthy."""
+        template_path = (
+            Path(__file__).parent.parent / "assets" / "template_v2.html"
+        )
+        content = template_path.read_text()
+        assert "overallHealth" in content
+        assert "unzoned-info" in content
+        assert "'healthy'" in content

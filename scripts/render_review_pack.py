@@ -183,7 +183,7 @@ def _wrap_svg_text(text: str, max_chars: int = 18) -> list[str]:
     return lines if lines else [text]
 
 
-def render_architecture_svg(arch: dict) -> str:
+def render_architecture_svg(arch: dict, assessment_health: str = "") -> str:
     parts: list[str] = []
 
     # Arrowhead marker (defined once)
@@ -274,7 +274,7 @@ def render_architecture_svg(arch: dict) -> str:
             f'stroke="#9ca3af" stroke-width="1.5" marker-end="url(#arrowhead)"/>'
         )
 
-    # Unzoned files warning
+    # Unzoned files warning — amber when architecture is healthy, red otherwise
     unzoned = arch.get("unzonedFiles", [])
     if unzoned:
         warn_y = (
@@ -284,8 +284,9 @@ def render_architecture_svg(arch: dict) -> str:
             )
             + 25
         )
+        warn_color = "#d97706" if assessment_health == "healthy" else "#ef4444"
         parts.append(
-            f'<text x="10" y="{warn_y}" fill="#ef4444" '
+            f'<text x="10" y="{warn_y}" fill="{warn_color}" '
             f'font-size="11" font-weight="700" '
             f'style="cursor:pointer" '
             f"onclick=\"scrollToSection('section-arch-assessment')\">"
@@ -2261,7 +2262,12 @@ def render(
             render_factory_history_tab_button(data)
         ),
         "<!-- INJECT: architecture zones, labels, arrows from DATA.architecture -->": (
-            render_architecture_svg(data.get("architecture", {}))
+            render_architecture_svg(
+                data.get("architecture", {}),
+                assessment_health=data.get("architectureAssessment", {}).get(
+                    "overallHealth", ""
+                ),
+            )
         ),
         "<!-- INJECT: architecture.legend -->": render_architecture_legend(
             data.get("architecture", {}).get("zones", [])
