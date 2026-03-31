@@ -2087,3 +2087,36 @@ test.describe('Key Findings Locations (Round 2)', () => {
     expect(foundMultiLoc).toBeTruthy();
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// Zone Chip & Legend Color Verification
+// ═══════════════════════════════════════════════════════════════════
+
+test.describe('Zone Chip & Legend Colors', () => {
+  test('sidebar zone chips have category-specific background colors', async ({ page }) => {
+    await page.goto(READY_PACK);
+    await dismissBanner(page);
+    await page.waitForSelector('.sb-arch-chip', { timeout: 5000 });
+    const chips = page.locator('.sb-arch-chip:not(.unzoned):not(.unzoned-info)');
+    const count = await chips.count();
+    expect(count).toBeGreaterThan(0);
+    // Check that at least one chip has a non-default background
+    for (let i = 0; i < Math.min(count, 3); i++) {
+      const bg = await chips.nth(i).evaluate(el => getComputedStyle(el).backgroundColor);
+      // Should NOT be transparent or the default gray
+      expect(bg).not.toBe('rgba(0, 0, 0, 0)');
+    }
+  });
+
+  test('architecture diagram legend swatches have colors', async ({ page }) => {
+    await page.goto(READY_PACK);
+    const swatches = page.locator('.arch-legend-swatch');
+    const count = await swatches.count();
+    expect(count).toBeGreaterThan(0);
+    for (let i = 0; i < count; i++) {
+      const bg = await swatches.nth(i).evaluate(el => el.style.background || getComputedStyle(el).backgroundColor);
+      expect(bg).toBeTruthy();
+      expect(bg).not.toBe('rgba(0, 0, 0, 0)');
+    }
+  });
+});

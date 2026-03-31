@@ -232,12 +232,7 @@
   /* Mini arch: chip grid */
   .sb-arch-grid { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; }
   .sb-arch-chip { display: flex; align-items: center; gap: 3px; padding: 3px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; }
-  .sb-arch-chip.factory { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; }
-  .sb-arch-chip.product { background: #dcfce7; color: #166534; border-color: #86efac; }
-  .sb-arch-chip.infra { background: #f3e8ff; color: #6d28d9; border-color: #c4b5fd; }
-  [data-theme="dark"] .sb-arch-chip.factory { background: #1e3a5f; color: #93c5fd; border-color: #1e40af; }
-  [data-theme="dark"] .sb-arch-chip.product { background: #064e3b; color: #6ee7b7; border-color: #047857; }
-  [data-theme="dark"] .sb-arch-chip.infra { background: #2e1065; color: #c4b5fd; border-color: #5b21b6; }
+  /* Category colors are now applied via inline styles from categoryColor() */
   .sb-arch-chip.unzoned { background: #fef2f2; color: #991b1b; border-color: #fca5a5; }
   [data-theme="dark"] .sb-arch-chip.unzoned { background: #7f1d1d; color: #fca5a5; border-color: #991b1b; }
   .sb-arch-chip.unzoned-info { background: #fefce8; color: #854d0e; border-color: #fde68a; }
@@ -251,12 +246,7 @@
 
   /* Mini arch: zoom view */
   .sb-arch-zoom { padding: 10px 12px; border-radius: 6px; border: 2px solid; }
-  .sb-arch-zoom.factory { background: #dbeafe; border-color: #3b82f6; }
-  .sb-arch-zoom.product { background: #dcfce7; border-color: #22c55e; }
-  .sb-arch-zoom.infra { background: #f3e8ff; border-color: #8b5cf6; }
-  [data-theme="dark"] .sb-arch-zoom.factory { background: #1e3a5f; border-color: #3b82f6; }
-  [data-theme="dark"] .sb-arch-zoom.product { background: #064e3b; border-color: #22c55e; }
-  [data-theme="dark"] .sb-arch-zoom.infra { background: #2e1065; border-color: #8b5cf6; }
+  /* Category colors are now applied via inline styles from categoryColor() */
   .sb-arch-zoom-header { display: flex; justify-content: space-between; align-items: center; }
   .sb-arch-zoom-name { font-size: 14px; font-weight: 700; }
   .sb-arch-zoom-sub { font-size: 11px; color: var(--text-secondary); margin: 4px 0; }
@@ -1156,6 +1146,23 @@
 // Replace this empty object with the ReviewPackData JSON
 // ===============================================
 const DATA = {};
+
+// ===============================================
+// Category color helper (inline styles for arbitrary zone categories)
+// ===============================================
+function categoryColor(cat) {
+  var known = {
+    'factory': {fill: '#dbeafe', stroke: '#3b82f6'},
+    'product': {fill: '#dcfce7', stroke: '#22c55e'},
+    'infra': {fill: '#f3e8ff', stroke: '#8b5cf6'},
+  };
+  if (known[cat]) return known[cat];
+  // Deterministic hash for unknown categories
+  var h = 0;
+  for (var i = 0; i < cat.length; i++) h = ((h << 5) - h + cat.charCodeAt(i)) | 0;
+  h = ((h % 360) + 360) % 360;
+  return {fill: 'hsl(' + h + ', 70%, 92%)', stroke: 'hsl(' + h + ', 60%, 50%)'};
+}
 
 // ===============================================
 // Theme switching (Light / Dark / System)
@@ -2110,7 +2117,9 @@ function renderMiniArchGrid() {
     const catClass = zone.category || 'product';
     const modClass = zone.isModified ? 'modified' : '';
     const fc = zone.fileCount || 0;
-    html += '<div class="sb-arch-chip ' + catClass + ' ' + modClass + '" ' +
+    var colors = categoryColor(catClass);
+    html += '<div class="sb-arch-chip ' + modClass + '" ' +
+            'style="background:' + colors.fill + ';border-color:' + colors.stroke + '" ' +
             'data-zone="' + zone.id + '" ' +
             'onclick="sidebarZoneClick(\'' + zone.id + '\')" ' +
             'ondblclick="event.stopPropagation();resetZones()" ' +
@@ -2146,6 +2155,7 @@ function renderMiniArchZoom(zoneId) {
 
   const catClass = zone.category || 'product';
   const fc = zone.fileCount || 0;
+  var zoomColors = categoryColor(catClass);
 
   // Find findings for this zone
   const findings = (DATA.agenticReview && DATA.agenticReview.findings || []).filter(function(f) {
@@ -2160,7 +2170,7 @@ function renderMiniArchZoom(zoneId) {
   const gradeClass = gradeClassMap[worstGrade] || 'na';
 
   container.innerHTML =
-    '<div class="sb-arch-zoom ' + catClass + '">' +
+    '<div class="sb-arch-zoom" style="background:' + zoomColors.fill + ';border-color:' + zoomColors.stroke + '">' +
     '  <div class="sb-arch-zoom-header">' +
     '    <span class="sb-arch-zoom-name">' + zone.label + '</span>' +
     '    <span class="grade ' + gradeClass + '" style="width:24px;height:24px;line-height:24px;font-size:11px">' + worstGrade + '</span>' +
