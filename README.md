@@ -146,7 +146,6 @@ When all E2E tests pass, the validation banner is removed from the rendered pack
 ```
 pr-review-pack/
 ├── assets/
-│   ├── template.html             # Legacy single-page template
 │   └── template_v2.html          # Mission Control HTML template
 ├── scripts/
 │   ├── review_pack_setup.py      # Phase 1: consolidated setup

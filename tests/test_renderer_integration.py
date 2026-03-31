@@ -17,7 +17,7 @@ import pytest
 # Add scripts directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from render_review_pack import TEMPLATE_PATH, TEMPLATE_V2_PATH, render
+from render_review_pack import TEMPLATE_V2_PATH, render
 
 # ── Helpers ────────────────────────────────────────────────────────
 
@@ -66,89 +66,14 @@ def _unreplaced_markers_outside_scripts(
     return markers
 
 
-# v1 factory history markers are conditionally unreplaced when
-# factoryHistory is None — they live inside a hidden tab.
-V1_FACTORY_HISTORY_MARKERS = frozenset(
-    {
-        "<!-- INJECT: iteration count + satisfaction trajectory cards -->",
-        "<!-- INJECT: factory history events from DATA.factoryHistory.timeline -->",
-        "<!-- INJECT: gate finding rows from DATA.factoryHistory.gateFindings -->",
-    }
-)
-
 
 # ── Template availability guards ──────────────────────────────────
 
 
-v1_available = pytest.mark.skipif(
-    not TEMPLATE_PATH.exists(),
-    reason="v1 template not found on disk",
-)
 v2_available = pytest.mark.skipif(
     not TEMPLATE_V2_PATH.exists(),
     reason="v2 template not found on disk",
 )
-
-
-# ── v1 template tests ─────────────────────────────────────────────
-
-
-@v1_available
-class TestV1Render:
-    def test_no_unreplaced_markers(self, tmp_path, sample_review_pack_data):
-        """No unreplaced markers except v1 factory history (conditionally hidden)."""
-        html = _render_to_html(tmp_path, sample_review_pack_data, "v1")
-        leftover = _unreplaced_markers_outside_scripts(html, exclude=V1_FACTORY_HISTORY_MARKERS)
-        assert leftover == [], f"Unreplaced markers in v1 output: {leftover}"
-
-    def test_no_unreplaced_markers_with_factory_history(
-        self, tmp_path, sample_review_pack_data, sample_factory_history
-    ):
-        """When factoryHistory is present, ALL markers should be replaced."""
-        data = {**sample_review_pack_data, "factoryHistory": sample_factory_history}
-        html = _render_to_html(tmp_path, data, "v1")
-        leftover = _unreplaced_markers_outside_scripts(html)
-        assert leftover == [], f"Unreplaced markers in v1 output: {leftover}"
-
-    def test_title_injected(self, tmp_path, sample_review_pack_data):
-        html = _render_to_html(tmp_path, sample_review_pack_data, "v1")
-        assert "Add feature X to zone-alpha" in html
-
-    def test_head_sha_injected(self, tmp_path, sample_review_pack_data):
-        html = _render_to_html(tmp_path, sample_review_pack_data, "v1")
-        assert "abc1234" in html
-
-    def test_architecture_section_present(self, tmp_path, sample_review_pack_data):
-        html = _render_to_html(tmp_path, sample_review_pack_data, "v1")
-        assert "Zone Alpha" in html
-        assert "Zone Beta" in html
-
-    def test_convergence_section_present(self, tmp_path, sample_review_pack_data):
-        html = _render_to_html(tmp_path, sample_review_pack_data, "v1")
-        assert "READY TO MERGE" in html
-
-    def test_data_json_embedded(self, tmp_path, sample_review_pack_data):
-        html = _render_to_html(tmp_path, sample_review_pack_data, "v1")
-        assert "const DATA =" in html
-        # DATA should not be the empty placeholder
-        assert "const DATA = {};" not in html
-
-    def test_no_factory_history_when_null(self, tmp_path, sample_review_pack_data):
-        """When factoryHistory is None, factory history markers are not replaced."""
-        assert sample_review_pack_data["factoryHistory"] is None
-        html = _render_to_html(tmp_path, sample_review_pack_data, "v1")
-        # The v1 template has factory history markers that stay as-is when
-        # factoryHistory is None (they're inside a tab that's hidden).
-        # Verify no factory history content is injected.
-        assert "Iteration 1 started" not in html
-
-    def test_factory_history_rendered_when_present(
-        self, tmp_path, sample_review_pack_data, sample_factory_history
-    ):
-        data = {**sample_review_pack_data, "factoryHistory": sample_factory_history}
-        html = _render_to_html(tmp_path, data, "v1")
-        assert "Iteration 1 started" in html
-        assert "Human review requested" in html
 
 
 # ── v2 template tests ─────────────────────────────────────────────
@@ -253,33 +178,3 @@ class TestV2Render:
 # ── Cross-template backward compatibility ──────────────────────────
 
 
-@v1_available
-@v2_available
-class TestCrossTemplateCompat:
-    def test_same_data_works_for_both_templates(self, tmp_path, sample_review_pack_data):
-        """The same ReviewPackData dict renders successfully with both templates."""
-        v1_html = _render_to_html(tmp_path, sample_review_pack_data, "v1")
-        # Use a different subdir so output files don't collide
-        v2_dir = tmp_path / "v2"
-        v2_dir.mkdir()
-        v2_html = _render_to_html(v2_dir, sample_review_pack_data, "v2")
-        # Both should produce non-trivial output
-        assert len(v1_html) > 1000
-        assert len(v2_html) > 1000
-        # Both should contain the PR title
-        assert "Add feature X to zone-alpha" in v1_html
-        assert "Add feature X to zone-alpha" in v2_html
-
-    def test_no_unreplaced_markers_in_either(self, tmp_path, sample_review_pack_data):
-        v1_html = _render_to_html(tmp_path, sample_review_pack_data, "v1")
-        v2_dir = tmp_path / "v2"
-        v2_dir.mkdir()
-        v2_html = _render_to_html(v2_dir, sample_review_pack_data, "v2")
-
-        # v1 conditionally leaves factory history markers when factoryHistory is None
-        v1_leftover = _unreplaced_markers_outside_scripts(
-            v1_html, exclude=V1_FACTORY_HISTORY_MARKERS
-        )
-        v2_leftover = _unreplaced_markers_outside_scripts(v2_html)
-        assert v1_leftover == [], f"v1 unreplaced: {v1_leftover}"
-        assert v2_leftover == [], f"v2 unreplaced: {v2_leftover}"

@@ -13,7 +13,7 @@ Authoritative build specification for the "Mission Control" review pack. This is
 | Focused references | `references/data-schema.md`, `section-guide.md`, `css-design-system.md`, `validation-checklist.md` |
 | Pass 2b agent invocation | `references/pass2b-invocation.md` |
 | Pass 2b output schema | `references/pass2b-output-schema.md` |
-| HTML template | `assets/template.html` |
+| HTML template | `assets/template_v2.html` |
 | Diff extraction script | `scripts/generate_diff_data.py` |
 | Scaffold script | `scripts/scaffold_review_pack_data.py` |
 | Renderer script | `scripts/render_review_pack.py` |
@@ -491,7 +491,7 @@ After both workstreams complete, the orchestrator merges results into the scaffo
 **Executor:** `scripts/render_review_pack.py`. Zero LLM involvement.
 
 **What it does:**
-1. Reads the HTML template (`assets/template.html`).
+1. Reads the HTML template (`assets/template_v2.html`).
 2. Reads the verified `ReviewPackData` JSON.
 3. For every `<!-- INJECT: ... -->` marker in the template, generates the corresponding HTML by calling the appropriate render function.
 4. Injects the full JSON into `<script>const DATA = {...};</script>` for JS interactivity.
@@ -957,7 +957,7 @@ python3 scripts/review_pack_cli.py merge {N}
 
 | Component | Notes |
 |-----------|-------|
-| HTML template (`assets/template.html`) | Data-driven, project-agnostic |
+| HTML template (`assets/template_v2.html`) | Data-driven, project-agnostic |
 | Renderer script (`scripts/render_review_pack.py`) | Reads JSON, writes HTML |
 | Diff generator (`scripts/generate_diff_data.py`) | Pure git commands |
 | CLI tool (`scripts/review_pack_cli.py`) | Status, refresh, merge |

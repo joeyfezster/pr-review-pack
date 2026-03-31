@@ -202,12 +202,6 @@ def cmd_refresh(args: argparse.Namespace) -> None:
     print("  [3/3] Re-rendering HTML...")
     # TODO: Template detection is fragile — it reads the file a second time
     # and matches on a CSS class name that could appear in embedded diff
-    # content. A more robust approach would embed a schema version marker
-    # (e.g., <meta name="review-pack-version" content="v2">) in the template.
-    template_version = "v2"  # detect from HTML
-    if 'class="mc-layout"' not in Path(html_path).read_text():
-        template_version = "v1"
-
     render_cmd = [
         sys.executable,
         str(Path(__file__).parent / "render_review_pack.py"),
@@ -218,7 +212,7 @@ def cmd_refresh(args: argparse.Namespace) -> None:
         "--diff-data",
         diff_data_path,
         "--template",
-        template_version,
+        "v2",
     ]
     subprocess.run(render_cmd, check=True)
 
