@@ -154,6 +154,9 @@ BASE_DATA: dict = {
                 "zones": "zone-alpha",
                 "notable": "Clean implementation, good separation of concerns.",
                 "detail": "No issues found.",
+                "locations": [
+                    {"file": "src/alpha/core.py", "lines": "1-30", "comment": None},
+                ],
             },
             {
                 "file": "src/alpha/core.py",
@@ -163,6 +166,12 @@ BASE_DATA: dict = {
                 "zones": "zone-alpha",
                 "notable": "Unsanitized input in handler.",
                 "detail": "Input validation missing on line 45.",
+                # 3 locations: 2 different files, one file with 2 line ranges
+                "locations": [
+                    {"file": "src/alpha/core.py", "lines": "45-62", "comment": None},
+                    {"file": "src/middleware/validate.py", "lines": "12-18", "comment": None},
+                    {"file": "src/alpha/core.py", "lines": "120-135", "comment": None},
+                ],
             },
             {
                 "file": "src/alpha/core.py",
@@ -172,6 +181,9 @@ BASE_DATA: dict = {
                 "zones": "zone-alpha",
                 "notable": "Test coverage adequate but edge cases missing.",
                 "detail": "Missing edge case test for null input on line 52.",
+                "locations": [
+                    {"file": "src/alpha/core.py", "lines": "52-55", "comment": None},
+                ],
             },
             {
                 "file": "src/alpha/core.py",
@@ -181,6 +193,9 @@ BASE_DATA: dict = {
                 "zones": "zone-alpha",
                 "notable": "No adversarial concerns.",
                 "detail": "Code is clean.",
+                "locations": [
+                    {"file": "src/alpha/core.py", "lines": "1-100", "comment": None},
+                ],
             },
             {
                 "file": "src/alpha/core.py",
@@ -190,6 +205,9 @@ BASE_DATA: dict = {
                 "zones": "zone-alpha",
                 "notable": "Properly scoped within zone-alpha.",
                 "detail": "No architectural issues.",
+                "locations": [
+                    {"file": "src/alpha/core.py", "lines": "1-100", "comment": None},
+                ],
             },
             {
                 "file": "src/alpha/core.py",
@@ -199,6 +217,9 @@ BASE_DATA: dict = {
                 "zones": "zone-alpha",
                 "notable": "Generic dict return type could be stricter.",
                 "detail": "Consider using TypedDict or a dataclass for the return value.",
+                "locations": [
+                    {"file": "src/alpha/core.py", "lines": "80-95", "comment": None},
+                ],
             },
             # ── src/models.py ──
             {
@@ -209,6 +230,11 @@ BASE_DATA: dict = {
                 "zones": "zone-alpha",
                 "notable": "Generic dict return type",
                 "detail": "Return type should be a Pydantic model or TypedDict.",
+                # 2 locations in different files
+                "locations": [
+                    {"file": "src/models.py", "lines": "10-25", "comment": None},
+                    {"file": "src/alpha/core.py", "lines": "80-85", "comment": None},
+                ],
             },
             # ── infra/deploy.sh ──
             {
@@ -219,6 +245,9 @@ BASE_DATA: dict = {
                 "zones": "zone-gamma",
                 "notable": "Script follows conventions.",
                 "detail": "Clean bash script.",
+                "locations": [
+                    {"file": "infra/deploy.sh", "lines": "1-50", "comment": None},
+                ],
             },
             {
                 "file": "infra/deploy.sh",
@@ -228,6 +257,9 @@ BASE_DATA: dict = {
                 "zones": "zone-gamma",
                 "notable": "Credentials handled safely.",
                 "detail": "Uses env vars for secrets, which is acceptable.",
+                "locations": [
+                    {"file": "infra/deploy.sh", "lines": "30-42", "comment": None},
+                ],
             },
             {
                 "file": "infra/deploy.sh",
@@ -237,6 +269,9 @@ BASE_DATA: dict = {
                 "zones": "zone-gamma",
                 "notable": "Infrastructure scripts excluded from coverage.",
                 "detail": "N/A for infrastructure.",
+                "locations": [
+                    {"file": "infra/deploy.sh", "lines": None, "comment": None},
+                ],
             },
             {
                 "file": "infra/deploy.sh",
@@ -246,6 +281,9 @@ BASE_DATA: dict = {
                 "zones": "zone-gamma",
                 "notable": "Deployment script lacks rollback.",
                 "detail": "No rollback mechanism if deployment fails. Add `set -e` and trap.",
+                "locations": [
+                    {"file": "infra/deploy.sh", "lines": "1-10", "comment": None},
+                ],
             },
             {
                 "file": "infra/deploy.sh",
@@ -255,6 +293,9 @@ BASE_DATA: dict = {
                 "zones": "zone-gamma",
                 "notable": "Properly placed in infra zone.",
                 "detail": "No zone issues.",
+                "locations": [
+                    {"file": "infra/deploy.sh", "lines": None, "comment": None},
+                ],
             },
         ],
     },
@@ -593,6 +634,9 @@ def main() -> None:
             "zones": "zone-gamma",
             "notable": "Shell script lacks error handling patterns.",
             "detail": "Missing set -euo pipefail and trap for cleanup.",
+            "locations": [
+                {"file": "infra/deploy.sh", "lines": "1-5", "comment": None},
+            ],
         }
     )
     _render_variant(gap, DIFF_DATA, "/tmp/pr26_review_pack_v2_gap.html")

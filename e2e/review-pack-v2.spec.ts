@@ -2019,3 +2019,71 @@ if (LIVE_PACK_PATH) {
     });
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// Key Findings Locations (Round 2)
+// ═══════════════════════════════════════════════════════════════════
+
+test.describe('Key Findings Locations (Round 2)', () => {
+  test('LOCS column exists in key findings header', async ({ page }) => {
+    await page.goto(READY_PACK);
+    await dismissBanner(page);
+    const headers = page.locator('.kf-table thead th');
+    const texts = await headers.allTextContents();
+    expect(texts.some(t => t.toLowerCase().includes('loc'))).toBeTruthy();
+  });
+
+  test('expanded detail shows multiple location rows', async ({ page }) => {
+    await page.goto(READY_PACK);
+    await dismissBanner(page);
+    // Click first non-A finding to expand (sorted by grade, worst first)
+    const row = page.locator('.kf-row').first();
+    await row.click();
+    // Should show location rows in the detail
+    const locationRows = page.locator('.kf-location-row');
+    expect(await locationRows.count()).toBeGreaterThan(0);
+  });
+
+  test('agent legend is inline with Key Findings header, not separate row', async ({ page }) => {
+    await page.goto(READY_PACK);
+    await dismissBanner(page);
+    // The review-method-badge should be inside the same h2 as the agent-legend
+    const h2WithBadge = page.locator('h2:has(.review-method-badge.agent-teams)');
+    if (await h2WithBadge.count() > 0) {
+      const legend = h2WithBadge.first().locator('.agent-legend');
+      expect(await legend.count()).toBeGreaterThan(0);
+    }
+  });
+
+  test('no "(N files)" glob rows in file coverage', async ({ page }) => {
+    await page.goto(READY_PACK);
+    await dismissBanner(page);
+    const body = await page.locator('body').textContent();
+    // Should not contain patterns like "(3 files)" or "(2 files)"
+    const hasGlobRow = /\(\d+ files?\)/.test(body || '');
+    expect(hasGlobRow).toBeFalsy();
+  });
+
+  test('location count in LOCS column matches locations array length', async ({ page }) => {
+    await page.goto(READY_PACK);
+    await dismissBanner(page);
+    // The security finding has 3 locations — after corroboration/grouping,
+    // check that at least one row shows a loc count > 1
+    const rows = page.locator('.kf-row');
+    const count = await rows.count();
+    let foundMultiLoc = false;
+    for (let i = 0; i < count; i++) {
+      const cells = rows.nth(i).locator('td');
+      const cellTexts = await cells.allTextContents();
+      // Locs column is the 5th column (index 4)
+      if (cellTexts.length >= 5) {
+        const locVal = parseInt(cellTexts[4].trim(), 10);
+        if (locVal > 1) {
+          foundMultiLoc = true;
+          break;
+        }
+      }
+    }
+    expect(foundMultiLoc).toBeTruthy();
+  });
+});

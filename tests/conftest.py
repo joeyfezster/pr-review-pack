@@ -206,6 +206,9 @@ def sample_review_pack_data() -> dict:
                     "zones": "zone-alpha",
                     "notable": "Clean implementation, good separation of concerns.",
                     "detail": "No issues found.",
+                    "locations": [
+                        {"file": "src/alpha/core.py", "lines": "1-30", "comment": None},
+                    ],
                 },
                 {
                     "file": "src/alpha/core.py",
@@ -215,6 +218,12 @@ def sample_review_pack_data() -> dict:
                     "zones": "zone-alpha",
                     "notable": "Unsanitized input in handler.",
                     "detail": "Input validation missing on line 45.",
+                    # 3 locations: 2 different files, one file with 2 line ranges
+                    "locations": [
+                        {"file": "src/alpha/core.py", "lines": "45-62", "comment": None},
+                        {"file": "src/middleware/validate.py", "lines": "12-18", "comment": None},
+                        {"file": "src/alpha/core.py", "lines": "120-135", "comment": None},
+                    ],
                 },
                 {
                     "file": "src/models.py",
@@ -224,6 +233,11 @@ def sample_review_pack_data() -> dict:
                     "zones": "zone-alpha",
                     "notable": "Generic dict return type",
                     "detail": "Return type should be a Pydantic model or TypedDict.",
+                    # 2 locations in different files
+                    "locations": [
+                        {"file": "src/models.py", "lines": "10-25", "comment": None},
+                        {"file": "src/alpha/core.py", "lines": "80-85", "comment": None},
+                    ],
                 },
             ],
         },
