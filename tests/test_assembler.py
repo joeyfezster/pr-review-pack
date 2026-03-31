@@ -23,7 +23,9 @@ from assemble_review_pack import (
     verify_findings,
 )
 from models import (
+    ConceptLocation,
     FileReviewOutcome,
+    FindingCategory,
     Grade,
     ReviewConcept,
     SemanticOutput,
@@ -1045,3 +1047,49 @@ class TestUpdateGateStatuses:
         update_gate_statuses(data)
         gate4 = data["convergence"]["gates"][3]
         assert gate4["statusText"] == "Pending"
+
+
+# ---------------------------------------------------------------------------
+# Transform: locations carried through to AgenticFinding
+# ---------------------------------------------------------------------------
+
+
+class TestTransformLocations:
+    def test_transform_carries_locations_array(self):
+        """AgenticFinding must include full locations array."""
+        concept = ReviewConcept(
+            concept_id="test-1",
+            title="Cross-file concern",
+            grade=Grade.B,
+            category=FindingCategory.ADVERSARIAL,
+            summary="Issue spans two files",
+            detail_html="<p>Detail</p>",
+            locations=[
+                ConceptLocation(file="src/a.py", lines="10-20", zones=["core"]),
+                ConceptLocation(file="src/b.py", lines="42", zones=["core"]),
+                ConceptLocation(file="src/a.py", lines="55-60", zones=["core"]),
+            ],
+        )
+        finding = transform_concept_to_finding(concept, "adversarial")
+        assert "locations" in finding
+        assert len(finding["locations"]) == 3
+        assert finding["locations"][0]["file"] == "src/a.py"
+        assert finding["locations"][0]["lines"] == "10-20"
+        assert finding["locations"][1]["file"] == "src/b.py"
+        assert finding["locations"][2]["lines"] == "55-60"
+
+    def test_single_location_finding(self):
+        """Single-location finding should also have locations array."""
+        concept = ReviewConcept(
+            concept_id="test-2",
+            title="Single file issue",
+            grade=Grade.A,
+            category=FindingCategory.CODE_HEALTH,
+            summary="Clean",
+            detail_html="<p>Good</p>",
+            locations=[ConceptLocation(file="src/x.py", zones=["core"])],
+        )
+        finding = transform_concept_to_finding(concept, "code-health")
+        assert len(finding["locations"]) == 1
+        assert finding["locations"][0]["file"] == "src/x.py"
+        assert finding["locations"][0]["lines"] is None

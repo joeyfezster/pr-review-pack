@@ -623,14 +623,25 @@ def transform_concept_to_finding(
         if all_same_dir and len(files) > 2:
             primary_file = f"{common}/* ({len(files)} files)"
 
+    # Carry full locations array for the renderer
+    locations_data = [
+        {
+            "file": loc.file,
+            "lines": loc.lines,
+            "comment": loc.comment,
+        }
+        for loc in concept.locations
+    ]
+
     return {
-        "file": primary_file,
+        "file": primary_file,  # backward compat (glob notation for multi-file)
         "grade": concept.grade.value,
         "zones": " ".join(unique_zones),
         "notable": concept.title,
         "detail": concept.detail_html,
         "gradeSortOrder": LEGACY_GRADE_SORT_ORDER.get(concept.grade, 1),
         "agent": agent_name,
+        "locations": locations_data,
     }
 
 

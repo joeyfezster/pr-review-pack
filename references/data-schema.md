@@ -199,13 +199,20 @@ interface AgenticReview {
 }
 
 interface AgenticFinding {
-  file: string;                     // file path or glob pattern (e.g. "src/*")
+  file: string;                     // file path or glob pattern (e.g. "src/*") — backward compat
   grade: "A" | "B" | "B+" | "C" | "F" | "N/A";
   zones: string;                    // space-separated zone IDs
   notable: string;                  // one-line summary of finding
   detail: string;                   // full explanation (HTML-safe)
   gradeSortOrder: number;           // 0=N/A, 1=B, 2=B+, 3=A (for severity sort)
   agent: string;                    // which agent produced this finding (e.g. "code-health", "security", "test-integrity", "adversarial", "architecture", "rbe")
+  locations: FindingLocation[];     // all code locations for this finding
+}
+
+interface FindingLocation {
+  file: string;                     // file path relative to repo root
+  lines: string | null;             // line range, e.g. "42-58" or "12". null for file-level
+  comment: string | null;           // location-specific context
 }
 ```
 
