@@ -105,6 +105,23 @@ class FileReviewOutcome(BaseModel):
         description="Whether the reviewer actually examined this file (false for skip/N/A)",
     )
 
+    @field_validator("file")
+    @classmethod
+    def validate_exact_file_path(cls, v: str) -> str:
+        """Reject glob patterns and directory paths — must be exact file path."""
+        glob_chars = {"*", "?", "[", "]"}
+        if any(c in v for c in glob_chars):
+            raise ValueError(
+                f"File path '{v}' contains glob characters. "
+                "FileReviewOutcome requires exact file paths, not patterns."
+            )
+        if v.endswith("/"):
+            raise ValueError(
+                f"File path '{v}' is a directory path. "
+                "FileReviewOutcome requires exact file paths."
+            )
+        return v
+
 
 # ---------------------------------------------------------------------------
 # ConceptUpdate — append-only corrections to previously-emitted concepts

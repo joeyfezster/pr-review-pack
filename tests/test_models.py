@@ -450,6 +450,56 @@ class TestFileReviewOutcome:
                 }
             )
 
+    def test_glob_pattern_rejected(self):
+        """FileReviewOutcome with glob in file path must fail validation."""
+        with pytest.raises(ValidationError, match="glob"):
+            FileReviewOutcome(
+                _type="file_review",
+                file="packages/pr-review-pack/scripts/*",
+                grade="A",
+                summary="Clean",
+            )
+
+    def test_glob_question_mark_rejected(self):
+        """FileReviewOutcome with ? glob character must fail validation."""
+        with pytest.raises(ValidationError, match="glob"):
+            FileReviewOutcome(
+                _type="file_review",
+                file="src/module?.py",
+                grade="A",
+                summary="Clean",
+            )
+
+    def test_glob_bracket_rejected(self):
+        """FileReviewOutcome with [] glob characters must fail validation."""
+        with pytest.raises(ValidationError, match="glob"):
+            FileReviewOutcome(
+                _type="file_review",
+                file="src/[abc].py",
+                grade="A",
+                summary="Clean",
+            )
+
+    def test_directory_path_rejected(self):
+        """FileReviewOutcome with trailing slash must fail validation."""
+        with pytest.raises(ValidationError, match="directory"):
+            FileReviewOutcome(
+                _type="file_review",
+                file="packages/pr-review-pack/scripts/",
+                grade="A",
+                summary="Clean",
+            )
+
+    def test_exact_path_accepted(self):
+        """FileReviewOutcome with exact file path should pass."""
+        fro = FileReviewOutcome(
+            _type="file_review",
+            file="packages/pr-review-pack/scripts/models.py",
+            grade="A",
+            summary="Clean implementation",
+        )
+        assert fro.file == "packages/pr-review-pack/scripts/models.py"
+
 
 # ---------------------------------------------------------------------------
 # ConceptUpdate
