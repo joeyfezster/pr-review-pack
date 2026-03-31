@@ -975,3 +975,121 @@ class TestKeyFindingsAgentLegend:
         result = render_key_findings(data)
         for abbrev in ("CH", "SE", "TI", "AD", "AR", "RB"):
             assert abbrev in result, f"Agent abbreviation {abbrev} missing from legend"
+
+
+# ── Key Findings: Locations column ────────────────────────────────────
+
+
+class TestKeyFindingsLocations:
+    def test_locs_column_in_header(self):
+        """Key findings table must have a Locs column header."""
+        data = {
+            "agenticReview": {
+                "overallGrade": "B",
+                "reviewMethod": "agent-teams",
+                "findings": [
+                    {
+                        "file": "a.py",
+                        "grade": "B",
+                        "zones": "core",
+                        "notable": "Test",
+                        "detail": "<p>D</p>",
+                        "gradeSortOrder": 1,
+                        "agent": "adversarial",
+                        "locations": [
+                            {"file": "a.py", "lines": "10-20"},
+                            {"file": "b.py", "lines": "42"},
+                        ],
+                    }
+                ],
+            },
+            "architecture": {"zones": [{"id": "core", "category": "product"}]},
+        }
+        result = render_key_findings(data)
+        assert "<th>" in result
+        assert "Locs" in result
+
+    def test_detail_shows_multiple_locations(self):
+        """Expanded detail must list each location with file:lines."""
+        data = {
+            "agenticReview": {
+                "overallGrade": "B",
+                "reviewMethod": "agent-teams",
+                "findings": [
+                    {
+                        "file": "a.py",
+                        "grade": "B",
+                        "zones": "core",
+                        "notable": "Multi-location",
+                        "detail": "<p>Spans files</p>",
+                        "gradeSortOrder": 1,
+                        "agent": "code-health",
+                        "locations": [
+                            {"file": "src/a.py", "lines": "10-20"},
+                            {"file": "src/b.py", "lines": "42"},
+                            {"file": "src/a.py", "lines": "55-60"},
+                        ],
+                    }
+                ],
+            },
+            "architecture": {"zones": [{"id": "core", "category": "product"}]},
+        }
+        result = render_key_findings(data)
+        assert "src/a.py" in result
+        assert "src/b.py" in result
+        assert "10-20" in result
+        assert "42" in result
+        assert "55-60" in result
+
+    def test_backward_compat_no_locations(self):
+        """Findings without locations array should still render (backward compat)."""
+        data = {
+            "agenticReview": {
+                "overallGrade": "B",
+                "reviewMethod": "agent-teams",
+                "findings": [
+                    {
+                        "file": "old.py",
+                        "grade": "B",
+                        "zones": "core",
+                        "notable": "Legacy",
+                        "detail": "<p>Old format</p>",
+                        "gradeSortOrder": 1,
+                        "agent": "security",
+                        # No locations array — legacy data
+                    }
+                ],
+            },
+            "architecture": {"zones": [{"id": "core", "category": "product"}]},
+        }
+        result = render_key_findings(data)
+        assert "old.py" in result
+
+    def test_locs_count_matches_locations_length(self):
+        """Locs cell should show the number of locations."""
+        data = {
+            "agenticReview": {
+                "overallGrade": "B",
+                "reviewMethod": "agent-teams",
+                "findings": [
+                    {
+                        "file": "a.py",
+                        "grade": "B",
+                        "zones": "core",
+                        "notable": "Three locs",
+                        "detail": "<p>D</p>",
+                        "gradeSortOrder": 1,
+                        "agent": "adversarial",
+                        "locations": [
+                            {"file": "a.py", "lines": "1"},
+                            {"file": "b.py", "lines": "2"},
+                            {"file": "c.py", "lines": "3"},
+                        ],
+                    }
+                ],
+            },
+            "architecture": {"zones": [{"id": "core", "category": "product"}]},
+        }
+        result = render_key_findings(data)
+        # The count 3 should appear in a td cell
+        assert "<td>3</td>" in result

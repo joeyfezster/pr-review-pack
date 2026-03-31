@@ -1643,6 +1643,7 @@ def render_key_findings(data: dict) -> str:
         "<th>Finding</th>"
         "<th>Agent</th>"
         "<th>Zone</th>"
+        "<th>Locs</th>"
         "<th>Corr.</th>"
         "</tr></thead>"
     )
@@ -1692,6 +1693,10 @@ def render_key_findings(data: dict) -> str:
         zones_data = " ".join(zones_list)
         agents_data = " ".join(agent_abbrevs)
 
+        # Location count
+        locations = f.get("locations", [])
+        loc_count = len(locations) if locations else 1
+
         # Main row
         row_html = (
             f'<tr class="kf-row" data-zones="{esc(zones_data)}" '
@@ -1702,6 +1707,7 @@ def render_key_findings(data: dict) -> str:
             f"<td>{esc(notable)}</td>"
             f'<td><span class="kf-agent-tags">{agent_tags}</span></td>'
             f"<td>{zone_html}</td>"
+            f"<td>{loc_count}</td>"
             f"<td>{corr_html}</td>"
             f"</tr>\n"
         )
@@ -1709,10 +1715,25 @@ def render_key_findings(data: dict) -> str:
         # Detail row
         detail_html = (
             f'<tr class="kf-detail-row" data-zones="{esc(zones_data)}">'
-            f'<td colspan="5">'
+            f'<td colspan="6">'
             f'<div class="kf-detail-summary">{detail_text}</div>'
         )
-        if file_path:
+        if locations:
+            detail_html += '<div class="kf-detail-files"><table class="kf-locations-table">'
+            for loc in locations:
+                loc_file = loc.get("file", "")
+                loc_lines = loc.get("lines")
+                loc_display = f"{loc_file}:{loc_lines}" if loc_lines else loc_file
+                detail_html += (
+                    f'<tr class="kf-location-row">'
+                    f'<td><code class="file-path-link" '
+                    f'onclick="event.stopPropagation();'
+                    f"openFileModal('{esc(loc_file)}')\">"
+                    f"{esc(loc_display)}</code></td>"
+                    f"</tr>"
+                )
+            detail_html += "</table></div>"
+        elif file_path:
             detail_html += (
                 f'<div class="kf-detail-files">'
                 f'<code class="file-path-link" '
