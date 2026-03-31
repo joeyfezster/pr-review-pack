@@ -28,20 +28,19 @@ TEMPLATE_V2_PATH = TEMPLATE_DIR / "template_v2.html"
 
 # ── Color / class maps ──────────────────────────────────────────────
 
-LAYER_COLORS = {
-    "factory": {"fill": "#dbeafe", "stroke": "#3b82f6", "text": "#1d4ed8"},
-    "product": {"fill": "#dcfce7", "stroke": "#22c55e", "text": "#166534"},
-    "infra": {"fill": "#f3e8ff", "stroke": "#8b5cf6", "text": "#6d28d9"},
-}
-
-
 def _category_colors(category: str) -> dict[str, str]:
     """Return fill/stroke/text colors for a category.
 
-    Provides sensible defaults for unknown categories.
+    Well-known categories get curated colors; everything else gets a
+    deterministic palette derived from the category name hash.
     """
-    if category in LAYER_COLORS:
-        return LAYER_COLORS[category]
+    known: dict[str, dict[str, str]] = {
+        "factory": {"fill": "#dbeafe", "stroke": "#3b82f6", "text": "#1d4ed8"},
+        "product": {"fill": "#dcfce7", "stroke": "#22c55e", "text": "#166534"},
+        "infra": {"fill": "#f3e8ff", "stroke": "#8b5cf6", "text": "#6d28d9"},
+    }
+    if category in known:
+        return known[category]
     # Deterministic colors from category name hash
     h = int(hashlib.md5(category.encode()).hexdigest()[:8], 16) % 360
     return {
@@ -91,15 +90,30 @@ STATUS_STYLE = {
 # ── Helpers ──────────────────────────────────────────────────────────
 
 
+_CSS_STYLED_CATEGORIES = {"factory", "product", "infra"}
+
+
 def _zone_tag(
     zone_id: str,
     zone_categories: dict[str, str] | None = None,
 ) -> str:
-    """Render a single zone tag span with correct category CSS class."""
+    """Render a single zone tag span with correct category CSS class.
+
+    Known categories (factory/product/infra) use CSS classes from the template.
+    Other categories get inline styles from ``_category_colors`` so they render
+    correctly without a matching CSS rule.
+    """
     cats = zone_categories or {}
     cat = cats.get(zone_id, "product")
     css = layer_tag_class(cat)
-    return f'<span class="zone-tag {css}">{esc(zone_id)}</span>'
+    if cat in _CSS_STYLED_CATEGORIES:
+        return f'<span class="zone-tag {css}">{esc(zone_id)}</span>'
+    colors = _category_colors(cat)
+    return (
+        f'<span class="zone-tag {css}" '
+        f'style="background:{colors["fill"]};color:{colors["text"]}">'
+        f"{esc(zone_id)}</span>"
+    )
 
 
 def esc(text: str) -> str:
@@ -108,8 +122,10 @@ def esc(text: str) -> str:
 
 
 def layer_tag_class(category: str) -> str:
-    """Map zone category to CSS class for zone-tag."""
-    return {"factory": "factory", "product": "product", "infra": "infra"}.get(category, "product")
+    """Map zone category to a CSS-safe class name for zone-tag styling."""
+    if not category:
+        return "unknown"
+    return category.replace(" ", "-").replace("_", "-").lower()
 
 
 # ── Section renderers ───────────────────────────────────────────────

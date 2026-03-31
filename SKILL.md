@@ -122,14 +122,21 @@ Write a zone-registry.yaml at the repo root with this format:
 zones:
   zone-name:
     paths: ["src/module/**", "tests/test_module*"]
-    category: product | factory | infra
+    category: string  # project-specific, reflects the repo's architecture layers
     label: "Human-Readable Name"
     sublabel: "brief description"
 
 Guidelines:
 - One zone per logical module/package/component
 - Use glob patterns that match the actual directory structure
-- category: "product" for application code, "infra" for CI/config/tooling, "factory" for build systems
+- category: use categories that reflect the project's actual architecture layers.
+  Common examples:
+    - "core", "api", "plugins", "testing", "ci", "docs" (for a library)
+    - "frontend", "backend", "database", "infra" (for a web app)
+    - "product", "factory", "infra" (for a dark-factory repo)
+  Choose categories based on the repo's directory structure. Each category becomes a
+  swim lane in the architecture diagram — 3-5 categories is ideal. More than 8 zones
+  in one category makes the diagram too wide; split into sub-categories.
 - Cover ALL top-level directories — every file in the repo should match at least one zone
 - Do NOT look at the PR diff — base your zones purely on the repo's existing structure
 ```

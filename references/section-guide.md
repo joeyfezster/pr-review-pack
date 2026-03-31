@@ -175,7 +175,7 @@ The sidebar renders inside two mirror blocks in the template (one for desktop, o
 
 ### Zone Mini-Map
 
-**What it shows:** Compact zone swatches colored by category (factory/product/infra), with modified zones filled and unmodified zones dimmed. File count shown for zones with changes.
+**What it shows:** Compact zone swatches colored by category (project-specific categories, e.g. factory/product/infra), with modified zones filled and unmodified zones dimmed. File count shown for zones with changes.
 
 | Property | Value |
 |----------|-------|

@@ -113,14 +113,23 @@ class TestLayerTagClass:
     def test_infra(self):
         assert layer_tag_class("infra") == "infra"
 
-    def test_unknown_defaults_to_product(self):
-        assert layer_tag_class("unknown") == "product"
+    def test_unknown_returns_css_safe_name(self):
+        assert layer_tag_class("unknown") == "unknown"
 
-    def test_empty_string_defaults_to_product(self):
-        assert layer_tag_class("") == "product"
+    def test_empty_string_returns_unknown(self):
+        assert layer_tag_class("") == "unknown"
 
-    def test_arbitrary_value_defaults_to_product(self):
-        assert layer_tag_class("some-random-category") == "product"
+    def test_arbitrary_value_returns_css_safe_name(self):
+        assert layer_tag_class("some-random-category") == "some-random-category"
+
+    def test_spaces_become_hyphens(self):
+        assert layer_tag_class("my category") == "my-category"
+
+    def test_underscores_become_hyphens(self):
+        assert layer_tag_class("my_category") == "my-category"
+
+    def test_uppercase_lowered(self):
+        assert layer_tag_class("Frontend") == "frontend"
 
 
 # ── CATEGORY_CLASS ────────────────────────────────────────────────────

@@ -585,7 +585,7 @@ Categories control the visual grouping in the architecture diagram:
 
 1. Identify the major architecture areas (3-12 zones typical).
 2. Assign each zone a unique kebab-case ID.
-3. Classify each zone into a category: `factory`, `product`, or `infra`.
+3. Classify each zone into a project-appropriate category string (e.g. `core`, `api`, `infra`, `testing`). Each category becomes a swim lane row in the architecture diagram — 3-5 categories is ideal.
 4. List glob patterns for file paths belonging to each zone. Use `**` for recursive matching.
 5. Link each zone to its governing spec files (if any).
 6. The scaffold script computes SVG positions deterministically from category rows and zone order.

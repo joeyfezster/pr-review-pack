@@ -118,7 +118,7 @@ interface ArchitectureZone {
   id: string;                       // "factory-orchestration" — matches zone registry key
   label: string;                    // "Orchestration"
   sublabel: string;                 // "factory.yaml, SKILL.md"
-  category: "factory" | "product" | "infra";
+  category: string;                  // project-specific, e.g. "core", "api", "plugins", "testing"
   fileCount: number;                // files changed in this zone
   position: ZonePosition;           // SVG coordinates
   specs: string[];                  // linked spec file paths
@@ -465,7 +465,7 @@ interface ZoneRegistry {
 interface ZoneDefinition {
   paths: string[];                  // glob patterns matching files in this zone
   specs: string[];                  // spec file paths for this zone
-  category: "factory" | "product" | "infra";
+  category: string;                  // project-specific, e.g. "core", "api", "plugins", "testing"
   label: string;                    // display label for SVG diagram
   sublabel: string;                 // secondary label for SVG diagram
 }
