@@ -1627,9 +1627,6 @@ def render_key_findings(data: dict) -> str:
     pills += "</div>"
     parts.append(pills)
 
-    # Agent team legend
-    parts.append(render_agentic_legend())
-
     # No match message
     parts.append(
         '<div id="kf-no-match" class="kf-no-match">No findings match the current filter.</div>'
@@ -1788,8 +1785,14 @@ def render_key_findings(data: dict) -> str:
 
 
 def render_key_findings_method_badge(review: dict) -> str:
-    """Render method badge for Key Findings header."""
-    return render_agentic_method_badge(review)
+    """Render method badge + inline legend for Key Findings header."""
+    method = review.get("reviewMethod", "main-agent")
+    if method == "agent-teams":
+        return (
+            '<span class="review-method-badge agent-teams">Agent Teams</span>'
+            + render_agentic_legend()
+        )
+    return '<span class="review-method-badge main-agent">Main Agent</span>'
 
 
 def render_key_findings_nav(data: dict) -> tuple[str, str]:

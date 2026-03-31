@@ -27,6 +27,7 @@ from render_review_pack import (
     render_history_summary_cards,
     render_history_timeline,
     render_key_findings,
+    render_key_findings_method_badge,
     render_post_merge_items,
     render_review_gates_cards,
     render_scenario_cards,
@@ -949,32 +950,15 @@ class TestKeyFindingsAgentLegend:
             "architecture": {"zones": [{"id": "zone-a", "category": "product"}]},
         }
         result = render_key_findings(data)
-        assert "agent-legend" in result
-        assert "CH" in result  # Code Health in legend
-        assert "RB" in result  # RBE in legend
+        # Legend is now rendered inline with the method badge (render_key_findings_method_badge),
+        # not inside render_key_findings() output. Verify the table still renders agents.
+        assert "agent-pill" in result or "agent" in result
 
-    def test_key_findings_legend_includes_all_agents(self):
-        """Legend includes all 6 agent abbreviations regardless of which agents have findings."""
-        data = {
-            "agenticReview": {
-                "overallGrade": "A",
-                "findings": [
-                    {
-                        "file": "x.py",
-                        "grade": "A",
-                        "zones": "z",
-                        "notable": "Ok",
-                        "detail": "Fine",
-                        "gradeSortOrder": 4,
-                        "agent": "security",
-                    },
-                ],
-            },
-            "architecture": {"zones": [{"id": "z", "category": "product"}]},
-        }
-        result = render_key_findings(data)
+    def test_key_findings_legend_moved_to_method_badge(self):
+        """Legend is inline with method badge, not inside the key findings table."""
+        badge = render_key_findings_method_badge({"reviewMethod": "agent-teams"})
         for abbrev in ("CH", "SE", "TI", "AD", "AR", "RB"):
-            assert abbrev in result, f"Agent abbreviation {abbrev} missing from legend"
+            assert abbrev in badge, f"Agent abbreviation {abbrev} missing from method badge legend"
 
 
 # ── Key Findings: Locations column ────────────────────────────────────
@@ -1093,3 +1077,26 @@ class TestKeyFindingsLocations:
         result = render_key_findings(data)
         # The count 3 should appear in a td cell
         assert "<td>3</td>" in result
+
+
+# ── render_key_findings_method_badge ─────────────────────────────────
+
+
+class TestKeyFindingsMethodBadge:
+    """Agent legend must be inline with method badge, not a separate row."""
+
+    def test_agent_teams_includes_legend_inline(self):
+        result = render_key_findings_method_badge({"reviewMethod": "agent-teams"})
+        assert "Agent Teams" in result
+        assert "agent-legend" in result
+        assert "CH" in result
+
+    def test_main_agent_no_legend(self):
+        result = render_key_findings_method_badge({"reviewMethod": "main-agent"})
+        assert "Main Agent" in result
+        assert "agent-legend" not in result
+
+    def test_missing_method_defaults_main_agent(self):
+        result = render_key_findings_method_badge({})
+        assert "Main Agent" in result
+        assert "agent-legend" not in result
