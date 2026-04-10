@@ -455,7 +455,7 @@ class TestFileReviewOutcome:
         with pytest.raises(ValidationError, match="glob"):
             FileReviewOutcome(
                 _type="file_review",
-                file="packages/pr-review-pack/scripts/*",
+                file="scripts/*",
                 grade="A",
                 summary="Clean",
             )
@@ -485,7 +485,7 @@ class TestFileReviewOutcome:
         with pytest.raises(ValidationError, match="directory"):
             FileReviewOutcome(
                 _type="file_review",
-                file="packages/pr-review-pack/scripts/",
+                file="scripts/",
                 grade="A",
                 summary="Clean",
             )
@@ -494,11 +494,11 @@ class TestFileReviewOutcome:
         """FileReviewOutcome with exact file path should pass."""
         fro = FileReviewOutcome(
             _type="file_review",
-            file="packages/pr-review-pack/scripts/models.py",
+            file="scripts/models.py",
             grade="A",
             summary="Clean implementation",
         )
-        assert fro.file == "packages/pr-review-pack/scripts/models.py"
+        assert fro.file == "scripts/models.py"
 
 
 # ---------------------------------------------------------------------------

@@ -1217,7 +1217,7 @@ def render_sidebar_refresh_button(data: dict) -> str:
     except ValueError:
         cd_path = str(repo_root)
     cmd = (
-        f"cd {cd_path} && python3 packages/pr-review-pack/scripts/"
+        f"cd {cd_path} && python3 scripts/"
         f"review_pack_cli.py refresh docs/pr{pr_number}_review_pack.html"
     )
     return (
