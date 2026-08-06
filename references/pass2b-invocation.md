@@ -28,12 +28,12 @@ One agent that reads the diff and produces `whatChanged`, `decisions`, `postMerg
 
 | Agent ID | Abbreviation | Paradigm Prompt | Focus |
 |----------|-------------|----------------|-------|
-| `code-health-reviewer` | CH | `packages/review-prompts/code_health_review.md` | Code quality, complexity, dead code |
-| `security-reviewer` | SE | `packages/review-prompts/security_review.md` | Security vulnerabilities |
-| `test-integrity-reviewer` | TI | `packages/review-prompts/test_integrity_review.md` | Test quality and integrity |
-| `adversarial-reviewer` | AD | `packages/review-prompts/adversarial_review.md` | Gaming, spec violations, architectural dishonesty |
-| `architecture-reviewer` | AR | `packages/review-prompts/architecture_review.md` | Zone coverage, coupling, structural changes, architecture documentation |
-| `rbe-reviewer` | RB | `packages/review-prompts/rbe_review.md` | Responsibility boundaries, naming, type clarity |
+| `code-health-reviewer` | CH | `review-prompts/code_health_review.md` | Code quality, complexity, dead code |
+| `security-reviewer` | SE | `review-prompts/security_review.md` | Security vulnerabilities |
+| `test-integrity-reviewer` | TI | `review-prompts/test_integrity_review.md` | Test quality and integrity |
+| `adversarial-reviewer` | AD | `review-prompts/adversarial_review.md` | Gaming, spec violations, architectural dishonesty |
+| `architecture-reviewer` | AR | `review-prompts/architecture_review.md` | Zone coverage, coupling, structural changes, architecture documentation |
+| `rbe-reviewer` | RB | `review-prompts/rbe_review.md` | Responsibility boundaries, naming, type clarity |
 
 ### Launch Pattern
 

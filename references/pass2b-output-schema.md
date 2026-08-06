@@ -204,11 +204,11 @@ interface DecisionFile {
     "number": 2,
     "title": "Shared review-prompts package",
     "rationale": "Review prompts are consumed by both factory Gate 0 and the PR review pack — neither should own them",
-    "body": "<p>The 4 review paradigm prompts (<code>code_health_review.md</code>, <code>security_review.md</code>, <code>test_integrity_review.md</code>, <code>adversarial_review.md</code>) moved to a shared <code>packages/review-prompts/</code> directory. Previously they were split between <code>.claude/skills/factory-orchestrate/review-prompts/</code> and <code>.github/codex/prompts/</code>.</p>",
+    "body": "<p>The 4 review paradigm prompts (<code>code_health_review.md</code>, <code>security_review.md</code>, <code>test_integrity_review.md</code>, <code>adversarial_review.md</code>) moved to a shared <code>review-prompts/</code> directory. Previously they were split between <code>.claude/skills/factory-orchestrate/review-prompts/</code> and <code>.github/codex/prompts/</code>.</p>",
     "zones": "review-prompts",
     "files": [
-      { "path": "packages/review-prompts/code_health_review.md", "change": "Moved from .claude/skills/factory-orchestrate/review-prompts/" },
-      { "path": "packages/review-prompts/adversarial_review.md", "change": "Moved from .github/codex/prompts/" }
+      { "path": "review-prompts/code_health_review.md", "change": "Moved from .claude/skills/factory-orchestrate/review-prompts/" },
+      { "path": "review-prompts/adversarial_review.md", "change": "Moved from .github/codex/prompts/" }
     ],
     "verified": true
   }
